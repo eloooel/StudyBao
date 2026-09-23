@@ -94,6 +94,27 @@ keys, no cron, no subscription store, no Cloud Functions, no FCM, no Blaze, no p
    notification created by the live page (`new Notification(...)` — no push, no server) is the only
    way to reach her. Opt-in, because it reintroduces a permission prompt.
 
+### Backup and durability
+
+She is **not installing** the app (D5), and that has a hard consequence she will not know about: Safari
+deletes a site's script-writable storage — IndexedDB, `localStorage`, **and the service worker with its
+cache** — after seven days of Safari use without visiting. Installation is the only exemption. Verified
+against WebKit's own ITP announcement; details in [ADR 0007](adr/0007-browser-only-no-install.md).
+
+So durability rests on two mechanisms, and both are required:
+
+1. **Automatic: cloud sync** (Workflow S). Runs on open and after writes. This is the real safety net —
+   an eviction loses the local database but not her history.
+2. **User-controlled: JSON export/import**, as a first-class screen with a periodic nudge. The only
+   backup that does not depend on Google, the network, or a sync bug.
+
+Also: call `navigator.storage.persist()` once she has measurable engagement, and surface the result
+without promising anything — Safari and Chromium both auto-decide with no prompt, so it can help but
+cannot be relied on.
+
+A sync failure must be **visible** ("not synced since…"), never swallowed. With no install, a silently
+broken sync is a data-loss bug, not an inconvenience.
+
 ### Extras
 
 - Tab-switch counter surfaced after a session — **renamed** to "focus breaks" and shown only when
@@ -111,15 +132,17 @@ keys, no cron, no subscription store, no Cloud Functions, no FCM, no Blaze, no p
 | # | Decision | Closed answer | Why (and what was wrong before) |
 | --- | --- | --- | --- |
 | 1 | Data storage | **Local-first IndexedDB (Dexie) as source of truth**, with Firestore sync for phone ↔ laptop | Firestore-as-source-of-truth breaks the app the moment she is on airplane mode or campus wifi drops — which is most of the time she studies. Local-first also means the app is fully usable with the network down. Sync confirmed in scope (D1b, Sept 2026). |
-| 2 | Hosting | **Any static host** — Cloudflare Pages, Vercel, or GitHub Pages | With no backend (ADR 0006) this is a static bundle, so the choice is pure preference. All give free HTTPS. |
+| 2 | Hosting | **Vercel** | Chosen (D4). Free, HTTPS by default, and it is a static bundle with no backend, so there is nothing else to configure. |
 | 3 | Notification delivery | **Client-side only. No push, no backend.** | Product decision, Sept 2026 — see [ADR 0006](adr/0006-in-app-notifications-only.md). Removes VAPID, FCM, cron, the subscription store, and the permission prompt entirely. The cost: nothing fires while the app is closed. |
 | 4 | OCR accuracy | Always show an edit/confirm screen; never auto-save OCR text | Unchanged. Reinforced: default the UI to paste/PDF ingest and label photo OCR honestly as best-effort. |
 | 5 | Notification cadence | Conservative, quiet hours, hard caps | Unchanged default, plus: max 1 idle nudge per session, max 1 streak reminder/day, none 22:00–06:30 local. |
 | 6 | Auth | **Google Sign-In, one allow-listed email** | Confirmed in scope with sync (D1b). The original "single-user, no login" is **incompatible with cloud sync**: Firestore rules need an authenticated identity. ADR 0006 removed the push-backend reason, so sync is now the only reason — but it is sufficient. One Google account = one tap, two devices, correct rules. |
 | 7 | Subjects/decks | Pre-seed the five PRC Nursing Practice parts | See §6. Verified against the official PRC program — see [`reference/pnle-scope.md`](reference/pnle-scope.md). |
 | 8 | **Exam date** (new) | Capture it on first run | Drives cram mode, the dashboard countdown, and notification tone. |
-| 9 | **Backup/export** (new) | JSON export + import in Settings | Local-first without export is a single point of loss (iOS storage eviction, cleared browser data). |
+| 9 | **Backup/export** (new) | JSON export + import, as a **first-class screen**, with a periodic nudge | Chosen because she will not install the app (D5). On iOS Safari, script-writable storage — **including the service worker and its cache** — is deleted after seven days of Safari use without visiting, and installation is the only exemption. Export is the user-controlled backup; **sync is the automatic one** ([ADR 0007](adr/0007-browser-only-no-install.md)). |
 | 10 | **Timezone/streaks** (new) | Streak day rolls over at **04:00 local**, not midnight | A student reviewing at 1 a.m. must not lose the streak she just earned. |
+| 11 | **No install, browser-only** (new) | Accepted; never prompt her to install | Decision D5. Promotes sync from convenience to safety net and makes export a real feature. Consequences in [ADR 0007](adr/0007-browser-only-no-install.md). |
+| 12 | **First-run friction** (new) | **Zero.** Local-only on first open; ask about sync *after* her first study session | A surprise gift (D6) she did not ask for cannot open with a sign-in wall. This is also the answer to D12. |
 
 ---
 
@@ -156,19 +179,21 @@ If the decision is ever revisited, ADR 0002 is the starting point, not this sect
 
 ### iOS reality check — what still applies
 
-Notifications no longer depend on any of this, but two items still matter:
+Notifications no longer depend on any of this, **and neither does installation, because we are not
+asking her to install** (D5). What remains:
 
-- **Manifest**: `"display": "standalone"` (or `fullscreen`), plus the legacy
-  `apple-mobile-web-app-capable` and `apple-touch-icon` tags — iOS does not read every manifest field.
-- **IndexedDB on iOS is subject to Safari's 7-day script-writable-storage cap unless the site is
-  added to the Home Screen**, which exempts it. Installing is therefore a **data-durability**
-  requirement. This is now the *only* hard reason to ask her to install, and the install screen should
-  say exactly that rather than promising notifications.
-- iOS does **not** fire `beforeinstallprompt`, so the install screen must be hand-written
-  (Share → Add to Home Screen) with screenshots.
+- **Manifest**: ship a valid one because browsers expect it. Do not polish installability.
+- **The storage-eviction risk is now accepted and mitigated differently.** Safari deletes
+  script-writable storage — IndexedDB, `localStorage`, SessionStorage, and the service worker with its
+  cache — after seven days of Safari use without visiting. Installation is the only exemption, and she
+  will not install. So the mitigation is **cloud sync plus a first-class export screen**, not an install
+  prompt. See [ADR 0007](adr/0007-browser-only-no-install.md) and "Backup and durability" in §1.
+- **Keep the service worker**, but do not assume it survives: offline works in a browser tab, and an
+  eviction takes the cache with it, so a cold start after eviction needs the network once.
 
-No longer relevant: the iOS 16.4 Web Push requirement, the user-gesture permission prompt, push
-subscription `404`/`410` handling, and Chrome's abandoned Notification Triggers API.
+No longer relevant anywhere in this plan: the iOS 16.4 Web Push requirement, the user-gesture
+permission prompt, push subscription `404`/`410` handling, Chrome's abandoned Notification Triggers
+API, `beforeinstallprompt`, `display: standalone` polish, maskable icons, and iOS splash screens.
 
 ### OCR reality check
 
@@ -220,8 +245,10 @@ bundled into the old G0, and it is the half that survives now that push is gone.
 2. Configure the PWA with `vite-plugin-pwa`. **`generateSW` is now sufficient** — there are no push
    handlers to add, so the default Workbox service worker does exactly the one job left (offline
    caching). This is a direct simplification from ADR 0006.
-3. Manifest: `name`, `short_name`, `start_url`, `display: standalone`, `theme_color`,
-   `background_color`, icons at 192/512 + a maskable variant + `apple-touch-icon` 180.
+3. Manifest: `name`, `short_name`, `start_url`, `theme_color`, `background_color`, icons at 192/512.
+   **Installability is not a goal** (D5) — ship a valid manifest because browsers expect one, but do
+   not spend time on maskable icons, `display: standalone` polish, or `apple-touch-icon` variants for
+   a home-screen experience nobody will use.
 4. Self-host fonts (`@fontsource/*`). A Google Fonts CDN link is a network dependency and breaks the
    offline story.
 5. Implement the design system as Tailwind theme tokens using the **contrast-corrected** palette in
@@ -284,21 +311,29 @@ bundled into the old G0, and it is the half that survives now that push is gone.
 
 The half of old G0 that survives. No server of ours: the client talks to Firestore directly.
 
-1. **Firebase Auth** (Google provider), allow-listed to her one email. Do not hardcode the email in
+1. **First open requires nothing.** No sign-in, no permissions, no install prompt, no tutorial wall.
+   Local-only, immediately usable, pre-seeded decks. This is a surprise gift she did not ask for; the
+   first 30 seconds decide whether she ever opens it again.
+2. **Firebase Auth** (Google provider), allow-listed to her one email. Do not hardcode the email in
    source — it comes from `VITE_ALLOWED_EMAIL` and is mirrored in the rules file.
-2. **Firestore sync:** push-on-write, pull-on-open, last-write-wins on `updatedAt`, tombstones via
+3. **The sync prompt comes after her first completed study session**, framed as safety and
+   convenience: *"want to keep this safe, and open it on your laptop too?"* Never on first load.
+4. **Firestore sync:** push-on-write, pull-on-open, last-write-wins on `updatedAt`, tombstones via
    `deletedAt`. Sync is **fire-and-forget and never blocks the UI** — Dexie is the source of truth,
-   and a failed sync must be invisible while she studies.
-3. **Merge function as a pure unit** (`sync/lib/merge.ts`), tested before it ever touches real data.
+   and a failed sync must be invisible while she studies. **But** a failed sync must be *visible*
+   somewhere persistent ("not synced since…"), because with no install it is her only automatic
+   backup ([ADR 0007](adr/0007-browser-only-no-install.md)).
+5. **Merge function as a pure unit** (`sync/lib/merge.ts`), tested before it ever touches real data.
    Cases: local-only, remote-only, both-changed-newer-local, both-changed-newer-remote, soft-deleted
    locally, soft-deleted remotely.
-4. **Firestore rules, owner-only**, tested against the emulator for three cases: allowed user, denied
+6. **Firestore rules, owner-only**, tested against the emulator for three cases: allowed user, denied
    anonymous, denied other authenticated user. Never open rules.
-5. **Migration path for both schemas.** A local Dexie version bump and the Firestore document shape
+7. **Migration path for both schemas.** A local Dexie version bump and the Firestore document shape
    must move together — see `docs/ai/change-data-model.md`.
-6. **Off by default at first ship**, then default-on once the merge tests pass (decision D12).
-7. **Output:** her decks and review history appear on the second device, and a deleted card stays
-   deleted.
+8. **Call `navigator.storage.persist()`** once she has measurable engagement (a few completed
+   sessions), and record whether it was granted. Do not build a promise on it.
+9. **Output:** her decks and review history appear on the second device, survival of a Safari eviction
+   is demonstrated, and a card deleted on the phone stays deleted.
 
 ### Workflow G — In-App Attention Nudges
 
@@ -324,14 +359,18 @@ a pure trigger evaluator.
 
 ### Workflow H — Polish
 
-1. Installability verified on **Android Chrome and iOS**, including the hand-written iOS install
-   screen (no `beforeinstallprompt` on iOS) — framed as **data durability**, not notifications.
-2. Empty states for every screen, on-theme.
-3. Microcopy pass: warm, playful, never clinical, never nagging.
-4. Notification UX: a settings toggle for nudges, the idle threshold, and quiet hours. **No permission
-   flow** — in-app banners need none.
-5. Full click-through of A→G on a real phone, with the network toggled off for the study surfaces.
-6. **Output:** shippable.
+1. **No install flow.** Per D5 we never ask her to install. Settings carries one dismissible line
+   explaining the iOS storage risk and pointing at Export — information, not a nag.
+2. **Export/import screen**, first-class and reachable in two taps, with a periodic nudge. This is the
+   only backup she controls ([ADR 0007](adr/0007-browser-only-no-install.md)).
+3. Empty states for every screen, on-theme.
+4. Microcopy pass: warm, playful, never clinical, never nagging. Since this is a surprise gift (D6),
+   the tone can be personal — but the app must never guilt her about missed days.
+5. Notification UX: settings for nudges, idle threshold, and quiet hours. **No permission flow** —
+   in-app banners need none.
+6. Full click-through of A→G on a real phone, **in a browser tab**, with the network toggled off for
+   the study surfaces.
+7. **Output:** shippable.
 
 ---
 
@@ -478,14 +517,16 @@ state — see the reference file.)
 
 | Risk | Impact | Mitigation |
 | --- | --- | --- |
-| iOS storage eviction (7-day cap) if not installed | She loses everything | Install screen framed as **data safety** (now the only reason to install); JSON export; cloud sync optional, default off |
-| Cloud sync conflicts (only if sync is enabled) | Deleted cards reappear, edits vanish | `updatedAt` LWW + `deletedAt` tombstones; sync is fire-and-forget, never blocks the UI |
-| Open Firestore rules (only if sync is enabled) | Personal data public | Owner-email rules; `noindex`; test with the rules emulator |
+| **Safari evicts her data after 7 days of Safari use without visiting** (no install, D5) | Total local data loss if sync never ran; **top risk in the project** | Sync runs on open and after writes; export as a first-class screen; visible "not synced" state; call `persist()`. Details in [ADR 0007](adr/0007-browser-only-no-install.md) |
+| **Sync silently stops working** | Now a data-loss bug, not an inconvenience — there is no install to fall back on | Surface sync state persistently in the UI; never swallow a sync error; test the failure path |
+| **Surprise-gift adoption** (D6: she does not know, and did not ask) | An unused app helps nobody, and there is no one to give feedback | Zero-friction first run; no sign-in wall; value visible in 30 seconds; conservative defaults; pre-seeded decks so it is not an empty box |
+| Cloud sync conflicts | Deleted cards reappear, edits vanish | `updatedAt` LWW + `deletedAt` tombstones; merge function tested before it touches real data |
+| Open Firestore rules | Personal data public | Owner-email rules; `noindex`; emulator-tested. The rules file is the entire security boundary ([ADR 0005](adr/0005-auth-google-single-user.md)) |
 | Notification fatigue | She turns nudges off and the feature is dead | Quiet hours, one idle nudge per session, rotating copy, a visible off-switch |
-| **She closes the app mid-session, so no cue ever fires** | The Pomodoro's main payoff is lost | Accepted trade-off ([ADR 0006](adr/0006-in-app-notifications-only.md)). Mitigate in the UI: say plainly that the tab must stay open, and show elapsed time prominently on return |
+| **She closes the tab mid-session, so no cue ever fires** | The Pomodoro's main payoff is lost | Accepted ([ADR 0006](adr/0006-in-app-notifications-only.md)). Say plainly that the tab must stay open; show elapsed time prominently on return |
 | Tesseract on handwriting | Discouraging first experience | Paste/PDF as the default tab; photo OCR labelled best-effort |
-| Textbook question banks | Copyright | Cards are generated from *her* notes for personal study; do not publish or share decks. Keep the deployment unlisted. |
-| Single maintainer | Rot | Tests only where they pay (SM-2, parser, sync merge); docs in `docs/ai/` so anyone (including an AI agent) can pick it up |
+| Textbook question banks | Copyright | Cards come from *her* notes for personal study; do not publish or share decks. Keep the deployment unlisted |
+| Single maintainer | Rot | Tests only where they pay (SM-2, parser, merge); docs in `docs/ai/` so anyone, including an agent, can pick it up |
 
 ---
 
@@ -502,11 +543,13 @@ state — see the reference file.)
   shows a themed empty state, not a blank screen.
 - **S:** a card created on the laptop appears on the phone; a card deleted on the phone stays deleted
   after the laptop syncs; the merge tests cover all six cases; the rules emulator denies anonymous
-  access.
+  access; **and clearing local storage then re-opening restores everything from sync** — that last one
+  is the Safari-eviction rehearsal and is the point of the whole workflow.
 - **G:** during a live session, going idle for `idleNudgeMin` shows exactly one nudge; switching away
   and returning shows a "welcome back" with the correct remaining time; the session-end cue fires with
   the tab visible; nothing shows during quiet hours.
-- **H:** full click-through on a real phone, offline, with the install flow followed from scratch.
+- **H:** full click-through on a real phone **in a browser tab**, offline, with export/import verified
+  round-trip; first open requires no sign-in and shows no prompt.
 
 ---
 
@@ -561,3 +604,20 @@ Risk is low: the Feb 2026 document still carried "November 4-5, 2025" in its foo
 template and the five-part structure has been stable. Seed the decks from the current structure now —
 do not wait for December, or she loses weeks. Just confirm in December that nothing moved, **before**
 she has thousands of cards filed under the old taxonomy.
+
+### 9.5 The reveal is a deliverable, not an afterthought
+
+She does not know this exists (D6), she did not ask for it, and she will not install it (D5). That
+combination means the first thirty seconds carry most of the adoption risk:
+
+- **Zero friction on first open.** No sign-in, no permissions, no tutorial, no install prompt. Decks
+  pre-seeded so it is not an empty box. Working cards she can review immediately.
+- **A URL is the whole distribution channel.** No home-screen icon, no notification to pull her back.
+  Make it short, memorable, and easy to bookmark — and expect the browser tab to be where it lives.
+- **The sync ask comes after the first session**, not before it, framed as *"keep this safe, and open
+  it on your laptop too"*. On iPhone this is not optional for her data's sake, so it has to be an easy
+  yes, not a wall.
+- **Nobody can give feedback on the voice**, so the defaults must be conservative and the copy must be
+  the kind that reads well on day 40 as well as day 1.
+
+If there is time for only one polish item, make it this one.

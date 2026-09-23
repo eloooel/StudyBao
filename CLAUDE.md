@@ -14,7 +14,8 @@ are in [`docs/DECISIONS.md`](docs/DECISIONS.md); the reasoning behind the plan i
 
 A study companion for one person's PNLE (Philippine Nurse Licensure Examination) review. Flashcards
 with SM-2 spaced repetition, a Pomodoro timer, a lesson tracker, and in-app attention nudges. Free
-tools only, and **no backend** — it is a static PWA. Coquette pink & white visual identity.
+tools only, **no backend**, and **browser-only — she will not install it** ([ADR 0007](docs/adr/0007-browser-only-no-install.md)).
+Coquette pink & white visual identity.
 
 The user is **one non-technical person on a phone**. That single fact decides most trade-offs:
 offline-first beats server-first, a wrong number is worse than a missing one, and anything that
@@ -218,7 +219,24 @@ do not "improve" a colour without re-checking WCAG AA (4.5:1 body text, 3:1 larg
   allow-listed email, and are tested against the emulator (allowed user / anonymous / other
   authenticated user) before any deploy. Never open rules.
 - Sync must stay **fire-and-forget**: Dexie is the source of truth, and a failed sync must never block
-  or slow the study loop. Keep sync off by default until the merge tests pass.
+  or slow the study loop. Sync starts **off with no sign-in wall** and is offered after her first
+  completed session — see the UX rules below, which are the authority on this.
+
+---
+
+## UX rules that are not negotiable
+
+- **First open must require nothing.** No sign-in, no permission prompt, no install prompt, no tutorial
+  wall, no empty state that asks her to create something first. This is a surprise gift she did not ask
+  for ([ADR 0007](docs/adr/0007-browser-only-no-install.md)); the first 30 seconds decide whether it
+  is ever opened again.
+- **Never ask her to install the app.** Browser-only is the decision (D5). Settings may carry one
+  dismissible line about iOS storage and a link to Export. Nothing more.
+- **The sync ask comes after her first completed study session**, never on load.
+- **A sync failure must be visible** ("not synced since…"). With no install, a silently broken sync is
+  a data-loss bug, not an inconvenience.
+- **Export/import is a first-class screen**, reachable in two taps.
+- **Never use a decrementing timer.** Derive elapsed time from `startedAt` and `Date.now()`.
 
 ---
 

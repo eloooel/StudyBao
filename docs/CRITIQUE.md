@@ -77,8 +77,14 @@ eviction, or one "Clear website data" tap destroys every card, every SM-2 interv
 Safari applies a **7-day cap on script-writable storage** unless the site is added to the Home
 Screen, which exempts it. So on iPhone the data is fragile unless she installs the PWA.
 
-**Fix:** JSON export/import in Settings, *and* word the iOS install screen as a data-safety
-requirement, not just a notifications requirement.
+**Fix:** JSON export/import in Settings, *and* surface the iOS risk where it can be acted on.
+
+> **Superseded resolution (2026-09).** The proposed fix was an install screen framed as data safety.
+> D5 decided she will **not** install, so installation is off the table as a mitigation. The risk is
+> instead carried by **cloud sync as the automatic safety net plus export as the user-controlled
+> backup**, and it is now the project's top listed risk. See
+> [ADR 0007](adr/0007-browser-only-no-install.md). The finding itself was correct and remains the most
+> consequential one in this review.
 
 Source: [WebKit bug 209501 — 7-Day Cap on All Script-Writable Storage](https://bugs.webkit.org/show_bug.cgi?id=209501)
 
@@ -166,9 +172,10 @@ offline path.
 ### 🟠 B4. iOS specifics that decide whether push works at all
 
 > **Mostly moot (2026-09).** With in-app notifications only, the Web Push and permission items below no
-> longer apply. The **storage-eviction item still does** and is now the single reason to ask her to
-> install the app: Safari's 7-day script-writable-storage cap exempts installed web apps. The
-> `beforeinstallprompt` item also still applies, because the install screen must be hand-written.
+> longer apply. The **storage-eviction item still does** — but the resolution changed: she will not
+> install (D5), so the mitigation is cloud sync plus export rather than an install screen. That also
+> makes the `beforeinstallprompt` item moot, since there is no install screen to hand-write. See
+> [ADR 0007](adr/0007-browser-only-no-install.md).
 
 - Requires **iOS 16.4+** *and* the app added to the Home Screen. Push from a Safari tab does not work.
 - The manifest needs `"display": "standalone"` (or `fullscreen`); ship `apple-mobile-web-app-capable`
@@ -313,7 +320,9 @@ What is actually true:
   A0.
 - 🟠 **H is not the only place with empty states / install UX.** The iOS install screen is not polish,
   it is load-bearing for both push and data durability. Moved into H as a first-class deliverable and
-  flagged in A (manifest/meta tags).
+  flagged in A (manifest/meta tags). *(Superseded: D5 drops installation entirely, so there is no
+  install screen — see [ADR 0007](adr/0007-browser-only-no-install.md). The underlying point, that
+  durability cannot be left to the polish pass, is what survived.)*
 - 🟠 `Lesson` model needs `notes` and `updatedAt`; `Session` needs `startedAt`/`endedAt`/`completed`/
   `tabHiddenCount` to support the post-session stat the guide promises.
 

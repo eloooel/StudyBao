@@ -88,32 +88,57 @@ Her date is Feb 26, **2027** — the same seasonal sitting, one year later, and 
 Sept 2026 and then. If that program had been assumed to be hers, the app would have been built around
 a date seven months past.
 
-### D4. Hosting platform *(was decision #2)*
+### D4. Hosting platform — ✅ **RESOLVED: Vercel**
 
-Now that there is no backend (D1), this is a static bundle and the choice is pure preference — all
-three give free HTTPS. **GitHub Pages is also viable**, which removes one more account entirely.
+Static bundle, no backend, free HTTPS. Nothing else to configure.
 
-**Needs from you:** a choice. Also: is this public or unlisted? (Recommend unlisted + `noindex` —
-her study data lives on-device, but the deployment does not need to be discoverable.)
+### D5. Will she install it? — ✅ **RESOLVED: no. Purely browser-based.**
 
-### D5. Will she actually install it to her Home Screen?
+This was the most consequential answer so far, and it is recorded as
+[ADR 0007](adr/0007-browser-only-no-install.md). The short version:
 
-Not a preference — a hard gate on iOS. Web Push requires the PWA be installed, and Safari's 7-day
-storage cap is **exempted only for installed web apps**. If she uses it in a Safari tab, push never
-works *and* her data can be evicted.
+**On iPhone, not installing means Safari will delete her data.** Verified against WebKit's own ITP
+announcement: after **seven days of Safari use without interacting with the site**, all script-writable
+storage is deleted — **IndexedDB, localStorage, SessionStorage, and the service worker with its
+cache**. Installing to the home screen is the only exemption. (Chrome has no such timer; its storage
+is only evicted under pressure, which is rare for a regularly visited site.)
 
-**Needs from you:** a realistic read on whether she will install it, and whether she will keep it
-installed. If the answer is "probably not", the PWA install screen becomes the single most important
-screen in the app, and we should consider making local export automatic rather than manual.
+Consequences, all now in the plan:
 
-### D6. Does she know you're building this?
+1. **Cloud sync is promoted from convenience to safety net** — not "nice for two devices", but the
+   thing that makes her data survive an eviction. Sync runs on open and after writes.
+2. **Export/import is a first-class screen**, not a hidden setting. It is the only backup she controls.
+3. **A failed sync must be visible** ("not synced since…"). With no install to fall back on, a silently
+   broken sync is a data-loss bug.
+4. **No install prompt, ever.** Settings carries one dismissible line about the risk, pointing at
+   Export. Information, not a nag.
+5. **`navigator.storage.persist()`** gets called once she has measurable engagement — it can help, and
+   Safari/Chromium auto-decide with no prompt, so nothing is promised on the back of it.
+6. Manifest still ships (browsers expect one) but **installability polish is dropped** — no maskable
+   icons, no iOS splash screens, no `display: standalone` work.
 
-It changes the notification copy and the whole framing. A surprise gift app and a tool she asked for
-need different voices:
-- Surprise → the messages can be playful and sentimental; the app can reveal itself.
-- Tool she requested → messages should be practical and she should be asked for feedback on cadence.
+**⚠️ One thing to confirm: her device.** This risk is *Safari-specific*. If she is on Android, almost
+all of the above is moot and the export emphasis can drop to a normal "download your data" feature. If
+she is on iPhone, this is the top risk in the project. I have been assuming an iPhone because the
+original guide talked about iOS install flows — worth correcting if wrong.
 
-**Needs from you:** which, so I can write the message bank and microcopy in the right register.
+### D6. Does she know you're building this? — ✅ **RESOLVED: no. It's a surprise.**
+
+Recorded because it changes the copy and, more importantly, the onboarding:
+
+- **Voice can be personal and playful** — the message bank may read like something from you, not from
+  an app. That is the charm budget this project has, and it should be spent here rather than on the bow
+  decorations.
+- **The reveal is a deliverable, not an afterthought.** She did not ask for this, so the first thirty
+  seconds decide whether she ever opens it again: zero friction, no sign-in wall, pre-seeded decks, a
+  card she can review immediately.
+- **Nobody can give feedback on cadence or tone**, so defaults stay conservative and copy must read
+  well on day 40 as well as day 1.
+- **A URL is the entire distribution channel** — no home-screen icon, no notification to bring her
+  back. Make it short and memorable.
+- **Adoption is the real risk**, and it is now listed in `BUILD_GUIDE.md` §7. A surprise study tool
+  that is even slightly annoying mid-prep gets quietly abandoned, and there is no feedback loop to
+  catch that.
 
 ---
 
@@ -163,13 +188,35 @@ she'd pick.
 **Needs from you:** a direction, or an asset. I can generate a placeholder, but an icon she chose will
 get installed and kept.
 
-### D12. Should cloud sync default on once it exists?
+### D12. Should cloud sync default on once it exists? — ✅ **RESOLVED** (see below)
 
-Sync is opt-in in my plan. Default-on is more useful and more risky (silent conflict bugs reach her
-data sooner).
+**What it meant.** Sync needs her to sign in with Google. This was the question of *when* that sign-in
+happens: does the app arrive with sync already switched on (so the first thing she sees is a Google
+sign-in prompt), or does it arrive switched off, with sync as a setting she has to find and turn on?
 
-**Needs from you:** default on or off. My recommendation: default **on**, but only after the merge
-function has migration tests — not at first ship.
+It sounds cosmetic. It is a genuine fork:
+
+| Option | Good | Bad |
+| --- | --- | --- |
+| **Default on** | Sync protects her data from the moment she starts; nothing to discover | First open is a **sign-in wall** — the worst possible first impression for a surprise gift she did not ask for |
+| **Default off** | Zero-friction first open; she just studies | On iPhone, her data is unprotected until she goes looking for a setting she has no reason to look for. **If Safari evicts, it's gone** |
+
+**Resolution — neither, and better than both: local-first start, prompted opt-in after the first
+session.**
+
+1. First open: no sign-in, no prompts, no permissions. Pre-seeded decks, immediately usable.
+2. After her **first completed study session**, one gentle ask: *"want to keep this safe, and open it
+   on your laptop too?"* → Google sign-in.
+3. If she declines, the app keeps working and Settings shows sync as available. The periodic export
+   nudge covers her meanwhile.
+4. Sync is **off until she accepts**, then on permanently for that device.
+
+This sequencing matters most on iPhone, where sync is her only automatic protection against Safari
+evicting a week's work. The ask has to arrive *after* she has something worth protecting — which is
+exactly when it is an easy yes — rather than before she has seen any value, which is when it is a wall.
+
+**Still worth confirming:** her device (see D5). On Android this timing is a nicety; on iPhone it is
+the difference between keeping and losing her history.
 
 ### D13. Backup behaviour
 
@@ -246,23 +293,23 @@ Worth stating explicitly, because each one is a plausible-looking detour:
 
 ## Summary
 
-**All architecture decisions are closed.** What remains is preference and one date-driven schedule.
+**Every decision is now closed except her device.** Nothing blocks Workflow A.
 
 | # | Status |
 | --- | --- |
 | D1 — push backend | ✅ Closed. No backend; notifications in-app only ([ADR 0006](adr/0006-in-app-notifications-only.md)). |
 | D1b — cloud sync | ✅ Closed: yes. Google Sign-In, Firestore, owner-only rules, **Workflow S**. |
-| D2 — auth | ✅ Closed: Google, one email. You supply the email into `.env` + the rules file. |
-| D3 — exam date | ✅ Closed: **Fri Feb 26, 2027 — 156 days.** Ordering implications in `BUILD_GUIDE.md` §9. |
+| D2 — auth | ✅ Closed: Google, one email. You put the email in `.env` + the rules file. |
+| D3 — exam date | ✅ Closed: **Fri Feb 26, 2027 — 156 days.** Ordering in `BUILD_GUIDE.md` §9. |
+| D4 — hosting | ✅ Closed: **Vercel**. |
+| D5 — install | ✅ Closed: **no, browser only.** Promotes sync to safety net; export becomes first-class ([ADR 0007](adr/0007-browser-only-no-install.md)). |
+| D6 — does she know | ✅ Closed: **no, it's a surprise.** Reveal is a deliverable (`BUILD_GUIDE.md` §9.5). |
 | D7 — deck taxonomy | ✅ Closed. Verified against the official PRC program. |
-| **D4 — hosting** | 🟠 Open. Pure preference — everything is free and HTTPS. |
-| **D5 — will she install it** | 🟠 Open. Still load-bearing: installing is what exempts her data from Safari's 7-day eviction. |
-| **D6 — does she know** | 🟠 Open. Sets the notification voice and whether this is a surprise. |
-| D8–D13 | Defaults exist; answer whenever. The one to decide early is **D12** (sync default on/off), because Workflow S needs to know. |
+| D12 — sync default | ✅ Closed: local-first start, **prompted opt-in after the first session**. |
+| D8–D11, D13 | Defaults exist; answer whenever. None blocks anything. |
+| **Device (new)** | 🟠 **Open — and it matters a lot.** Safari-specific storage eviction is the project's top risk; on Android it barely applies. |
 
-**Nothing blocks Workflow A any more.** The next thing I need is not an answer — it is a decision to
-start, plus the sequencing in `BUILD_GUIDE.md` §9 if the 22-week runway looks different from your side.
+**The next thing I need is not a decision — it's a go-ahead, plus her device.**
 
-Worth re-reading once before we start: §C above, ranked by what a reversal actually costs. Three of
-those decisions are genuinely one-way (anything that records history); the others are refactorable and
-should not hold anything up.
+Worth re-reading once before we start: §C above, ranked by what a reversal actually costs. Three
+decisions there are genuinely one-way (anything that records history); the rest are refactorable.

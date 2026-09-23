@@ -40,8 +40,10 @@ Removed from the architecture as a direct result:
 - iOS Home Screen installation as a *notifications* prerequisite
 - Firebase Auth when it existed only to authenticate the push backend
 
-**Still retained:** the service worker itself, for offline caching (that is a PWA installability and
-offline requirement, unrelated to notifications).
+**Still retained:** the service worker itself, for offline caching in a browser tab — unrelated to
+notifications, and retained for the offline study case. Note that Safari deletes it along with the
+rest of the script-writable storage after seven days without a visit, which
+[ADR 0007](0007-browser-only-no-install.md) deals with.
 
 ## Consequences
 
