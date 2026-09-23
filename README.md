@@ -4,7 +4,8 @@ A study companion for PNLE review: flashcards with real spaced repetition, a Pom
 tracker, and true background push notifications. Free tools only. Coquette pink & white.
 
 Built for one person, on an iPad and a Windows laptop, with limited attention span and a real exam
-date. Browser-only — no install, no backend.
+date. No backend. On iPad it runs as a Home Screen Web App (two taps — no app store) because that is
+the only configuration WebKit exempts from its 7-day storage deletion.
 
 ## Status
 

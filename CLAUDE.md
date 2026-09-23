@@ -14,12 +14,15 @@ are in [`docs/DECISIONS.md`](docs/DECISIONS.md); the reasoning behind the plan i
 
 A study companion for one person's PNLE (Philippine Nurse Licensure Examination) review. Flashcards
 with SM-2 spaced repetition, a Pomodoro timer, a lesson tracker, and in-app attention nudges. Free
-tools only, **no backend**, and **browser-only — she will not install it** ([ADR 0007](docs/adr/0007-browser-only-no-install.md)).
+tools only, **no backend**. On iPad it runs as a **Home Screen Web App** — two taps in a Share sheet,
+no app store — because that is the only configuration WebKit exempts from its 7-day storage deletion
+([ADR 0008](docs/adr/0008-add-to-home-screen-on-ipad.md)). On the Windows laptop it is a plain tab.
 Coquette pink & white visual identity.
 
-The user is **one non-technical person**, on an **iPad and a Windows laptop**, in a browser tab. That
-decides most trade-offs: offline-first beats server-first, a wrong number is worse than a missing one,
-and anything that requires her to understand how it works is a defect.
+The user is **one non-technical person**, on an **iPad** (as a Home Screen Web App) and a **Windows
+laptop** (in a browser tab). That decides most trade-offs: offline-first beats server-first, a wrong
+number is worse than a missing one, and anything that requires her to understand how it works is a
+defect.
 
 ---
 
@@ -219,31 +222,37 @@ do not "improve" a colour without re-checking WCAG AA (4.5:1 body text, 3:1 larg
   allow-listed email, and are tested against the emulator (allowed user / anonymous / other
   authenticated user) before any deploy. Never open rules.
 - Sync must stay **fire-and-forget**: Dexie is the source of truth, and a failed sync must never block
-  or slow the study loop. But it is **on by default and per write** (D12) — on her iPad it is the only
-  thing protecting her data. See the UX rules below, which are the authority.
+  or slow the study loop. But it is **on by default and per write** (D12) — it is the safety net if she
+  skips the Home Screen prompt or works from a Safari tab. See the UX rules below, which are the
+  authority.
 
 ---
 
 ## UX rules that are not negotiable
 
-- **First open is one tap and nothing else.** A single Google sign-in, framed with a reason
-  (*"sign in so your notes are safe and show up on your laptop too"*), then straight into reviewing
-  pre-seeded cards. No permissions, no install prompt, no tutorial wall, no empty-state that asks her
-  to create something first. Sign-in is required (D12) because on her iPad it is the only thing
-  protecting her data ([ADR 0007](docs/adr/0007-browser-only-no-install.md)), but it must not *feel*
-  like a gate.
-- **Never ask her to install the app.** Browser-only is the decision (D5). Settings may carry one
-  dismissible line about iPad storage and a link to Export. If she ever asks how to make it stick, the
-  answer is Share → Add to Home Screen in Safari — two taps, not an app download. Offer only on ask.
+- **First run on iPadOS: prompt Share → Add to Home Screen, with a visible skip.** Framed as data
+  safety — *"two taps, and it stops your notes from being cleared"* — with a screenshot of the Share
+  sheet. Never the word "install", never a repeated wall. Detect standalone with
+  `matchMedia('(display-mode: standalone)').matches || navigator.standalone`, and show it only on
+  iPadOS. This is the one configuration WebKit exempts from its 7-day storage deletion, so it is
+  functional, not decoration ([ADR 0008](docs/adr/0008-add-to-home-screen-on-ipad.md)).
+- **It comes before sign-in, deliberately.** The Home Screen Web App keeps its own storage, separate
+  from Safari's, so signing in first would mean signing in twice. Do not reorder these.
+- **Then one tap and nothing else:** a single Google sign-in with a reason (*"sign in so your notes are
+  safe and show up on your laptop too"*), straight into reviewing pre-seeded cards. No permissions, no
+  tutorial wall, no empty state that asks her to create something first.
+- **Tell her to use the Home Screen icon, not the Safari tab.** Separate containers mean two local
+  copies that only sync reconciles, and the Safari one is the one that gets deleted.
 - **Survive the local database being deleted at any time.** Empty IndexedDB plus remote data means
   restore automatically and silently, and never present it as a problem.
 - **Expect to be signed out after an eviction** — ITP clears the auth session too. Detect "no local
   data, remote data exists" and lead with *"your notes are safe — tap to sign in and get them back"*.
   Never show empty-state onboarding in that situation; it reads as data loss.
-- **A sync failure must be visible** ("not saved since…"). With no install, a silently broken sync is
-  a data-loss bug, not an inconvenience.
+- **A sync failure must be visible** ("not saved since…"). A silently broken sync is a data-loss bug,
+  not an inconvenience.
 - **Sync per write**, not on a timer — an eviction between writes loses whatever was not yet pushed.
-- **Export/import is a first-class screen**, reachable in two taps.
+- **Export/import is a first-class screen**, reachable in two taps. It is the only backup that does not
+  depend on Google, the network, or a sync bug.
 - **Never use a decrementing timer.** Derive elapsed time from `startedAt` and `Date.now()`.
 
 ---

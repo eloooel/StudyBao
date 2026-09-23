@@ -18,6 +18,13 @@ Legend: 🔴 blocking · 🟠 significant · 🟡 worth fixing · ✅ verified c
 > 2. **The exam scope was verified against the official PRC program**, replacing a secondary-source
 >    guess. See [`reference/pnle-scope.md`](reference/pnle-scope.md).
 >
+> One further revision: the platform decision changed twice more. D5 first became "browser-only, never
+> install", then settled at **prompt Share → Add to Home Screen on iPadOS** once "install" was
+> clarified to mean an app-store download. The notes below record the middle position and point at
+> [ADR 0007](adr/0007-browser-only-no-install.md), which is now **superseded by
+> [ADR 0008](adr/0008-add-to-home-screen-on-ipad.md)**. Read 0007 for the mechanism; read 0008 for what
+> we actually do.
+>
 > [`BUILD_GUIDE.md`](BUILD_GUIDE.md) is the current plan; this file is the reasoning behind it.
 
 ---

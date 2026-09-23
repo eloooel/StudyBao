@@ -1,6 +1,10 @@
 # ADR 0007 — Browser-only, no install: what that means for data durability
 
-- **Status:** Accepted (revised 2026-09-23 — see "Revision" below)
+- **Status:** ⚠️ **Superseded by [ADR 0008](0008-add-to-home-screen-on-ipad.md)** — "no install" turned
+  out to mean "no app-store download", and Add to Home Screen is two taps in a Share sheet, which
+  WebKit exempts. Retained because its analysis of the eviction mechanism is the reference for *why*
+  this mattered, and because it corrected two of my own errors (the browser-switch workaround and
+  `navigator.storage.persist()`).
 - **Date:** 2026-09
 - **Related:** [ADR 0001](0001-local-first-with-indexeddb.md) (local-first), [ADR 0005](0005-auth-google-single-user.md) (auth), [ADR 0006](0006-in-app-notifications-only.md) (no push)
 

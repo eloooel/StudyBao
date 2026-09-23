@@ -92,30 +92,41 @@ a date seven months past.
 
 Static bundle, no backend, free HTTPS. Nothing else to configure.
 
-### D5. Will she install it? — ✅ **RESOLVED: no. Browser-only — and the obvious workaround does not exist**
+### D5. Will she install it? — ✅ **RESOLVED: yes, via Share → Add to Home Screen (iPad only)**
 
-**Devices: a Windows laptop and an iPad.** That split decides this whole topic.
+**This reversed twice, so here is the sequence, because the reasoning is the useful part.**
 
-Recorded as [ADR 0007](adr/0007-browser-only-no-install.md). The short version, all verified:
+1. **First answer: "no, purely browser based."** That looked fine until I checked what it implied.
+2. **The problem.** Safari's ITP deletes a site's script-writable storage — IndexedDB, `localStorage`,
+   `SessionStorage`, **and the service worker with its cache** — after seven days of browser use without
+   interacting with the site. Three facts, all verified: it applies to **every** browser on iPadOS
+   (all WebKit, so switching browsers does not help); `navigator.storage.persist()` **does not** exempt
+   an origin (WebKit rejected a PR that would have); and a **Home Screen Web App is exempt**. Devices
+   are a Windows laptop (Chrome/Edge have no eviction timer — completely safe) and an iPad (the risk).
+3. **The miss was mine as much as yours: "install" was ambiguous.** You meant "I don't want to make her
+   download an app", which is a reasonable thing to refuse. Add to Home Screen is not that: it is **two
+   taps in the Share sheet**, nothing downloads, nothing comes from an app store, and there is no build
+   tooling or update cycle. It is a bookmark that opens in its own container — and that container is
+   precisely what WebKit exempts.
 
-- On **iPad**, ITP deletes a site's script-writable storage — IndexedDB, `localStorage`,
-  `SessionStorage`, **and the service worker with its cache** — after **seven days of browser use
-  without interacting with the site**.
-- **Every browser on iPad is WebKit**, and ITP is a WebKit feature. So Chrome, Firefox, and Edge on
-  iPad behave the same. **"Just tell her to use another browser" does not work on iPad.** I checked
-  this specifically because it was the proposed mitigation, and it would have created false confidence
-  on the one device that has the problem.
-- **`navigator.storage.persist()` does not exempt an origin.** It resolves successfully and changes
-  nothing — WebKit explicitly rejected a 2025 PR that would have exempted persistent origins.
-- **The Windows laptop is completely safe.** Chrome and Edge on Windows have no such timer.
-- The **only** exemption is a Home Screen Web App (Share → Add to Home Screen — two taps, not an app
-  download). D5 declines it, so it is documented as a fallback, and offered only if she asks.
-- This is not theoretical: 1Password, Dashlane, Simplenote, and Element have reported real data loss
-  from it (WebKit bug 209563).
+**Resolution:** prompt **Share → Add to Home Screen on iPadOS**, first thing, with a skip. Recorded as
+[ADR 0008](adr/0008-add-to-home-screen-on-ipad.md), which supersedes [ADR 0007](adr/0007-browser-only-no-install.md).
 
-Consequences in the plan: **sync on by default and per write** (D12, below), **export as a first-class
-screen**, **automatic silent restore** after an eviction, **visible sync-failure state**, and no install
-prompt ever.
+Four details that matter:
+
+- **The prompt comes before sign-in.** The Home Screen app keeps its **own storage, separate from
+  Safari's** ("not part of Safari"). Signing in inside a Safari tab and *then* installing means the new
+  app starts empty and **she signs in twice**. Install first, then one sign-in in the container her data
+  will live in.
+- **Tell her to use the Home Screen icon, not the Safari tab.** Separate containers mean two local
+  copies that only sync reconciles; the Safari one is the one that gets deleted.
+- **Framed as data safety, not software.** *"Two taps, and it stops your notes from being cleared."*
+  With a screenshot of the Share sheet. No jargon, never the word "install".
+- **It is skippable and non-repeating.** One reminder in Settings at most. If she skips, sync and export
+  carry the risk exactly as ADR 0007 described.
+
+**Windows: change nothing.** A plain browser tab on Windows is durable; suggesting an install there adds
+a maintenance surface for no benefit.
 
 ### D6. Does she know you're building this? — ✅ **RESOLVED: no. It's a surprise.**
 
@@ -291,16 +302,14 @@ Worth stating explicitly, because each one is a plausible-looking detour:
 | D2 — auth | ✅ Closed: Google, one email. You put the email in `.env` + the rules file. |
 | D3 — exam date | ✅ Closed: **Fri Feb 26, 2027 — 156 days.** Ordering in `BUILD_GUIDE.md` §9. |
 | D4 — hosting | ✅ Closed: **Vercel**. |
-| D5 — install | ✅ Closed: **no, browser-only.** Devices: **Windows laptop (safe) + iPad (at risk)**. Browser-switching does **not** help on iPad. ([ADR 0007](adr/0007-browser-only-no-install.md)). |
+| D5 — install | ✅ Closed: **yes — Share → Add to Home Screen on iPadOS**, prompted first, with a skip. Two taps, no app store, no download; the only ITP-exempt configuration. Laptop: plain tab. ([ADR 0008](adr/0008-add-to-home-screen-on-ipad.md)) |
 | D6 — does she know | ✅ Closed: **no, it's a surprise.** Reveal is a deliverable (`BUILD_GUIDE.md` §9.5). |
 | D7 — deck taxonomy | ✅ Closed. Verified against the official PRC program. |
-| D12 — sync default | ✅ Closed: **ON**, per your call — and it is the only thing protecting her iPad data. |
+| D12 — sync default | ✅ Closed: **ON**, per your call — and it stays the safety net if she skips the Home Screen prompt or uses a Safari tab. |
 | D8–D11, D13 | Defaults exist; answer whenever. None blocks anything. |
 
 **The next thing I need is a go-ahead.**
 
-One thing worth knowing before we start: the iPad risk is real and unfixable within D5. The lever that
-would eliminate it is **Share → Add to Home Screen in Safari** — two taps, not an app download, and the
-only WebKit-exempted configuration. I am not going to prompt her to do it, and it is not in the plan.
-I am noting it because if she ever asks *"how do I make this stick"*, that is the answer, and because
-it is a zero-cost thing to reverse if the occasional sign-out screen turns out to annoy her.
+The iPad risk is now handled at the source rather than mitigated: the Home Screen install is exempt from
+ITP, so her local data becomes durable instead of relying on sync to repair the damage. Sync and export
+stay in the plan for the cases where she skips the prompt or works from a Safari tab.

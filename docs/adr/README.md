@@ -11,7 +11,8 @@ of [`0001-local-first-with-indexeddb.md`](0001-local-first-with-indexeddb.md).
 | [0004](0004-no-llm-in-runtime.md) | No LLM in the shipped product | Accepted |
 | [0005](0005-auth-google-single-user.md) | Auth: Google Sign-In, one allow-listed email | Accepted |
 | [0006](0006-in-app-notifications-only.md) | In-app notifications only: no backend, no push | Accepted |
-| [0007](0007-browser-only-no-install.md) | Browser-only, no installation — sync + export as the safety net | Accepted |
+| [0007](0007-browser-only-no-install.md) | Browser-only, no installation — sync + export as the safety net | Superseded by 0008 |
+| [0008](0008-add-to-home-screen-on-ipad.md) | Add to Home Screen on the iPad (not an app install) | Accepted |
 
 ## When to write one
 

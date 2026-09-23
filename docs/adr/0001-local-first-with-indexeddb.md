@@ -41,11 +41,11 @@ target.**
   both schemas. This is the most complex part of the codebase and the most dangerous to change.
 - Two devices can diverge if the merge is wrong. Mitigated by unit-testing the merge function and
   never hard-deleting.
-- Data durability on iOS depends on either installing the PWA or syncing: Safari's 7-day
-  script-writable-storage cap exempts installed web apps, and **she will not install**
-  ([ADR 0007](0007-browser-only-no-install.md)). So cloud sync is the automatic safety net and JSON
-  export is the user-controlled one. This is a heavier reliance on sync than a local-first design
-  would normally have.
+- Data durability on iOS depends on where the app runs: Safari's 7-day script-writable-storage cap
+  exempts **Home Screen Web Apps**, which is why we prompt her to add it on iPadOS
+  ([ADR 0008](0008-add-to-home-screen-on-ipad.md)). If she skips it, cloud sync is the automatic
+  safety net and JSON export is the user-controlled one — a heavier reliance on sync than a
+  local-first design would normally have.
 
 ## Alternatives considered
 
