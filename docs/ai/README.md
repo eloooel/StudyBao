@@ -3,22 +3,23 @@
 Step-by-step procedures for the common tasks in this repo. They are **tool-agnostic**: use them with
 any AI assistant, or follow them by hand.
 
-| Runbook | Use when you want to… |
-| ---------------------------------------------- | ------------------------------------------------------------ |
-| [add-feature.md](add-feature.md) | Add a feature folder, page, and route |
-| [add-component.md](add-component.md) | Add a UI component (shared or feature-local) |
-| [write-tests.md](write-tests.md) | Add or fix tests, especially for pure logic |
-| [change-data-model.md](change-data-model.md) | Add or change a Dexie table, field, or index |
-| [add-notification.md](add-notification.md) | Add a notification trigger, message-bank entry, or nudge behaviour |
-| [cleanup.md](cleanup.md) | Delete dead code, speculative abstraction, and leftovers |
-| [pre-pr.md](pre-pr.md) | Get a branch ready to hand over |
+| Runbook                                      | Use when you want to…                                              |
+| -------------------------------------------- | ------------------------------------------------------------------ |
+| [add-feature.md](add-feature.md)             | Add a feature folder, page, and route                              |
+| [add-component.md](add-component.md)         | Add a UI component (shared or feature-local)                       |
+| [write-tests.md](write-tests.md)             | Add or fix tests, especially for pure logic                        |
+| [change-data-model.md](change-data-model.md) | Add or change a Dexie table, field, or index                       |
+| [add-notification.md](add-notification.md)   | Add a notification trigger, message-bank entry, or nudge behaviour |
+| [cleanup.md](cleanup.md)                     | Delete dead code, speculative abstraction, and leftovers           |
+| [pre-pr.md](pre-pr.md)                       | Get a branch ready to hand over                                    |
 
-> **Status note.** This repo is at the plan stage — `docs/BUILD_GUIDE.md` is the plan of record and
-> the app is not scaffolded yet. Runbooks that name a canonical example file create a chicken-and-egg
-> problem, so each one below names the file it expects **and** marks it `(pending Workflow A)`. The
-> first thing Workflow A does is build those reference files; until then, treat the named file as the
-> thing you are about to write, not the thing you are copying. Once a reference file exists, remove
-> its marker.
+> **Status.** Workflow A (scaffold + design system) is complete: the app shell builds, installs, runs
+> offline, and the shared components exist. Workflows B (flashcards), C (ingest), D (timer),
+> E (tracker), F (dashboard), S (sync) and G (nudges) are not started.
+>
+> Runbooks that name a canonical example mark it `(pending Workflow B)`, `(pending Workflow S)`, or
+> similar. Treat a marked file as the thing you are about to write, not the thing you are copying —
+> **except** the shared UI primitives, which all exist now. Remove a marker once its file exists.
 
 ## How to use with your AI tool
 
@@ -71,7 +72,7 @@ or agent hitting the error should not need to find this directory. Example:
 > `Don't import dexie outside src/db/. Use a repository from src/db/repositories/. See ADR 0001.`
 
 **Restate one invariant per skill, no more.** Each `SKILL.md` in `.claude/skills/` is a discovery shim,
-not a second copy of the runbook: YAML frontmatter whose `description` is a *trigger condition*, one
+not a second copy of the runbook: YAML frontmatter whose `description` is a _trigger condition_, one
 sentence pointing at the runbook, and at most one restated invariant. `name` must equal the directory
 name and the runbook filename stem — that identity is the entire mechanism. If a skill grows past
 ~8 lines, the procedure has leaked into it and the two copies will drift.

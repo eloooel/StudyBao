@@ -33,7 +33,7 @@ Card generation is Tesseract.js OCR plus a deterministic pattern parser. This ke
 zero, keeps her notes private, works offline, and avoids inventing flashcards for a licensure exam.
 Do not add a model call to the runtime. See [`docs/adr/0004-no-llm-in-runtime.md`](docs/adr/0004-no-llm-in-runtime.md).
 
-**Boundary 2 — AI may be used to *develop* this repo, within the rules below.** You are the second
+**Boundary 2 — AI may be used to _develop_ this repo, within the rules below.** You are the second
 boundary. Your output is reviewed by a human before it reaches her phone.
 
 **What you must not do without explicit approval:**
@@ -54,7 +54,7 @@ boundary. Your output is reviewed by a human before it reaches her phone.
 
 **What you should do:**
 
-- When asked to plan, ask about anything unanswered *before* planning, and surface improvements you
+- When asked to plan, ask about anything unanswered _before_ planning, and surface improvements you
   find rather than silently applying them.
 - Report failures honestly. Never work around a failing check to make output look green.
 - Prefer deleting code to adding abstraction. No speculative generality.
@@ -79,6 +79,7 @@ npm run format         # Prettier --write
 npm run test           # Vitest watch
 npm run test:run       # Vitest single run
 npm run test:coverage  # Coverage (threshold enforced in vitest.config.ts)
+npm run icons          # Regenerate public/*.png from the shared bow geometry
 ```
 
 Run a single test file:
@@ -91,6 +92,24 @@ npx vitest run src/features/flashcards/sm2.test.ts
 `npm run build && npm run preview`, on a real device, over HTTPS (or a tunnel).
 
 Path alias: `@` → `./src`.
+
+### Toolchain constraints — do not "upgrade" these casually
+
+- **Vitest is pinned to v3 on purpose.** Vitest 4 and 5 declare `@vitest/browser-playwright` and
+  `@vitest/browser-webdriverio` as optional peers, and npm 10.x crashes resolving them with
+  `Cannot read properties of null (reading 'edgesOut')` inside `#loadPeerSet`. That makes a plain
+  `npm install` fail, and a lockfile produced with `--legacy-peer-deps` then fails `npm ci`, which is
+  what CI runs. Vitest 3 has a simple peer graph and installs cleanly. **Confirm both `npm install`
+  and `npm ci` succeed before changing any test dependency.**
+- **TypeScript stays on 5.x** while `typescript-eslint` caps its peer at `<6.1.0`.
+- **ESLint is 10, not 9** — the 9.x line is past its support window.
+- **Icons are generated, not hand-drawn.** `scripts/generate-icons.mjs` writes every PNG from the same
+  geometry as `public/favicon.svg`, using only Node built-ins. Change one, change the other.
+- **The npm cache is workspace-local** (`.npm-cache/`) so installs work where the global cache is not
+  writable. It is gitignored and safe to delete.
+- **esbuild must be able to spawn its transform service.** In a restricted sandbox that blocks piped
+  child processes, `vitest` and `vite build` fail with `spawn EPERM`. That is the sandbox, not the
+  project — the same commands succeed normally.
 
 ---
 
@@ -111,18 +130,22 @@ Three-layer page pattern, same as any React app worth maintaining:
 ```tsx
 // Layer 2 — data hook
 function useDeckData() {
-  const [decks, setDecks] = useState<Deck[]>([]);
-  useEffect(() => { listDecks().then(setDecks); }, []);
-  return { decks };
+  const [decks, setDecks] = useState<Deck[]>([])
+  useEffect(() => {
+    listDecks().then(setDecks)
+  }, [])
+  return { decks }
 }
 
 // Layer 3 — view: pure JSX, typed props, no DB calls, no hooks
-function DeckView({ decks }: { decks: Deck[] }) { /* ... */ }
+function DeckView({ decks }: { decks: Deck[] }) {
+  /* ... */
+}
 
 // Layer 1 — route component: thin composition
 export default function DecksPage() {
-  const { decks } = useDeckData();
-  return <DeckView decks={decks} />;
+  const { decks } = useDeckData()
+  return <DeckView decks={decks} />
 }
 ```
 
@@ -144,14 +167,14 @@ Only promote a component to `src/components/ui/` once **three or more features**
 
 ### State management
 
-| Kind of state | Where |
-| --- | --- |
-| Card/deck/session data | **Dexie.** Never mirror it into Zustand — it will go stale. |
-| Shareable/bookmarkable state | `useSearchParams()` |
-| Auth (user, token) | `src/stores/auth.store.ts` |
-| Global UI (modals, toasts) | `src/stores/ui.store.ts` |
-| Feature UI (active tab, selection) | Feature Zustand store |
-| Component-only | `useState()` |
+| Kind of state                      | Where                                                       |
+| ---------------------------------- | ----------------------------------------------------------- |
+| Card/deck/session data             | **Dexie.** Never mirror it into Zustand — it will go stale. |
+| Shareable/bookmarkable state       | `useSearchParams()`                                         |
+| Auth (user, token)                 | `src/stores/auth.store.ts`                                  |
+| Global UI (modals, toasts)         | `src/stores/ui.store.ts`                                    |
+| Feature UI (active tab, selection) | Feature Zustand store                                       |
+| Component-only                     | `useState()`                                                |
 
 ### Hard constraints
 
@@ -176,7 +199,7 @@ Full model in `BUILD_GUIDE.md` §6. The parts that are easy to get wrong:
 - `nextReview` is **epoch ms**, not a date string, because learning steps are sub-day.
 - `updatedAt` on every synced record; `deletedAt` for tombstones. **Never hard-delete a synced
   record** — hard deletes are resurrected by the other device.
-- SM-2 grades map Again=0, Hard=3, Good=4, Easy=5. Ease factor updates on *every* grade and is
+- SM-2 grades map Again=0, Hard=3, Good=4, Easy=5. Ease factor updates on _every_ grade and is
   floored at **1.3**. `q < 3` resets repetitions, records a lapse, and re-enters learning steps.
 - A streak day rolls over at **04:00 local**, not midnight.
 - Any new indexed field means a **Dexie version bump + migration test**. Read
@@ -186,14 +209,23 @@ Full model in `BUILD_GUIDE.md` §6. The parts that are easy to get wrong:
 
 ## Design system rules
 
-Tokens live in `tailwind.config.ts` and `src/styles/theme.css`. The palette is **contrast-checked** —
-do not "improve" a colour without re-checking WCAG AA (4.5:1 body text, 3:1 large text and icons).
+Tokens live in **one place**: the `@theme` block in `src/styles/theme.css`. Tailwind v4 is CSS-first,
+so there is no `tailwind.config.ts` and no second copy of the palette to drift. The palette is
+**contrast-checked** — do not "improve" a colour without re-checking WCAG AA (4.5:1 body text, 3:1
+large text and icons).
+
+Primitives live in `src/components/ui/`: Button, Card, Input, Modal, Tag, ProgressBar, Toast, and
+EmptyState. Their prop types are exported from the component files, which is allowed because they live
+in `ui/`.
 
 - **Plum text on rose buttons.** White on `#F5A9B8` is 1.87:1 and fails. `#4A2E35` on `#F5A9B8` is
-  6.49:1.
+  6.49:1. Prefer the `on-primary` / `on-strong` tokens over a literal colour: they flip in the night
+  theme, so a hardcoded text colour breaks one of the two themes.
 - **Sage (`#B7D7B0`) and dusty mauve (`#D9A7B0`) are fills, never text colours.** They are badge
   backgrounds with plum text on top.
-- Body text ≥16px, line-height ≥1.5, never weight 300.
+- **Theming is token overrides only.** Tailwind v4 emits theme values as CSS custom properties, so
+  `[data-theme='night']` retints the whole app. Do not add `night:` variants to components.
+- Body text ≥16px, line-height ≥1.5, never weight 300. Minimum touch target is 44px.
 - Fonts are self-hosted via `@fontsource/*`. Never add a Google Fonts `<link>`.
 - Bow/sparkle/ribbon icons appear on streak and achievement moments only.
 - Microcopy is warm and playful, never clinical, never guilt-inducing. Read the voice section of
@@ -217,7 +249,7 @@ do not "improve" a colour without re-checking WCAG AA (4.5:1 body text, 3:1 larg
 
 - `.env` is never committed. `.env.example` documents every variable.
 - **There are no server-side secrets, because there is no server.** The one auth-shaped surface is
-  Firestore (cloud sync, Workflow S): Firebase client config (`apiKey` etc.) is *not* a secret, so
+  Firestore (cloud sync, Workflow S): Firebase client config (`apiKey` etc.) is _not_ a secret, so
   **the Firestore rules file is the entire security boundary**. Rules are owner-only on her
   allow-listed email, and are tested against the emulator (allowed user / anonymous / other
   authenticated user) before any deploy. Never open rules.
@@ -231,22 +263,22 @@ do not "improve" a colour without re-checking WCAG AA (4.5:1 body text, 3:1 larg
 ## UX rules that are not negotiable
 
 - **First run on iPadOS: prompt Share → Add to Home Screen, with a visible skip.** Framed as data
-  safety — *"two taps, and it stops your notes from being cleared"* — with a screenshot of the Share
+  safety — _"two taps, and it stops your notes from being cleared"_ — with a screenshot of the Share
   sheet. Never the word "install", never a repeated wall. Detect standalone with
   `matchMedia('(display-mode: standalone)').matches || navigator.standalone`, and show it only on
   iPadOS. This is the one configuration WebKit exempts from its 7-day storage deletion, so it is
   functional, not decoration ([ADR 0008](docs/adr/0008-add-to-home-screen-on-ipad.md)).
 - **It comes before sign-in, deliberately.** The Home Screen Web App keeps its own storage, separate
   from Safari's, so signing in first would mean signing in twice. Do not reorder these.
-- **Then one tap and nothing else:** a single Google sign-in with a reason (*"sign in so your notes are
-  safe and show up on your laptop too"*), straight into reviewing pre-seeded cards. No permissions, no
+- **Then one tap and nothing else:** a single Google sign-in with a reason (_"sign in so your notes are
+  safe and show up on your laptop too"_), straight into reviewing pre-seeded cards. No permissions, no
   tutorial wall, no empty state that asks her to create something first.
 - **Tell her to use the Home Screen icon, not the Safari tab.** Separate containers mean two local
   copies that only sync reconciles, and the Safari one is the one that gets deleted.
 - **Survive the local database being deleted at any time.** Empty IndexedDB plus remote data means
   restore automatically and silently, and never present it as a problem.
 - **Expect to be signed out after an eviction** — ITP clears the auth session too. Detect "no local
-  data, remote data exists" and lead with *"your notes are safe — tap to sign in and get them back"*.
+  data, remote data exists" and lead with _"your notes are safe — tap to sign in and get them back"_.
   Never show empty-state onboarding in that situation; it reads as data loss.
 - **A sync failure must be visible** ("not saved since…"). A silently broken sync is a data-loss bug,
   not an inconvenience.

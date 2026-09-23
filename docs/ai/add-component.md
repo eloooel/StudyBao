@@ -4,21 +4,25 @@ Add a component, either shared or feature-local.
 
 ## 1. Decide where it goes — this is the whole decision
 
-| Used by | Location |
-| ---------------- | ---------------------------------------------- |
-| 1 feature | `src/features/{name}/components/` |
-| 2 features | leave it in the first feature and import across, or duplicate it |
-| **3+ features** | `src/components/ui/` |
+| Used by         | Location                                                         |
+| --------------- | ---------------------------------------------------------------- |
+| 1 feature       | `src/features/{name}/components/`                                |
+| 2 features      | leave it in the first feature and import across, or duplicate it |
+| **3+ features** | `src/components/ui/`                                             |
 
 Count real usages, not imagined ones. Promotion to `ui/` is a one-way door: once something is shared,
 every feature is entitled to change it. Speculative sharing is how small apps become unfixable.
 
 ## 2. Read the reference first
 
-`src/components/ui/Button.tsx` **(pending Workflow A)** — it is the reference for props shape,
-`className` merging, `forwardRef`, variant naming, and disabled/loading handling. Mirror it.
+`src/components/ui/button.tsx` — the reference for props shape, `className` merging via `cn()`,
+`forwardRef`, variant naming, and disabled/loading handling. Mirror it.
 
-Also read `src/components/ui/Card.tsx` for the container shape (radius, shadow, padding tokens).
+Also read `src/components/ui/card.tsx` for the container shape (radius, shadow, padding tokens) and
+`src/components/ui/tag.tsx` for how a colour choice is expressed as a _tone_ rather than a hex value.
+
+The existing primitives — Button, Card, Input, Modal, Tag, ProgressBar, Toast, EmptyState — are the
+starting point. Reuse one before writing a new one; a ninth button is a defect.
 
 ## 3. Conventions
 

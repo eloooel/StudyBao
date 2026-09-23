@@ -37,18 +37,24 @@ Those are just code.
 - **Supersedes:** what this replaces, if anything
 
 ## Context
+
 What is true about the situation that forces a decision. Facts, constraints, and the options on the
 table. No conclusion yet.
 
 ## Decision
+
 One or two sentences, in bold, then the specifics that follow from it.
 
 ## Consequences
+
 ### Good
+
 ### Bad / cost
+
 Both sections are mandatory. An ADR with no downsides is an advertisement, not a decision record.
 
 ## Alternatives considered
+
 Each with the reason it was rejected.
 ```
 

@@ -6,8 +6,8 @@
 
 ## Context
 
-The original build guide's headline feature was *"true background push notifications — nudges arrive
-even when the app is closed."* Delivering that requires a server that holds the push subscription and
+The original build guide's headline feature was _"true background push notifications — nudges arrive
+even when the app is closed."_ Delivering that requires a server that holds the push subscription and
 fires on a schedule, because nothing runs on the device while the app is closed (see ADR 0002's
 analysis, which remains correct).
 
@@ -24,12 +24,12 @@ backend, no VAPID keypair, no cron, and no service-worker `push` handler.**
 
 Four triggers, all of which require a live page:
 
-| Trigger | Mechanism | Fires when |
-| --- | --- | --- |
-| **Idle nudge** | no interaction for `idleNudgeMin` during an active Working session | the page is alive and foregrounded |
-| **Welcome back** | `visibilitychange` → hidden increments `tabHiddenCount`; on return, if a session is still active, show remaining time | she returns to the tab |
-| **Session end** | wall-clock timer reaches zero → sound + visual + in-app banner | the page is alive (see caveat below) |
-| **Streak reminder** | on app open, if no activity today and it is past her usual study hour | she opens the app |
+| Trigger             | Mechanism                                                                                                             | Fires when                           |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| **Idle nudge**      | no interaction for `idleNudgeMin` during an active Working session                                                    | the page is alive and foregrounded   |
+| **Welcome back**    | `visibilitychange` → hidden increments `tabHiddenCount`; on return, if a session is still active, show remaining time | she returns to the tab               |
+| **Session end**     | wall-clock timer reaches zero → sound + visual + in-app banner                                                        | the page is alive (see caveat below) |
+| **Streak reminder** | on app open, if no activity today and it is past her usual study hour                                                 | she opens the app                    |
 
 Removed from the architecture as a direct result:
 
@@ -37,7 +37,7 @@ Removed from the architecture as a direct result:
 - VAPID keys and all server-side secrets
 - service-worker `push` / `notificationclick` handling
 - FCM, Cloud Functions, Blaze plan, or a Cloudflare Worker
-- iOS Home Screen installation as a *notifications* prerequisite
+- iOS Home Screen installation as a _notifications_ prerequisite
 - Firebase Auth when it existed only to authenticate the push backend
 
 **Still retained:** the service worker itself, for offline caching in a browser tab — unrelated to
@@ -65,7 +65,7 @@ rest of the script-writable storage after seven days without a visit, which
    plainly. If she closes the app mid-session, she gets no session-end cue.
 2. **On mobile, switching apps usually suspends the page.** So the idle nudge does not fire while she
    is in another app; it fires when she comes back. The "welcome back" trigger is therefore the
-   *reliable* mobile behaviour, and the idle nudge is the desktop/foreground behaviour. This should be
+   _reliable_ mobile behaviour, and the idle nudge is the desktop/foreground behaviour. This should be
    reflected in what the UI promises.
 3. **Background tabs are throttled** (roughly once per minute, and unthrottled only when visible). A
    session-end sound or banner may fire up to about a minute late while the tab is hidden. Mitigation:
@@ -73,9 +73,9 @@ rest of the script-writable storage after seven days without a visit, which
    `visibilitychange` → visible, immediately recompute and fire any cue that was missed.
 4. **The most common real-world pattern is the one that suffers.** Start a 25-minute Pomodoro, switch
    to a PDF or notes app, and the break cue never arrives. This is the specific scenario worth telling
-   her about in the UI: *"keep this tab open for the timer cue."*
+   her about in the UI: _"keep this tab open for the timer cue."_
 5. **Partial recovery is available for the desktop case.** When the tab is open but behind another
-   window, an OS-level notification created by the *live page* (`new Notification(...)`, no push, no
+   window, an OS-level notification created by the _live page_ (`new Notification(...)`, no push, no
    server) is the only way to get her attention. Offered as an opt-in extra, not a default, because it
    reintroduces a permission prompt.
 

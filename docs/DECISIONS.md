@@ -47,8 +47,6 @@ own **Workflow S** in `BUILD_GUIDE.md` §4. It is the half of G0 that survives.
 Remaining sub-decision: **D12** — should sync default on at first ship, or become default-on only once
 the merge tests pass? (Recommendation: off at first ship, on after.)
 
-
-
 ### D2. Auth model — ✅ **RESOLVED: Google Sign-In, one allow-listed email**
 
 Confirmed alongside sync (D1b). Cloud sync and "no login" cannot coexist: Firestore rules need an
@@ -61,18 +59,18 @@ orphans her data — and on iOS, reinstalling is a routine event.
 **Still needed from you:** **her email address.** Put it in `.env` as `VITE_ALLOWED_EMAIL` and mirror
 it in the Firestore rules file — do not send it to me, and do not commit it. Both files will carry a
 placeholder and a one-line instruction. (`VITE_ALLOWED_EMAIL` ends up in the client bundle either way,
-which is fine; the *protection* is the rules file, not secrecy.)
+which is fine; the _protection_ is the rules file, not secrecy.)
 
 ### D3. Her exam date — ✅ **RESOLVED: Friday, February 26, 2027**
 
 **156 days from today (2026-09-23) — 22.3 weeks, ~5.1 months.** That is a real runway, and it changes
-the build *order* rather than the scope. Full reasoning in `BUILD_GUIDE.md` §9; the three consequences
+the build _order_ rather than the scope. Full reasoning in `BUILD_GUIDE.md` §9; the three consequences
 worth knowing here:
 
 1. **The app must be usable long before it is complete.** Spaced repetition pays off over time, so a
    working flashcard system in October is worth far more than a perfect one in January. B and D land in
-   the first three weeks; C, E, F, S, and G follow without reducing what she gets — *provided the data
-   model is right from day one*.
+   the first three weeks; C, E, F, S, and G follow without reducing what she gets — _provided the data
+   model is right from day one_.
 2. **No new feature after mid-January 2027.** Weeks 17–22 are buffer, cram mode, and bug fixes. A
    feature shipped two weeks before a licensure exam is a liability.
 3. **Cram mode must be finished before 2027-01-27**, which is when a 30-day window opens. On that date
@@ -115,12 +113,12 @@ Static bundle, no backend, free HTTPS. Nothing else to configure.
 Four details that matter:
 
 - **The prompt comes before sign-in.** The Home Screen app keeps its **own storage, separate from
-  Safari's** ("not part of Safari"). Signing in inside a Safari tab and *then* installing means the new
+  Safari's** ("not part of Safari"). Signing in inside a Safari tab and _then_ installing means the new
   app starts empty and **she signs in twice**. Install first, then one sign-in in the container her data
   will live in.
 - **Tell her to use the Home Screen icon, not the Safari tab.** Separate containers mean two local
   copies that only sync reconciles; the Safari one is the one that gets deleted.
-- **Framed as data safety, not software.** *"Two taps, and it stops your notes from being cleared."*
+- **Framed as data safety, not software.** _"Two taps, and it stops your notes from being cleared."_
   With a screenshot of the Share sheet. No jargon, never the word "install".
 - **It is skippable and non-repeating.** One reminder in Settings at most. If she skips, sync and export
   carry the risk exactly as ADR 0007 described.
@@ -205,12 +203,12 @@ So on her iPad, **default-on sync is not a preference, it is the only protection
 Resolution:
 
 1. **Sync is ON by default.** First open is a **single one-tap Google sign-in**, with a warm, honest
-   reason attached: *"sign in so your notes are safe and show up on your laptop too."*
+   reason attached: _"sign in so your notes are safe and show up on your laptop too."_
 2. **Sync per write, not on a timer** — an eviction between writes would lose whatever had not been
    pushed.
 3. **Post-eviction restore is automatic and silent.** Empty local storage plus remote data means
-   restore without confirmation. If ITP also cleared the auth session (it will), lead with *"your notes
-   are safe — tap to sign in and get them back"*, never with empty-state onboarding that looks like
+   restore without confirmation. If ITP also cleared the auth session (it will), lead with _"your notes
+   are safe — tap to sign in and get them back"_, never with empty-state onboarding that looks like
    data loss.
 4. **A sync failure is visible** ("not saved since…").
 
@@ -236,17 +234,17 @@ either (a) data has already been written under the decision and cannot be recons
 
 Ranked by what a reversal actually costs, **assuming five months of her using the app**:
 
-| # | Decision | Reverse it today | Reverse it in Feb 2027 | Why |
-| --- | --- | --- | --- | --- |
-| [0003](adr/0003-sm2-scheduler-and-learning-steps.md) | SM-2 + learning steps + `ReviewLog` | Free | **Brutal** | **Not backfillable.** If `ReviewLog` and `lapses` are not recorded from the first review, that history is gone forever — you cannot reconstruct which cards she struggled with, and FSRS becomes impossible without starting over. Same for `nextReview` as epoch-ms: switching to date-only means migrating every card. |
-| [0001](adr/0001-local-first-with-indexeddb.md) | Local-first IndexedDB | Free | **Expensive** | Every feature's data layer, every query, and the UI's assumption that reads never fail are built on it. Server-first later means rewriting B, E, F *and* handling offline, which the UI currently assumes away. |
-| [0005](adr/0005-auth-google-single-user.md) | Google Sign-In, one email | Free | **Moderate** | Changing the *email* is trivial. Changing the *provider* means re-keying every synced document, because ownership is stamped on each one. |
-| [0006](adr/0006-in-app-notifications-only.md) | In-app notifications only | Free | **Cheap — by design** | Deliberately additive: [ADR 0002](adr/0002-push-architecture-and-scheduler.md) is the preserved path back and costs one small service plus a permission UX. Nothing in the data model blocks it. |
-| [0004](adr/0004-no-llm-in-runtime.md) | No LLM in the shipped product | Free | **Cheap technically, costly in consequence** | Adding an LLM ingest path later is *additive* — a third tab next to paste and PDF. But it ends the offline guarantee, adds a key and a per-request cost, and puts generated content in front of someone memorising for a licensure exam. Reverse this one knowingly, not accidentally. |
+| #                                                    | Decision                            | Reverse it today | Reverse it in Feb 2027                       | Why                                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------------- | ----------------------------------- | ---------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [0003](adr/0003-sm2-scheduler-and-learning-steps.md) | SM-2 + learning steps + `ReviewLog` | Free             | **Brutal**                                   | **Not backfillable.** If `ReviewLog` and `lapses` are not recorded from the first review, that history is gone forever — you cannot reconstruct which cards she struggled with, and FSRS becomes impossible without starting over. Same for `nextReview` as epoch-ms: switching to date-only means migrating every card. |
+| [0001](adr/0001-local-first-with-indexeddb.md)       | Local-first IndexedDB               | Free             | **Expensive**                                | Every feature's data layer, every query, and the UI's assumption that reads never fail are built on it. Server-first later means rewriting B, E, F _and_ handling offline, which the UI currently assumes away.                                                                                                          |
+| [0005](adr/0005-auth-google-single-user.md)          | Google Sign-In, one email           | Free             | **Moderate**                                 | Changing the _email_ is trivial. Changing the _provider_ means re-keying every synced document, because ownership is stamped on each one.                                                                                                                                                                                |
+| [0006](adr/0006-in-app-notifications-only.md)        | In-app notifications only           | Free             | **Cheap — by design**                        | Deliberately additive: [ADR 0002](adr/0002-push-architecture-and-scheduler.md) is the preserved path back and costs one small service plus a permission UX. Nothing in the data model blocks it.                                                                                                                         |
+| [0004](adr/0004-no-llm-in-runtime.md)                | No LLM in the shipped product       | Free             | **Cheap technically, costly in consequence** | Adding an LLM ingest path later is _additive_ — a third tab next to paste and PDF. But it ends the offline guarantee, adds a key and a per-request cost, and puts generated content in front of someone memorising for a licensure exam. Reverse this one knowingly, not accidentally.                                   |
 
 **The practical rule:** the decisions worth agonising over now are the ones that involve **recording
 history** — `ReviewLog`, `lapses`, `updatedAt`, `deletedAt`, epoch-ms timestamps. Fields that capture
-*when* something happened cannot be added retroactively. Everything else is refactoring, and 22 weeks
+_when_ something happened cannot be added retroactively. Everything else is refactoring, and 22 weeks
 is enough runway to refactor.
 
 Two judgement calls worth naming explicitly:
@@ -263,16 +261,16 @@ Two judgement calls worth naming explicitly:
 
 Not oversights — these are cheap to add later and expensive to guess now.
 
-| Deferred | Why | Revisit when |
-| --- | --- | --- |
-| **FSRS scheduler** | Better retention-per-review than SM-2, but a bigger algorithm. The `ReviewLog` design keeps this reachable. | After a month of real review data exists to compare against. |
-| **E2E tests (Playwright)** | No test surface worth automating until the app exists. | After Workflow A produces installable screens. |
-| **Multi-device conflict UI** | Last-write-wins is sufficient for one user with two devices. | If she ever sees a card "come back" after deleting it — that is the signal the merge is wrong. |
-| **Sharing with friends** | Would change auth (D2), the rules, and the data model. | If she asks. Say no to "just make it public" — it is a rewrite, not a flag. |
-| **CSV export** | JSON is enough for backup/restore. | If she wants to open cards in a spreadsheet. |
-| **Accessibility audit beyond contrast** | Contrast is done and computed. Screen-reader work matters less for a one-user app. | If the app is ever shared. |
-| **Offline OCR model tuning** | Tesseract parameters matter less than telling her to paste text or use her phone's own text recognition. | If she actually relies on photo OCR. |
-| **Analytics / telemetry** | Would break the privacy stance and add a network dependency. | Never, unless she asks to see her own usage. |
+| Deferred                                | Why                                                                                                         | Revisit when                                                                                   |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **FSRS scheduler**                      | Better retention-per-review than SM-2, but a bigger algorithm. The `ReviewLog` design keeps this reachable. | After a month of real review data exists to compare against.                                   |
+| **E2E tests (Playwright)**              | No test surface worth automating until the app exists.                                                      | After Workflow A produces installable screens.                                                 |
+| **Multi-device conflict UI**            | Last-write-wins is sufficient for one user with two devices.                                                | If she ever sees a card "come back" after deleting it — that is the signal the merge is wrong. |
+| **Sharing with friends**                | Would change auth (D2), the rules, and the data model.                                                      | If she asks. Say no to "just make it public" — it is a rewrite, not a flag.                    |
+| **CSV export**                          | JSON is enough for backup/restore.                                                                          | If she wants to open cards in a spreadsheet.                                                   |
+| **Accessibility audit beyond contrast** | Contrast is done and computed. Screen-reader work matters less for a one-user app.                          | If the app is ever shared.                                                                     |
+| **Offline OCR model tuning**            | Tesseract parameters matter less than telling her to paste text or use her phone's own text recognition.    | If she actually relies on photo OCR.                                                           |
+| **Analytics / telemetry**               | Would break the privacy stance and add a network dependency.                                                | Never, unless she asks to see her own usage.                                                   |
 
 ---
 
@@ -295,18 +293,18 @@ Worth stating explicitly, because each one is a plausible-looking detour:
 
 **Every decision is closed. Nothing blocks Workflow A.**
 
-| # | Status |
-| --- | --- |
-| D1 — push backend | ✅ Closed. No backend; notifications in-app only ([ADR 0006](adr/0006-in-app-notifications-only.md)). |
-| D1b — cloud sync | ✅ Closed: yes. Google Sign-In, Firestore, owner-only rules, **Workflow S**. |
-| D2 — auth | ✅ Closed: Google, one email. You put the email in `.env` + the rules file. |
-| D3 — exam date | ✅ Closed: **Fri Feb 26, 2027 — 156 days.** Ordering in `BUILD_GUIDE.md` §9. |
-| D4 — hosting | ✅ Closed: **Vercel**. |
-| D5 — install | ✅ Closed: **yes — Share → Add to Home Screen on iPadOS**, prompted first, with a skip. Two taps, no app store, no download; the only ITP-exempt configuration. Laptop: plain tab. ([ADR 0008](adr/0008-add-to-home-screen-on-ipad.md)) |
-| D6 — does she know | ✅ Closed: **no, it's a surprise.** Reveal is a deliverable (`BUILD_GUIDE.md` §9.5). |
-| D7 — deck taxonomy | ✅ Closed. Verified against the official PRC program. |
-| D12 — sync default | ✅ Closed: **ON**, per your call — and it stays the safety net if she skips the Home Screen prompt or uses a Safari tab. |
-| D8–D11, D13 | Defaults exist; answer whenever. None blocks anything. |
+| #                  | Status                                                                                                                                                                                                                                  |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1 — push backend  | ✅ Closed. No backend; notifications in-app only ([ADR 0006](adr/0006-in-app-notifications-only.md)).                                                                                                                                   |
+| D1b — cloud sync   | ✅ Closed: yes. Google Sign-In, Firestore, owner-only rules, **Workflow S**.                                                                                                                                                            |
+| D2 — auth          | ✅ Closed: Google, one email. You put the email in `.env` + the rules file.                                                                                                                                                             |
+| D3 — exam date     | ✅ Closed: **Fri Feb 26, 2027 — 156 days.** Ordering in `BUILD_GUIDE.md` §9.                                                                                                                                                            |
+| D4 — hosting       | ✅ Closed: **Vercel**.                                                                                                                                                                                                                  |
+| D5 — install       | ✅ Closed: **yes — Share → Add to Home Screen on iPadOS**, prompted first, with a skip. Two taps, no app store, no download; the only ITP-exempt configuration. Laptop: plain tab. ([ADR 0008](adr/0008-add-to-home-screen-on-ipad.md)) |
+| D6 — does she know | ✅ Closed: **no, it's a surprise.** Reveal is a deliverable (`BUILD_GUIDE.md` §9.5).                                                                                                                                                    |
+| D7 — deck taxonomy | ✅ Closed. Verified against the official PRC program.                                                                                                                                                                                   |
+| D12 — sync default | ✅ Closed: **ON**, per your call — and it stays the safety net if she skips the Home Screen prompt or uses a Safari tab.                                                                                                                |
+| D8–D11, D13        | Defaults exist; answer whenever. None blocks anything.                                                                                                                                                                                  |
 
 **The next thing I need is a go-ahead.**
 

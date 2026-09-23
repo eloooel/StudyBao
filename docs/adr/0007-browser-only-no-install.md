@@ -2,7 +2,7 @@
 
 - **Status:** ⚠️ **Superseded by [ADR 0008](0008-add-to-home-screen-on-ipad.md)** — "no install" turned
   out to mean "no app-store download", and Add to Home Screen is two taps in a Share sheet, which
-  WebKit exempts. Retained because its analysis of the eviction mechanism is the reference for *why*
+  WebKit exempts. Retained because its analysis of the eviction mechanism is the reference for _why_
   this mattered, and because it corrected two of my own errors (the browser-switch workaround and
   `navigator.storage.persist()`).
 - **Date:** 2026-09
@@ -47,9 +47,9 @@ Precision that matters:
 3. **It is not Safari-specific.** ITP is implemented in WebKit, so it applies equally to Chrome,
    Firefox, and Edge on iOS/iPadOS, and to any `WKWebView`. On iPad there is no browser to switch to.
 4. **`navigator.storage.persist()` does not exempt an origin.** See the revision note above.
-5. **A Home Screen Web App on iOS/iPadOS is exempt.** WebKit: *"Web applications added to the home
+5. **A Home Screen Web App on iOS/iPadOS is exempt.** WebKit: _"Web applications added to the home
    screen are not part of Safari and thus have their own counter of days of use … we do not expect the
-   first-party in such a web application to have its website data deleted."* This is the only reliable
+   first-party in such a web application to have its website data deleted."_ This is the only reliable
    exemption, and it is the mitigation D5 declines.
 6. **Chrome and Edge on Windows have no such timer.** Their best-effort storage is evicted only under
    storage pressure, which Chrome's own research finds is very rare for a regularly visited site. **Her
@@ -67,7 +67,7 @@ Concretely:
 
 1. **Cloud sync is ON by default** (decision D12, revised). It is not a convenience feature; it is the
    only thing standing between the iPad and total data loss. First open includes a single one-tap
-   Google sign-in, framed as *"sign in so your notes are safe."*
+   Google sign-in, framed as _"sign in so your notes are safe."_
 2. **Sync runs on open and immediately after every write**, not on a timer and not on an explicit
    action.
 3. **Recovery must be automatic, silent, and non-alarming.** If local storage is empty and remote data
@@ -75,7 +75,7 @@ Concretely:
    A post-eviction open should feel like a normal open.
 4. **Assume she is signed out after an eviction.** ITP deletes the storage that Firebase Auth persists
    its session in, so a wiped iPad also loses the sign-in. The app must detect "no local data, but
-   remote data exists" and lead with *"your notes are safe — tap to sign in and get them back"*, never
+   remote data exists" and lead with _"your notes are safe — tap to sign in and get them back"_, never
    with an empty-state onboarding flow that implies her work is gone.
 5. **Export/import stays a first-class screen.** It is the only backup that does not depend on Google,
    the network, or a sync bug.

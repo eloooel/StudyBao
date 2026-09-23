@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+    <title>StudyBao</title>
+    <meta
+      name="description"
+      content="A study companion for PNLE review: flashcards with spaced repetition, a Pomodoro timer, and a lesson tracker."
+    />
+
+    <!-- This deployment is personal. Keep it out of search results. -->
+    <meta name="robots" content="noindex, nofollow" />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!--
+      iOS does not read every manifest field, so the Home Screen Web App needs these
+      explicitly. This is functional, not cosmetic: the Home Screen Web App is the one
+      configuration WebKit exempts from its 7-day storage deletion.
+      See docs/adr/0008-add-to-home-screen-on-ipad.md.
+    -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="StudyBao" />
+
+    <!-- Matches --color-primary in src/styles/theme.css -->
+    <meta name="theme-color" content="#F5A9B8" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

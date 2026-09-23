@@ -21,12 +21,12 @@ analysis lives. Do not smuggle it in.
 
 ## 1. Classify the trigger
 
-| Trigger | Mechanism | Can fire when |
-| --- | --- | --- |
-| Idle nudge | `now - lastInteractionAt > idleNudgeMin` during a Working session | page alive, foregrounded |
-| Welcome back | `visibilitychange` hidden → visible while a session is active | on her return |
-| Session end | wall-clock timer reaches zero | page alive; may be ~1 min late while hidden |
-| Streak reminder | evaluated on app open | she opens the app |
+| Trigger         | Mechanism                                                         | Can fire when                               |
+| --------------- | ----------------------------------------------------------------- | ------------------------------------------- |
+| Idle nudge      | `now - lastInteractionAt > idleNudgeMin` during a Working session | page alive, foregrounded                    |
+| Welcome back    | `visibilitychange` hidden → visible while a session is active     | on her return                               |
+| Session end     | wall-clock timer reaches zero                                     | page alive; may be ~1 min late while hidden |
+| Streak reminder | evaluated on app open                                             | she opens the app                           |
 
 A new trigger must fit one of these shapes, or it needs an ADR first.
 
@@ -39,7 +39,7 @@ A new trigger must fit one of these shapes, or it needs an ADR first.
 
 ## 3. Add the message-bank entry
 
-Lives in `src/features/notifications/lib/messages.ts` **(pending Workflow A)** as pure data, tagged:
+Lives in `src/features/notifications/lib/messages.ts` **(pending Workflow G)** as pure data, tagged:
 
 ```ts
 { id: 'idle-03', tag: 'idle', body: 'Still there? Your notes miss you 🎀' }

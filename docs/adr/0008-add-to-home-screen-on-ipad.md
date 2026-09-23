@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-09
 - **Supersedes:** [ADR 0007](0007-browser-only-no-install.md) (browser-only, no install). ADR 0007's
-  analysis of *why* storage is evicted remains the reference for the mechanism — and it corrected two
+  analysis of _why_ storage is evicted remains the reference for the mechanism — and it corrected two
   of my own errors, which is worth preserving.
 - **Related:** [ADR 0001](0001-local-first-with-indexeddb.md), [ADR 0005](0005-auth-google-single-user.md), [ADR 0006](0006-in-app-notifications-only.md)
 
@@ -14,7 +14,7 @@ deleted by ITP whenever she went seven days of browser use without visiting. The
 "cloud sync on by default, plus export", and the residual risk was listed as the top risk in the
 project.
 
-That conclusion rested on a misunderstanding of the word *install*. **"No install" meant "I don't want
+That conclusion rested on a misunderstanding of the word _install_. **"No install" meant "I don't want
 to make her download an app."** Add to Home Screen is not that:
 
 - It is **two taps in the Share sheet** (Share → Add to Home Screen → Add).
@@ -36,14 +36,14 @@ available. With the misunderstanding resolved, the product owner has approved pr
 **Prompt Add to Home Screen on iPadOS, and treat the Home Screen Web App as her primary home for the
 app. The Windows laptop stays a plain browser tab.**
 
-1. **Prompt on iPadOS only**, when the app is *not* already running standalone. Detect with
+1. **Prompt on iPadOS only**, when the app is _not_ already running standalone. Detect with
    `window.matchMedia('(display-mode: standalone)').matches || navigator.standalone`.
 2. **The prompt comes before sign-in, with a visible "skip for now".** Order matters, and not for
    cosmetic reasons: the Home Screen Web App **keeps its own storage, separate from Safari's** ("not
-   part of Safari", above). So if she signs in inside a Safari tab and *then* adds it to the home
+   part of Safari", above). So if she signs in inside a Safari tab and _then_ adds it to the home
    screen, the new app starts empty and **she has to sign in a second time**. Installing first means
    one sign-in, in the container her data will actually live in.
-3. **Tell her why, in one sentence** — *"two taps, and it stops your notes from being cleared"* — with
+3. **Tell her why, in one sentence** — _"two taps, and it stops your notes from being cleared"_ — with
    a screenshot of the Share sheet. No jargon, no "PWA", no "install".
 4. **After she installs, tell her to use the Home Screen icon rather than the Safari tab.** They are
    separate storage containers, so using both creates two divergent local copies that sync has to
@@ -67,7 +67,7 @@ app. The Windows laptop stays a plain browser tab.**
 - **Zero distribution cost.** No app store, no download, no build tooling, no update mechanism, no
   review process. It remains a static site on Vercel.
 - **Two taps is a smaller ask than signing in**, so it is not a meaningful addition to first-run
-  friction — and it now arrives *before* the Google button rather than after it.
+  friction — and it now arrives _before_ the Google button rather than after it.
 - **It makes offline genuinely reliable.** ADR 0007 had to accept that a post-eviction cold start
   needed the network once. In the Home Screen app that failure mode is gone.
 - Android and desktop are unaffected, and the same code path degrades to "no prompt" there.

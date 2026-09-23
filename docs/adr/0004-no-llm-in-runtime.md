@@ -6,7 +6,7 @@
 
 ## Context
 
-This repo is built *with* AI coding agents and is *for* a person preparing for a licensure exam. Those
+This repo is built _with_ AI coding agents and is _for_ a person preparing for a licensure exam. Those
 two facts are easy to confuse, so the boundary is written down here explicitly.
 
 The concrete feature under pressure is auto-generating flashcards from uploaded notes. The obvious

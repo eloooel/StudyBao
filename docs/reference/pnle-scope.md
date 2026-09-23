@@ -5,24 +5,24 @@ are not.**
 
 ## Source
 
-| Field | Value |
-| --- | --- |
-| Document | *Program of the Nurses Licensure Examination on Feb. 26-27, 2026* |
-| Issued by | Professional Regulation Commission / Professional Regulatory Board of Nursing |
-| Approved | December 01, 2025 |
-| Signed | Leah Primitiva S. Paquiz, Chairperson, PRB of Nursing |
-| Certified correct | Atty. Lovelika T. Bautista, Chief, PRB Secretariat Division |
-| Pages | 8 |
-| Obtained | Provided directly by the project owner |
-| Extraction | PyMuPDF `get_text()` for pages 1–3; pages 4–8 are scanned images and were read visually |
+| Field             | Value                                                                                   |
+| ----------------- | --------------------------------------------------------------------------------------- |
+| Document          | _Program of the Nurses Licensure Examination on Feb. 26-27, 2026_                       |
+| Issued by         | Professional Regulation Commission / Professional Regulatory Board of Nursing           |
+| Approved          | December 01, 2025                                                                       |
+| Signed            | Leah Primitiva S. Paquiz, Chairperson, PRB of Nursing                                   |
+| Certified correct | Atty. Lovelika T. Bautista, Chief, PRB Secretariat Division                             |
+| Pages             | 8                                                                                       |
+| Obtained          | Provided directly by the project owner                                                  |
+| Extraction        | PyMuPDF `get_text()` for pages 1–3; pages 4–8 are scanned images and were read visually |
 
-**Pages 4–8 are not part of the exam scope.** They are the full text of *PRC Memorandum Order No. 52,
-s. 2020* ("Examination Measures"), signed by Chairman Teofilo S. Pilando, Jr., published in the
+**Pages 4–8 are not part of the exam scope.** They are the full text of _PRC Memorandum Order No. 52,
+s. 2020_ ("Examination Measures"), signed by Chairman Teofilo S. Pilando, Jr., published in the
 Business Mirror September 15, 2020, effective immediately. It covers legal bases, definitions of
 moral turpitude, prohibited acts, and miscellaneous provisions — i.e. exam conduct rules, not content.
 
-> **Template artifact.** Every page footer reads *"Program of the Nurses Licensure Examination (NLE)
-> November 4-5, 2025"* while the title and schedule say February 26-27, 2026. PRC reuses the document
+> **Template artifact.** Every page footer reads _"Program of the Nurses Licensure Examination (NLE)
+> November 4-5, 2025"_ while the title and schedule say February 26-27, 2026. PRC reuses the document
 > template between sittings — which is good news, because it means the **scope structure below is
 > stable across sittings** even though the dates change.
 
@@ -62,14 +62,14 @@ Pharmacology and Therapeutics
 
 ## Schedule (verbatim, for the Feb 2026 sitting)
 
-| Day | Time | Part |
-| --- | --- | --- |
-| Thu Feb 26 | 7:00–7:45 AM | General instructions, filling out of forms |
-| Thu Feb 26 | 8:00–10:00 AM | Nursing Practice I |
-| Thu Feb 26 | 11:30 AM–1:30 PM | Nursing Practice II (Parts 1 & 2) |
-| Thu Feb 26 | 2:30–4:30 PM | Nursing Practice III |
-| Fri Feb 27 | 8:00–10:00 AM | Nursing Practice IV |
-| Fri Feb 27 | 11:30 AM–1:30 PM | Nursing Practice V |
+| Day        | Time             | Part                                       |
+| ---------- | ---------------- | ------------------------------------------ |
+| Thu Feb 26 | 7:00–7:45 AM     | General instructions, filling out of forms |
+| Thu Feb 26 | 8:00–10:00 AM    | Nursing Practice I                         |
+| Thu Feb 26 | 11:30 AM–1:30 PM | Nursing Practice II (Parts 1 & 2)          |
+| Thu Feb 26 | 2:30–4:30 PM     | Nursing Practice III                       |
+| Fri Feb 27 | 8:00–10:00 AM    | Nursing Practice IV                        |
+| Fri Feb 27 | 11:30 AM–1:30 PM | Nursing Practice V                         |
 
 **Five two-hour sessions across two days.** Each slot is 2 hours — the document does **not** state an
 item count per part.
@@ -93,7 +93,7 @@ A widely-indexed prep site ("NLE November 2027" guide) publishes a "5 Subjects" 
 **different content for every part** than the official program — it labels Nursing Practice I as
 "Foundations of Nursing", Nursing Practice II as "Care of Mother, Child and Family", and Nursing
 Practice V as "Care of Clients Across Lifespan" including Community Health Nursing. The official
-program says Nursing Practice I *is* Community Health Nursing, and Nursing Practice V is maladaptive
+program says Nursing Practice I _is_ Community Health Nursing, and Nursing Practice V is maladaptive
 behavior plus life-threatening/high-acuity care.
 
 That page also asserts "each 100 items" and topic weights. The official program states no item counts.

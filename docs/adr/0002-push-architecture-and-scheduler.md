@@ -2,7 +2,7 @@
 
 - **Status:** ⚠️ **Superseded by [ADR 0006](0006-in-app-notifications-only.md)** — the product no longer
   delivers notifications while the app is closed, so the backend this ADR specifies is not built.
-  Retained because the analysis of *why* client-side scheduling is impossible remains correct and is
+  Retained because the analysis of _why_ client-side scheduling is impossible remains correct and is
   the reason ADR 0006 scopes what it does.
 - **Date:** 2026-02 (planning)
 - **Supersedes:** the "Firebase Cloud Messaging + attention triggers" design in the original build guide
@@ -47,7 +47,7 @@ Three facts break the original design:
 
 - Notifications work with the app fully closed, on both platforms.
 - No card on file, no Cloud Functions, no FCM SDK, no second service worker dependency.
-- The trigger vocabulary becomes small and testable: *schedule, cancel, tick*.
+- The trigger vocabulary becomes small and testable: _schedule, cancel, tick_.
 - Idle nudges are inherently rate-limited, because a nudge only exists if a session created it.
 
 **Bad / cost**

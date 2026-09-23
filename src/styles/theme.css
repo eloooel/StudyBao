@@ -1,0 +1,153 @@
+@import 'tailwindcss';
+
+/*
+ * Fonts are self-hosted via @fontsource. A Google Fonts <link> is a network
+ * dependency that breaks the offline story — see CLAUDE.md.
+ * Weights are deliberately limited to 400+ : ultra-light rounded type is the
+ * classic coquette readability trap for dense nursing content.
+ */
+@import '@fontsource/quicksand/500.css';
+@import '@fontsource/quicksand/600.css';
+@import '@fontsource/quicksand/700.css';
+@import '@fontsource/nunito/400.css';
+@import '@fontsource/nunito/600.css';
+@import '@fontsource/nunito/700.css';
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Design tokens. Contrast ratios below are COMPUTED, not estimated, against the
+ * surface each value is actually used on. Do not "improve" a colour without
+ * recomputing — see docs/BUILD_GUIDE.md §5 and the palette table in
+ * docs/CRITIQUE.md.
+ *
+ * Because Tailwind v4 emits theme values as CSS custom properties and utilities
+ * reference them via var(), overriding these under [data-theme='night'] retints
+ * the whole app at runtime with no per-component work. Keep it that way: do not
+ * add `night:` variants to components.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+@theme {
+  /* Type */
+  --font-display: 'Quicksand', ui-rounded, 'Segoe UI', system-ui, sans-serif;
+  --font-sans: 'Nunito', ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Surfaces */
+  --color-canvas: #fff9fa;
+  --color-surface: #ffffff;
+
+  /* Primary. White on rose is 1.87:1 and FAILS; plum on rose is 6.49:1. */
+  --color-primary: #f5a9b8;
+  --color-primary-hover: #e88ba0;
+  /* Darker rose for cases needing white text: 4.77:1 with white. */
+  --color-primary-strong: #b2556b;
+  --color-on-primary: #4a2e35;
+  --color-on-strong: #ffffff;
+
+  /* Accents. Mauve and sage are FILLS ONLY — as text on white they are 2.08:1
+     and 1.57:1. With plum text on them they are 5.83:1 and 7.71:1. */
+  --color-accent: #f26d85;
+  --color-mauve: #d9a7b0;
+  --color-sage: #b7d7b0;
+
+  /* Text */
+  --color-ink: #4a2e35; /* 11.64:1 on canvas */
+  --color-ink-muted: #7d5b63; /* 5.69:1 on canvas — body and labels */
+  --color-ink-faint: #9c7c82; /* 3.59:1 — large text only, never body copy */
+
+  /* Lines */
+  --color-line: #f6d9de;
+
+  /* Shape */
+  --radius-card: 1rem;
+  --radius-control: 0.875rem;
+
+  /* Shadow: pink-tinted, never harsh black (docs/BUILD_GUIDE.md §5). */
+  --shadow-soft: 0 1px 2px rgba(242, 109, 133, 0.08), 0 8px 24px rgba(242, 109, 133, 0.12);
+}
+
+/*
+ * Night theme (decision D9 — kept, and cheap to remove: delete this block and
+ * the toggle in Settings). A dim plum rather than black: a #FFF9FA screen at
+ * 2am is physically unpleasant and she will be using this at 2am.
+ *
+ * Ratios: ink on canvas 13.5:1 · ink-muted on canvas 7.9:1 · dark text on the
+ * lighter primary 7.9:1. The "on-*" tokens flip to dark, which is why
+ * components must never hardcode a text colour on a coloured fill.
+ */
+:root[data-theme='night'] {
+  --color-canvas: #2a1d22;
+  --color-surface: #35262c;
+
+  --color-primary: #e8a3b2;
+  --color-primary-hover: #f2b4c1;
+  --color-primary-strong: #c97e92;
+  --color-on-primary: #2a1d22;
+  --color-on-strong: #2a1d22;
+
+  --color-accent: #f08ca1;
+  --color-mauve: #6b4a52;
+  --color-sage: #4f6b4c;
+
+  --color-ink: #f6e7ea;
+  --color-ink-muted: #c9aeb4;
+  --color-ink-faint: #a98d93;
+
+  --color-line: #4a343b;
+
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.24), 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* iPad Safari: keep the safe areas clear in landscape. */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    /* Generous body sizing: she is reading dense nursing content, not decoration. */
+    font-size: 1rem;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    /* Do not let iPad Safari rubber-band reveal white behind the page. */
+    overscroll-behavior-y: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+
+  /* Visible focus for keyboard users; quiet for touch, which is the main input. */
+  :focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  ::selection {
+    background-color: var(--color-mauve);
+    color: var(--color-ink);
+  }
+
+  /* Respect the OS setting. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

@@ -39,12 +39,12 @@ The guide says:
 
 While the app is closed, **no JavaScript is running**. There is no client to notice idleness and no
 client to fire a notification. The feature as written only works while the tab is open — which is
-exactly the case where the user is *not* away and the nudge is useless.
+exactly the case where the user is _not_ away and the nudge is useless.
 
 The same problem hits the daily streak reminder ("scheduled push if no session logged yet by a
 configurable time of day") — that requires a server that can look up whether activity happened.
 
-**The inversion that works:** *pre-schedule, then cancel.* At Pomodoro start, the client asks the
+**The inversion that works:** _pre-schedule, then cancel._ At Pomodoro start, the client asks the
 backend to queue a push at `startedAt + X` minutes. Any interaction cancels it. If she is genuinely
 gone, the push fires from the backend — which is the behaviour you wanted. Same for session end.
 
@@ -53,14 +53,14 @@ gone, the push fires from the backend — which is the behaviour you wanted. Sam
 
 > **Resolution (2026-09).** Rather than build G0, the product owner removed the requirement: there are
 > no notifications while the app is closed, so delivery is in-app only and the backend disappears. The
-> analysis above still stands — it is *why* in-app-only was chosen, and it is why the app can no longer
+> analysis above still stands — it is _why_ in-app-only was chosen, and it is why the app can no longer
 > promise a cue when she closes it. See [ADR 0006](adr/0006-in-app-notifications-only.md); the
 > pre-schedule design is preserved in [ADR 0002](adr/0002-push-architecture-and-scheduler.md) as the
 > path back.
 
 Also: there is no client-side fallback. Chrome's Notification Triggers API (`showTrigger` /
 `TimestampTrigger`) — the one API that would have made local scheduling possible — is documented as
-*"development … is no longer pursued"* by the Chrome team. Do not design around it.
+_"development … is no longer pursued"_ by the Chrome team. Do not design around it.
 
 Source: [Chrome for Developers — Notification Triggers](https://developer.chrome.com/docs/web-platform/notification-triggers)
 
@@ -84,7 +84,7 @@ eviction, or one "Clear website data" tap destroys every card, every SM-2 interv
 Safari applies a **7-day cap on script-writable storage** unless the site is added to the Home
 Screen, which exempts it. So on iPhone the data is fragile unless she installs the PWA.
 
-**Fix:** JSON export/import in Settings, *and* surface the iOS risk where it can be acted on.
+**Fix:** JSON export/import in Settings, _and_ surface the iOS risk where it can be acted on.
 
 > **Superseded resolution (2026-09).** The proposed fix was an install screen framed as data safety.
 > D5 decided she will **not** install, so installation is off the table as a mitigation. The risk is
@@ -97,14 +97,14 @@ Source: [WebKit bug 209501 — 7-Day Cap on All Script-Writable Storage](https:/
 
 ### 🔴 A4. `Card` has no history, so Workflow F's headline feature is unbuildable
 
-Workflow F promises *"weak topics auto-flagged from grading history"* and *"cards with low ease
-factor or frequent 'Again' grades."* But the model in Workflow B is:
+Workflow F promises _"weak topics auto-flagged from grading history"_ and _"cards with low ease
+factor or frequent 'Again' grades."_ But the model in Workflow B is:
 
 ```
 Card { id, deckId, front, back, easeFactor, interval, repetitions, nextReview }
 ```
 
-There is no per-review record. `easeFactor` is a smoothed scalar; it cannot tell you *how often* she
+There is no per-review record. `easeFactor` is a smoothed scalar; it cannot tell you _how often_ she
 graded Again, and an "Again" early in a card's life is largely erased by later successes. Any
 dashboard built on this will show a number that is subtly wrong and that she will not trust.
 
@@ -135,7 +135,7 @@ instead of a string comparison that breaks at midnight and across timezones.
 
 ### 🟠 B1. Firebase Cloud Functions requires Blaze — the free-tier claim is not quite true
 
-"Firebase Cloud Messaging (free)" is true of FCM itself, but FCM needs a *sender*, and the
+"Firebase Cloud Messaging (free)" is true of FCM itself, but FCM needs a _sender_, and the
 scheduled-sender is Cloud Functions. Deploying Cloud Functions requires the **Blaze (pay-as-you-go)
 plan with a card on file**. At this scale the bill is genuinely $0, but "free tools only, no billing
 account" quietly becomes "free but with a credit card on file", and budget alerts do not hard-stop
@@ -184,7 +184,7 @@ offline path.
 > makes the `beforeinstallprompt` item moot, since there is no install screen to hand-write. See
 > [ADR 0007](adr/0007-browser-only-no-install.md).
 
-- Requires **iOS 16.4+** *and* the app added to the Home Screen. Push from a Safari tab does not work.
+- Requires **iOS 16.4+** _and_ the app added to the Home Screen. Push from a Safari tab does not work.
 - The manifest needs `"display": "standalone"` (or `fullscreen`); ship `apple-mobile-web-app-capable`
   and `apple-touch-icon` too, because iOS ignores parts of the manifest.
 - **iOS never fires `beforeinstallprompt`** — there is no install button. Without a hand-written
@@ -225,7 +225,7 @@ Meanwhile the highest-accuracy ingest paths cost nothing and are absent:
 ### 🟠 B7. The parser rules will drown her in false positives
 
 - Colons appear in ordinary prose. `"Diagnosis: acute pain"` is a definition; `"Note: she reported:
-  pain"` is not.
+pain"` is not.
 - Hyphens appear inside words. `self-esteem`, `bottle-feeding`, `post-operative` will all be split as
   `Term - Definition`.
 - The guide offers no guard on the left-hand side. Require a short (< ~60 chars), non-sentence,
@@ -262,21 +262,21 @@ polish pass.
 The palette is lovely and **mostly unreadable as text**. Contrast ratios below were computed from the
 WCAG 2.1 relative-luminance formula (not estimated) — re-run the same check if the palette changes:
 
-| Pair | Ratio | Required | Result |
-| --- | --- | --- | --- |
-| white on `#F5A9B8` (primary button) | **1.87:1** | 4.5:1 | ✘ fails even 3:1 |
-| `#4A2E35` on `#F5A9B8` | **6.49:1** | 4.5:1 | ✔ |
-| white on `#E88BA0` (hover) | 2.43:1 | 4.5:1 | ✘ |
-| `#4A2E35` on `#E88BA0` | 4.98:1 | 4.5:1 | ✔ |
-| white on `#F26D85` (accent 1) | 2.88:1 | 4.5:1 | ✘ for text; OK for icons/large |
-| white on `#B2556B` (proposed strong variant) | 4.77:1 | 4.5:1 | ✔ |
-| `#9C7C82` (text secondary) on `#FFF9FA` | **3.59:1** | 4.5:1 | ✘ for body text |
-| `#7D5B63` on `#FFF9FA` (proposed) | 5.69:1 | 4.5:1 | ✔ |
-| `#B7D7B0` (sage) as text on white | 1.57:1 | 4.5:1 | ✘ fill only |
-| `#D9A7B0` (mauve) as text on white | 2.08:1 | 4.5:1 | ✘ fill only |
-| `#4A2E35` on `#FFF9FA` | 11.64:1 | 4.5:1 | ✔ |
-| `#4A2E35` **on** `#B7D7B0` | 7.71:1 | 4.5:1 | ✔ — the fill+plum fix works |
-| `#4A2E35` **on** `#D9A7B0` | 5.83:1 | 4.5:1 | ✔ |
+| Pair                                         | Ratio      | Required | Result                         |
+| -------------------------------------------- | ---------- | -------- | ------------------------------ |
+| white on `#F5A9B8` (primary button)          | **1.87:1** | 4.5:1    | ✘ fails even 3:1               |
+| `#4A2E35` on `#F5A9B8`                       | **6.49:1** | 4.5:1    | ✔                              |
+| white on `#E88BA0` (hover)                   | 2.43:1     | 4.5:1    | ✘                              |
+| `#4A2E35` on `#E88BA0`                       | 4.98:1     | 4.5:1    | ✔                              |
+| white on `#F26D85` (accent 1)                | 2.88:1     | 4.5:1    | ✘ for text; OK for icons/large |
+| white on `#B2556B` (proposed strong variant) | 4.77:1     | 4.5:1    | ✔                              |
+| `#9C7C82` (text secondary) on `#FFF9FA`      | **3.59:1** | 4.5:1    | ✘ for body text                |
+| `#7D5B63` on `#FFF9FA` (proposed)            | 5.69:1     | 4.5:1    | ✔                              |
+| `#B7D7B0` (sage) as text on white            | 1.57:1     | 4.5:1    | ✘ fill only                    |
+| `#D9A7B0` (mauve) as text on white           | 2.08:1     | 4.5:1    | ✘ fill only                    |
+| `#4A2E35` on `#FFF9FA`                       | 11.64:1    | 4.5:1    | ✔                              |
+| `#4A2E35` **on** `#B7D7B0`                   | 7.71:1     | 4.5:1    | ✔ — the fill+plum fix works    |
+| `#4A2E35` **on** `#D9A7B0`                   | 5.83:1     | 4.5:1    | ✔                              |
 
 The three fixes that matter:
 
@@ -285,7 +285,7 @@ The three fixes that matter:
 2. **Darken text-secondary to `#7D5B63`.** The original `#9C7C82` is used for exactly the small labels
    and helper text that need the most contrast.
 3. **Sage and mauve are fills, never foregrounds.** The guide's stated intent — "keeps 'mastered'
-   readable, not just another pink" — is right; it just needs sage as a badge *background* with plum
+   readable, not just another pink" — is right; it just needs sage as a badge _background_ with plum
    text on top.
 
 Also:
@@ -318,8 +318,8 @@ What is actually true:
 - ✅ B, D, E are genuinely parallel after A. Good call.
 - ✅ C after B is correct.
 - 🔴 **F does not only need B/D/E — it needs a history model that B does not specify.** See A4.
-- 🔴 **G needs an entire backend (G0) that is not in the graph.** See A1. *(Resolved 2026-09 by
-  dropping closed-app delivery rather than building G0.)*
+- 🔴 **G needs an entire backend (G0) that is not in the graph.** See A1. _(Resolved 2026-09 by
+  dropping closed-app delivery rather than building G0.)_
 - 🔴 **G also needs synced activity data** to answer "did she study today?" — so G depends on the sync
   half of decision #1, not just on D.
 - 🔴 **There is no test harness anywhere in the plan.** SM-2 and the parser are pure functions with
@@ -327,9 +327,9 @@ What is actually true:
   A0.
 - 🟠 **H is not the only place with empty states / install UX.** The iOS install screen is not polish,
   it is load-bearing for both push and data durability. Moved into H as a first-class deliverable and
-  flagged in A (manifest/meta tags). *(Superseded: D5 drops installation entirely, so there is no
+  flagged in A (manifest/meta tags). _(Superseded: D5 drops installation entirely, so there is no
   install screen — see [ADR 0007](adr/0007-browser-only-no-install.md). The underlying point, that
-  durability cannot be left to the polish pass, is what survived.)*
+  durability cannot be left to the polish pass, is what survived.)_
 - 🟠 `Lesson` model needs `notes` and `updatedAt`; `Session` needs `startedAt`/`endedAt`/`completed`/
   `tabHiddenCount` to support the post-session stat the guide promises.
 
@@ -341,7 +341,7 @@ Corrected graph is in `BUILD_GUIDE.md` §4.
 
 - ✅ **No LLM in the product.** Client-side OCR + deterministic parsing keeps runtime cost at zero,
   keeps notes private, and works offline. It is also the right call for a study tool where a
-  hallucinated flashcard is worse than no flashcard. The *dev-time* AI question is separate and is
+  hallucinated flashcard is worse than no flashcard. The _dev-time_ AI question is separate and is
   now governed — see [`ai/README.md`](ai/README.md).
 - ✅ **"Never silently dropped" for unparsed text.** This is the single best design decision in the
   document. Keep it everywhere.
@@ -349,7 +349,7 @@ Corrected graph is in `BUILD_GUIDE.md` §4.
 - ✅ **Requesting notification permission after the first timer use, not on first load.** Exactly
   right; this is what keeps the permission grant rate from being zero.
 - ✅ **Conservative notification cadence.** Right instinct; now enforced with caps and quiet hours.
-- ✅ **Framing the tab-switch stat gently.** Right instinct — the *name* "tab-switch counter" was the
+- ✅ **Framing the tab-switch stat gently.** Right instinct — the _name_ "tab-switch counter" was the
   only part working against it.
 - ✅ **Coquette voice in microcopy, not only in colour.** Correct and rare.
 - ✅ **SM-2 over a library, with the algorithm documented.** Reasonable; SM-2's failure modes are
@@ -362,16 +362,16 @@ Corrected graph is in `BUILD_GUIDE.md` §4.
 
 ## F. Scope check — free-tier reality
 
-| Claim | Verified reality |
-| --- | --- |
-| Firebase Hosting free | ✅ Spark: 10 GB storage, 360 MB/day transfer. Fine for one user. |
-| Firestore free | ✅ Spark: 1 GiB, 50k reads / 20k writes / 20k deletes per day. Orders of magnitude more than one user needs. Watch out: a query returning N docs costs N reads, so don't re-read all cards on every dashboard render — cache locally. |
-| Firebase Auth free | ✅ Fine at this scale. |
-| Cloud Functions free | 🟠 Requires Blaze + card on file. See B1. |
-| FCM free | ✅ Free, but not needed. See B2. |
-| Tesseract.js free | ✅ Free and client-side; the CDN asset weight and offline behaviour are the real costs. See B6. |
-| Vercel/Firebase Hosting HTTPS | ✅ Both fine. |
-| GitHub Actions cron as scheduler | 🟠 ~5 min minimum, routinely delayed, disabled after 60 days of repo inactivity. Fine for a daily reminder, not for idle nudges. |
+| Claim                            | Verified reality                                                                                                                                                                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Firebase Hosting free            | ✅ Spark: 10 GB storage, 360 MB/day transfer. Fine for one user.                                                                                                                                                                      |
+| Firestore free                   | ✅ Spark: 1 GiB, 50k reads / 20k writes / 20k deletes per day. Orders of magnitude more than one user needs. Watch out: a query returning N docs costs N reads, so don't re-read all cards on every dashboard render — cache locally. |
+| Firebase Auth free               | ✅ Fine at this scale.                                                                                                                                                                                                                |
+| Cloud Functions free             | 🟠 Requires Blaze + card on file. See B1.                                                                                                                                                                                             |
+| FCM free                         | ✅ Free, but not needed. See B2.                                                                                                                                                                                                      |
+| Tesseract.js free                | ✅ Free and client-side; the CDN asset weight and offline behaviour are the real costs. See B6.                                                                                                                                       |
+| Vercel/Firebase Hosting HTTPS    | ✅ Both fine.                                                                                                                                                                                                                         |
+| GitHub Actions cron as scheduler | 🟠 ~5 min minimum, routinely delayed, disabled after 60 days of repo inactivity. Fine for a daily reminder, not for idle nudges.                                                                                                      |
 
 Net: the free-tier plan holds, with one substitution (a cron host other than Cloud Functions) and one
 honest caveat (a card on file if Firebase Functions is kept).
@@ -386,7 +386,7 @@ honest caveat (a card on file if Firebase Functions is kept).
    features. Install problems found on day 1 cost an hour; found on day 20 they cost a rewrite.
 3. B and D in parallel (D is the fastest win and the thing she will use on day one).
 4. C and E in parallel.
-5. F, then G. *(G0 was removed by ADR 0006 — G now depends on D alone.)*
+5. F, then G. _(G0 was removed by ADR 0006 — G now depends on D alone.)_
 6. H, then hand it over with the install instructions.
 
 ---
@@ -398,29 +398,29 @@ implementations so AI use in this repo is controlled. Full audit done; this is t
 
 ### H1. What exists over there
 
-| Artifact | Where | Purpose |
-| --- | --- | --- |
-| `CLAUDE.md` | both repos | Invariants + architecture map + commands. Deliberately **not** procedure. |
-| `docs/ai/*.md` (9 runbooks + README) | app only | The actual procedure. Tool-agnostic, each opens with a "Canonical examples:" block naming real files to copy. |
-| `.claude/skills/*/SKILL.md` (9) | app only | ~6-line discovery shims: YAML frontmatter + "Read `docs/ai/X.md` and follow it exactly" + `$ARGUMENTS`. Zero duplicated procedure. |
-| `.claude/skills/feature-flags/SKILL.md` | backend only | **Not a shim** — 4.5 KB of inline procedure with **no YAML frontmatter**, so it cannot be discovered as a skill at all. |
-| `docs/adr/*.md` (6) / `ADR/*.md` (5) | backend / app | Decision records, in two different house styles and two different folders. |
-| `CONTRIBUTING.md`, `README.md` | app | Human onboarding. |
-| `.github/workflows/ci.yml` | both | lint (tsc + eslint + prettier) / test (coverage) / build / e2e. |
-| `.github/workflows/claude*.yml` (2) | app | AI-in-CI |
-| `.claude/settings.local.json` | app | Permissions |
-| `.husky/pre-commit` + `lint-staged` | both | eslint --fix + prettier on staged files. |
+| Artifact                                | Where         | Purpose                                                                                                                            |
+| --------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `CLAUDE.md`                             | both repos    | Invariants + architecture map + commands. Deliberately **not** procedure.                                                          |
+| `docs/ai/*.md` (9 runbooks + README)    | app only      | The actual procedure. Tool-agnostic, each opens with a "Canonical examples:" block naming real files to copy.                      |
+| `.claude/skills/*/SKILL.md` (9)         | app only      | ~6-line discovery shims: YAML frontmatter + "Read `docs/ai/X.md` and follow it exactly" + `$ARGUMENTS`. Zero duplicated procedure. |
+| `.claude/skills/feature-flags/SKILL.md` | backend only  | **Not a shim** — 4.5 KB of inline procedure with **no YAML frontmatter**, so it cannot be discovered as a skill at all.            |
+| `docs/adr/*.md` (6) / `ADR/*.md` (5)    | backend / app | Decision records, in two different house styles and two different folders.                                                         |
+| `CONTRIBUTING.md`, `README.md`          | app           | Human onboarding.                                                                                                                  |
+| `.github/workflows/ci.yml`              | both          | lint (tsc + eslint + prettier) / test (coverage) / build / e2e.                                                                    |
+| `.github/workflows/claude*.yml` (2)     | app           | AI-in-CI                                                                                                                           |
+| `.claude/settings.local.json`           | app           | Permissions                                                                                                                        |
+| `.husky/pre-commit` + `lint-staged`     | both          | eslint --fix + prettier on staged files.                                                                                           |
 
 Verified absent in both repos: `AGENTS.md`, `.cursorrules`, `.github/copilot-instructions.md`,
 `.claude/commands/`. `monorepo/` and `app-playground/` contain no agent-instruction files.
 
 ### H2. The mechanism worth stealing (and it was stolen)
 
-The layers have one job each, and the separation is *enforced by convention*: `CLAUDE.md` refuses to
+The layers have one job each, and the separation is _enforced by convention_: `CLAUDE.md` refuses to
 hold procedure ("Use the `add-component` skill / `docs/ai/add-component.md` … don't duplicate that list
 here, **it drifts**"), the runbook holds procedure, and the skill file is a 6-line pointer. The
 directory name, the `name:` frontmatter field, and the runbook filename stem are all identical — that
-identity *is* the mechanism. Only two things vary between skills: the `description`, written as a
+identity _is_ the mechanism. Only two things vary between skills: the `description`, written as a
 **trigger condition** ("Use when the user says the work is done, wants to push, or asks to prep a
 PR"), and a single restated invariant.
 
@@ -434,7 +434,7 @@ Two ground rules from their `docs/ai/README.md` are the reason the layer survive
 
 Both are ported verbatim into `docs/ai/README.md`.
 
-The third good idea: **put the rule in the error message.** Their ESLint messages state the fix *and*
+The third good idea: **put the rule in the error message.** Their ESLint messages state the fix _and_
 name the ADR, so the constraint is machine-enforced and self-explaining at the moment it fires. That
 is now a documented convention here.
 
@@ -474,31 +474,31 @@ is now a documented convention here.
 
 **Ported (adapted to this project, not copied wholesale):**
 
-| File | Notes |
-| --- | --- |
-| `CLAUDE.md` | Invariants, commands, architecture, constraints. No procedure. Now also carries the two AI boundaries. |
-| `AGENTS.md` | A 10-line pointer, for tools that do not read `CLAUDE.md`. KadaKareer has no equivalent; added because it is cheap. |
-| `docs/ai/README.md` | Index + ground rules + the runbook skeleton + the two conventions. |
-| 7 runbooks | `add-feature`, `add-component`, `write-tests`, `change-data-model`, `add-notification`, `cleanup`, `pre-pr`. Five are project-specific; two (`write-tests`, `cleanup`) are near-universal and ported in spirit. |
-| `.claude/skills/*/SKILL.md` (7) | The 6-line shim mechanism, exactly. |
-| `.claude/settings.json` | Permission allow/ask/**deny**, including deny-read on `.env`, `*.pem`, `vapid*.json`, and service-account files. |
-| `docs/adr/README.md` + 5 ADRs | Their `Context / Decision / Consequences / Alternatives` shape, with a mandatory **Bad / cost** section. |
-| `CONTRIBUTING.md` | Deliberately short. Non-negotiables + how to review an agent-authored change. No procedure duplication. |
-| `.github/workflows/ci.yml` | 3 jobs, plus a **real** check that `dist/sw.js` and the manifest exist. |
+| File                            | Notes                                                                                                                                                                                                           |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLAUDE.md`                     | Invariants, commands, architecture, constraints. No procedure. Now also carries the two AI boundaries.                                                                                                          |
+| `AGENTS.md`                     | A 10-line pointer, for tools that do not read `CLAUDE.md`. KadaKareer has no equivalent; added because it is cheap.                                                                                             |
+| `docs/ai/README.md`             | Index + ground rules + the runbook skeleton + the two conventions.                                                                                                                                              |
+| 7 runbooks                      | `add-feature`, `add-component`, `write-tests`, `change-data-model`, `add-notification`, `cleanup`, `pre-pr`. Five are project-specific; two (`write-tests`, `cleanup`) are near-universal and ported in spirit. |
+| `.claude/skills/*/SKILL.md` (7) | The 6-line shim mechanism, exactly.                                                                                                                                                                             |
+| `.claude/settings.json`         | Permission allow/ask/**deny**, including deny-read on `.env`, `*.pem`, `vapid*.json`, and service-account files.                                                                                                |
+| `docs/adr/README.md` + 5 ADRs   | Their `Context / Decision / Consequences / Alternatives` shape, with a mandatory **Bad / cost** section.                                                                                                        |
+| `CONTRIBUTING.md`               | Deliberately short. Non-negotiables + how to review an agent-authored change. No procedure duplication.                                                                                                         |
+| `.github/workflows/ci.yml`      | 3 jobs, plus a **real** check that `dist/sw.js` and the manifest exist.                                                                                                                                         |
 
 **Skipped, with reasons:**
 
-| Skipped | Why |
-| --- | --- |
-| `claude.yml` / `claude-code-review.yml` | Inert upstream, and they need a `CLAUDE_CODE_OAUTH_TOKEN` secret. Adding a disabled workflow that looks like governance is the exact failure mode found in H3.1. |
-| Their `CONTRIBUTING.md` (18 KB) | Third stale copy of the runbooks. |
-| `ADRs 001–005` from app | They argue a stack migration (styled-components → Tailwind, Formik → RHF, Orval strategy) that this repo never performs. |
+| Skipped                                                               | Why                                                                                                                                                                       |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `claude.yml` / `claude-code-review.yml`                               | Inert upstream, and they need a `CLAUDE_CODE_OAUTH_TOKEN` secret. Adding a disabled workflow that looks like governance is the exact failure mode found in H3.1.          |
+| Their `CONTRIBUTING.md` (18 KB)                                       | Third stale copy of the runbooks.                                                                                                                                         |
+| `ADRs 001–005` from app                                               | They argue a stack migration (styled-components → Tailwind, Formik → RHF, Orval strategy) that this repo never performs.                                                  |
 | `connect-api.md`, `ui-first.md`, `add-form.md`, `add-feature-flag.md` | Each describes machinery this project does not have (codegen + MSW mock mode + a large form surface + env feature flags). A flag system for a one-user app is pure bloat. |
-| `backend/KadaKareer_Backend_Developer_Standards_Updated.md` | 70 KB with production source pasted into prose. |
-| Backend's NestJS-specific rules | Swagger decorator catalogue, admin-vs-REST routing duality, controller naming table. Different stack. |
-| `.claude/settings.local.json` | Gitignored local state with one dead one-off permission. `.claude/settings.json` (committed, portable) replaces it. |
-| Chromatic / Storybook workflows | No Storybook here. |
-| Backend's `feature-flags/SKILL.md` | Broken as a skill (no frontmatter) and describes machinery this project does not need. |
+| `backend/KadaKareer_Backend_Developer_Standards_Updated.md`           | 70 KB with production source pasted into prose.                                                                                                                           |
+| Backend's NestJS-specific rules                                       | Swagger decorator catalogue, admin-vs-REST routing duality, controller naming table. Different stack.                                                                     |
+| `.claude/settings.local.json`                                         | Gitignored local state with one dead one-off permission. `.claude/settings.json` (committed, portable) replaces it.                                                       |
+| Chromatic / Storybook workflows                                       | No Storybook here.                                                                                                                                                        |
+| Backend's `feature-flags/SKILL.md`                                    | Broken as a skill (no frontmatter) and describes machinery this project does not need.                                                                                    |
 
 Plus two things from the backend that the app lacks and that are worth having, expressed as project
 rules rather than config: **`no-floating-promises` as an error** (every `await` matters when a write

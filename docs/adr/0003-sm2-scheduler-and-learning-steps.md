@@ -60,7 +60,7 @@ proxy that grading Easy inflates without the card actually being durable.
   express learning steps at all.
 - **Anki's exact scheduler.** Correct but large and highly specific; reimplementing it faithfully is
   more work than the value it adds here.
-- **FSRS.** Better retention-per-review than SM-2 and now well documented. Rejected *for v1* on
+- **FSRS.** Better retention-per-review than SM-2 and now well documented. Rejected _for v1_ on
   complexity, but the `ReviewLog` design intentionally keeps FSRS reachable later — that is a large
   part of why the log exists.
 - **A library.** Rejected: the algorithm is ~40 lines, and owning it means we can add cram mode

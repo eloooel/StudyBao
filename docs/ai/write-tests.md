@@ -1,18 +1,18 @@
 # Write tests
 
-Add or fix tests. This repo tests *rules*, not rendering.
+Add or fix tests. This repo tests _rules_, not rendering.
 
 ## What must be tested (non-negotiable)
 
 These are pure functions whose bugs are silent and whose consequences she feels for weeks:
 
-| Module | Why it is critical |
-| ------------------------------ | -------------------------------------------------------------- |
-| `features/flashcards/lib/sm2.ts` | A wrong interval is invisible until her exam. |
+| Module                              | Why it is critical                                                 |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| `features/flashcards/lib/sm2.ts`    | A wrong interval is invisible until her exam.                      |
 | `features/flashcards/lib/parser.ts` | Silent data loss: a dropped note line is a card she never reviews. |
-| `sync/lib/merge.ts` | A wrong merge resurrects deleted cards or discards edits. |
-| `features/timer/lib/timer.ts` | Wall-clock math; a bug means the timer lies about remaining time. |
-| `features/dashboard/lib/stats.ts` | Streak/mastery math she will act on. |
+| `sync/lib/merge.ts`                 | A wrong merge resurrects deleted cards or discards edits.          |
+| `features/timer/lib/timer.ts`       | Wall-clock math; a bug means the timer lies about remaining time.  |
+| `features/dashboard/lib/stats.ts`   | Streak/mastery math she will act on.                               |
 
 Target: **100% branch coverage on `lib/` pure functions.** A threshold in `vitest.config.ts` enforces
 the floor; the floor is not the goal.
@@ -34,7 +34,7 @@ Write these before the UI:
 2. A new card graded **Again** does not jump to 1 day; it re-enters a sub-day learning step and
    increments `lapses`.
 3. Ease factor **never falls below 1.3**, even after ten consecutive **Again** grades.
-4. Ease factor is updated on *every* grade, including failures.
+4. Ease factor is updated on _every_ grade, including failures.
 5. **Easy** produces a strictly larger ease factor than **Good**, which is strictly larger than
    **Hard**.
 6. `nextReview` is always strictly in the future (no card can be scheduled in the past).
@@ -57,7 +57,7 @@ Write these before the UI:
 - Co-locate: `lib/sm2.ts` → `lib/sm2.test.ts`.
 - Always inject time. `new Date()` inside a pure function makes it untestable and is a bug.
 - Test names describe behaviour, not implementation: `"floors ease factor at 1.3 after repeated
-  failures"`, not `"test 3"`.
+failures"`, not `"test 3"`.
 
 ## Check
 

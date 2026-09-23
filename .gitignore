@@ -2,6 +2,11 @@
 node_modules/
 .pnpm-store/
 
+# Local npm cache. The sandboxed dev environment cannot write to the global cache
+# outside the workspace, so installs are run with `--cache ./.npm-cache`. Safe to
+# delete; it is only a package cache.
+.npm-cache/
+
 # Build output
 dist/
 dist-ssr/

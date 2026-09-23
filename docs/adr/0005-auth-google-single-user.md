@@ -67,7 +67,7 @@ and the app needs no auth at all.
   on two devices, so this loses a core feature. Rejected — but note that if sync is ever dropped,
   this ADR becomes moot and should be revisited rather than silently kept.
 - **Anonymous auth.** No sign-in friction, but the UID is per-install: an iOS reinstall, a cleared
-  browser, or a second device creates a *new* identity, silently orphaning her data. Rejected.
+  browser, or a second device creates a _new_ identity, silently orphaning her data. Rejected.
 - **Email-link (magic link) auth.** Workable, but adds an email round-trip and a deliverability
   dependency; on iOS, opening the link from an installed PWA is a worse experience than Google
   Sign-In.

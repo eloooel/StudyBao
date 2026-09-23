@@ -14,7 +14,7 @@ Every new field is a migration, a sync field, a test, and a permanent maintenanc
 
 ## 2. Update the model in three places — never one
 
-1. `src/db/schema.ts` — the Dexie table definition and indexes **(pending Workflow A)**
+1. `src/db/schema.ts` — the Dexie table definition and indexes **(pending Workflow B)**
 2. `src/db/types.ts` — the TypeScript interface
 3. `src/sync/mappers.ts` — the Firestore document mapping, if the record syncs
 
@@ -31,17 +31,19 @@ If any of the three is missing the change, you have a latent bug.
 - **Do not rename a field.** Add the new one, migrate, keep reading the old one for one release, then
   remove it in a later change.
 - New nullable/optional fields need no explicit migration — write the reader to treat `undefined` as
-  the default. New *required* fields, changed indexes, and changed types do.
+  the default. New _required_ fields, changed indexes, and changed types do.
 
 ## 4. Write the Dexie version bump
 
 ```ts
 // src/db/schema.ts
-this.version(2).stores({
-  cards: 'id, deckId, nextReview, updatedAt, deletedAt', // added nextReview index
-}).upgrade(async (tx) => {
-  // explicit, idempotent, tested
-});
+this.version(2)
+  .stores({
+    cards: 'id, deckId, nextReview, updatedAt, deletedAt', // added nextReview index
+  })
+  .upgrade(async (tx) => {
+    // explicit, idempotent, tested
+  })
 ```
 
 - **Increment the version number.** Never edit a released `version(n)` block in place.
@@ -51,7 +53,7 @@ this.version(2).stores({
 
 ## 5. Test the migration
 
-Add a test to `src/db/migrations.test.ts` **(pending Workflow A)** that:
+Add a test to `src/db/migrations.test.ts` **(pending Workflow B)** that:
 
 1. Opens a v(N−1) database, seeds representative rows (including a soft-deleted row and a row with
    the field missing).

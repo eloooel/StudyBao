@@ -5,12 +5,13 @@ domain concept (deck, timer, lesson, dashboard).
 
 ## 1. Read the canonical examples first
 
-- The simplest existing page: `src/features/timer/pages/timer.page.tsx` **(pending Workflow A)**
-- The router: `src/router.tsx` **(pending Workflow A)**
-- The feature type file: `src/features/timer/types.ts` **(pending Workflow A)**
+- The simplest complete feature: `src/features/timer/` — page, view, and the folder shape
+- The feature with the most structure so far: `src/features/dashboard/`
+- The router: `src/router.tsx`
+- The shared primitives you should reuse: `src/components/ui/`
 
-Do not write anything until you have read all three. Your output should be structurally
-indistinguishable from them.
+Do not write anything until you have read them. Your output should be structurally indistinguishable
+from the existing features.
 
 ## 2. Create the folder
 
@@ -37,7 +38,7 @@ literals in component files.
 
 Anything with a rule in it (scheduling, parsing, aggregation, scoring) is a pure function in `lib/`
 with a co-located test. If it needs `await`, a DOM API, or the database, it is not pure — keep it in
-the hook, and make the *decision* it makes a pure function you can test.
+the hook, and make the _decision_ it makes a pure function you can test.
 
 ## 5. Write the three layers
 

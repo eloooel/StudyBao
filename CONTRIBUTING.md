@@ -13,17 +13,17 @@ about team process.
 
 ## The non-negotiables
 
-| Rule | Why |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| No LLM call in the shipped runtime | Hallucinated flashcards are memorized. See [ADR 0004](docs/adr/0004-no-llm-in-runtime.md). |
-| No dependency with a paid tier, API key, or runtime network call | "Free tools only" is a hard constraint, and the app must work offline. |
-| All DB access via `src/db/`; all Firestore access via `src/sync/` | One place to audit persistence and sync. |
-| Timestamps are epoch milliseconds; never hard-delete a synced record | Hard deletes are resurrected by the other device. |
-| Any data-model change gets a Dexie version bump **and a tested migration** | There is no undo on her phone. |
-| Never weaken a check to get green | A failing test is a defect report. |
-| No backend, no push service, no server-side secret | [ADR 0006](docs/adr/0006-in-app-notifications-only.md) — notifications are in-app only. Adding one back is a decision, not a detail. |
-| Never commit secrets; `.env` is gitignored with `.env.example` as the contract | Obvious, and still the most common way personal apps get owned. |
-| Push respects quiet hours and the cadence caps | A study app that pings at 1 a.m. gets deleted. |
+| Rule                                                                           | Why                                                                                                                                  |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| No LLM call in the shipped runtime                                             | Hallucinated flashcards are memorized. See [ADR 0004](docs/adr/0004-no-llm-in-runtime.md).                                           |
+| No dependency with a paid tier, API key, or runtime network call               | "Free tools only" is a hard constraint, and the app must work offline.                                                               |
+| All DB access via `src/db/`; all Firestore access via `src/sync/`              | One place to audit persistence and sync.                                                                                             |
+| Timestamps are epoch milliseconds; never hard-delete a synced record           | Hard deletes are resurrected by the other device.                                                                                    |
+| Any data-model change gets a Dexie version bump **and a tested migration**     | There is no undo on her phone.                                                                                                       |
+| Never weaken a check to get green                                              | A failing test is a defect report.                                                                                                   |
+| No backend, no push service, no server-side secret                             | [ADR 0006](docs/adr/0006-in-app-notifications-only.md) — notifications are in-app only. Adding one back is a decision, not a detail. |
+| Never commit secrets; `.env` is gitignored with `.env.example` as the contract | Obvious, and still the most common way personal apps get owned.                                                                      |
+| Push respects quiet hours and the cadence caps                                 | A study app that pings at 1 a.m. gets deleted.                                                                                       |
 
 ## The day-to-day
 
