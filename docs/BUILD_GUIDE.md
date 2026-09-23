@@ -96,24 +96,42 @@ keys, no cron, no subscription store, no Cloud Functions, no FCM, no Blaze, no p
 
 ### Backup and durability
 
-She is **not installing** the app (D5), and that has a hard consequence she will not know about: Safari
-deletes a site's script-writable storage — IndexedDB, `localStorage`, **and the service worker with its
-cache** — after seven days of Safari use without visiting. Installation is the only exemption. Verified
-against WebKit's own ITP announcement; details in [ADR 0007](adr/0007-browser-only-no-install.md).
+**Devices: a Windows laptop and an iPad.** That distinction is the whole story.
+
+The laptop is safe — Chrome and Edge on Windows have no eviction timer; best-effort storage is dropped
+only under storage pressure, which is rare for a regularly visited site. **The iPad is the risk.**
+
+Safari's ITP deletes a site's script-writable storage — IndexedDB, `localStorage`, `SessionStorage`,
+**and the service worker with its cache** — after **seven days of browser use without interacting with
+the site**. Three things make this worse than it first looks, all verified:
+
+- **It is not Safari-specific.** ITP is a WebKit feature, so it applies to Chrome, Firefox, and Edge on
+  iPad too, and to any `WKWebView`. **Telling her to use a different browser does not help on iPad.**
+- **`navigator.storage.persist()` does not exempt an origin.** It resolves successfully and changes
+  nothing; WebKit rejected a 2025 PR that would have exempted persistent origins.
+- **The only exemption is a Home Screen Web App.** D5 rules that out, so it is documented as a
+  fallback rather than a plan.
 
 So durability rests on two mechanisms, and both are required:
 
-1. **Automatic: cloud sync** (Workflow S). Runs on open and after writes. This is the real safety net —
-   an eviction loses the local database but not her history.
-2. **User-controlled: JSON export/import**, as a first-class screen with a periodic nudge. The only
-   backup that does not depend on Google, the network, or a sync bug.
+1. **Automatic: cloud sync, ON by default.** Runs on open and immediately after every write. This is
+   the real safety net — an eviction loses the local database but not her history.
+2. **User-controlled: JSON export/import**, a first-class screen reachable in two taps, with a
+   periodic nudge. The only backup that does not depend on Google, the network, or a sync bug.
 
-Also: call `navigator.storage.persist()` once she has measurable engagement, and surface the result
-without promising anything — Safari and Chromium both auto-decide with no prompt, so it can help but
-cannot be relied on.
+Two behaviours fall out of this and are easy to miss:
 
-A sync failure must be **visible** ("not synced since…"), never swallowed. With no install, a silently
-broken sync is a data-loss bug, not an inconvenience.
+- **Recovery must be automatic, silent, and non-alarming.** Empty local storage plus remote data means
+  restore without confirmation, and without presenting it as a problem. A post-eviction open should
+  feel like a normal open.
+- **Assume she is signed out after an eviction.** ITP also deletes the storage Firebase Auth keeps its
+  session in. So the app must detect "no local data, remote data exists" and lead with *"your notes are
+  safe — tap to sign in and get them back"*, never with an empty-state onboarding flow that implies her
+  work is gone.
+
+A sync failure must be **visible** ("not saved since…"), never swallowed. With no install, a silently
+broken sync is a data-loss bug, not an inconvenience. And if she is offline when an eviction happens,
+anything since the last successful sync is lost — which is why sync is per-write rather than periodic.
 
 ### Extras
 
@@ -139,10 +157,10 @@ broken sync is a data-loss bug, not an inconvenience.
 | 6 | Auth | **Google Sign-In, one allow-listed email** | Confirmed in scope with sync (D1b). The original "single-user, no login" is **incompatible with cloud sync**: Firestore rules need an authenticated identity. ADR 0006 removed the push-backend reason, so sync is now the only reason — but it is sufficient. One Google account = one tap, two devices, correct rules. |
 | 7 | Subjects/decks | Pre-seed the five PRC Nursing Practice parts | See §6. Verified against the official PRC program — see [`reference/pnle-scope.md`](reference/pnle-scope.md). |
 | 8 | **Exam date** (new) | Capture it on first run | Drives cram mode, the dashboard countdown, and notification tone. |
-| 9 | **Backup/export** (new) | JSON export + import, as a **first-class screen**, with a periodic nudge | Chosen because she will not install the app (D5). On iOS Safari, script-writable storage — **including the service worker and its cache** — is deleted after seven days of Safari use without visiting, and installation is the only exemption. Export is the user-controlled backup; **sync is the automatic one** ([ADR 0007](adr/0007-browser-only-no-install.md)). |
+| 9 | **Backup/export** (new) | JSON export + import, a **first-class screen**, with a periodic nudge | Chosen because she will not install (D5). On the **iPad**, ITP deletes script-writable storage — **including the service worker and its cache** — after seven days of browser use without visiting, on **every** browser, because they are all WebKit. The laptop is unaffected. Export is the user-controlled backup; **sync is the automatic one** ([ADR 0007](adr/0007-browser-only-no-install.md)). |
 | 10 | **Timezone/streaks** (new) | Streak day rolls over at **04:00 local**, not midnight | A student reviewing at 1 a.m. must not lose the streak she just earned. |
-| 11 | **No install, browser-only** (new) | Accepted; never prompt her to install | Decision D5. Promotes sync from convenience to safety net and makes export a real feature. Consequences in [ADR 0007](adr/0007-browser-only-no-install.md). |
-| 12 | **First-run friction** (new) | **Zero.** Local-only on first open; ask about sync *after* her first study session | A surprise gift (D6) she did not ask for cannot open with a sign-in wall. This is also the answer to D12. |
+| 11 | **No install, browser-only** (new) | Accepted; never prompt her to install | Decision D5. Devices: **Windows laptop (safe) and iPad (at risk)**. Promotes sync to safety net and makes export a real feature. [ADR 0007](adr/0007-browser-only-no-install.md). |
+| 12 | **Sync default** (new) | **ON by default**, with a one-tap Google sign-in on first open | Revised from "prompted opt-in" because she will not install (D5) and the iPad browser workaround does not exist. Protecting her data now outranks removing one tap from first run. |
 
 ---
 
@@ -311,29 +329,33 @@ bundled into the old G0, and it is the half that survives now that push is gone.
 
 The half of old G0 that survives. No server of ours: the client talks to Firestore directly.
 
-1. **First open requires nothing.** No sign-in, no permissions, no install prompt, no tutorial wall.
-   Local-only, immediately usable, pre-seeded decks. This is a surprise gift she did not ask for; the
-   first 30 seconds decide whether she ever opens it again.
+1. **First open is a single one-tap Google sign-in**, framed warmly and immediately explained: *"sign
+   in so your notes are safe and show up on your laptop too."* Nothing else — no permissions, no
+   tutorial wall, no empty box. Sign-in is not optional (D12) because on the iPad it is the only thing
+   protecting her data, but it must not *feel* like a gate: one button, one tap, then straight into
+   reviewing.
 2. **Firebase Auth** (Google provider), allow-listed to her one email. Do not hardcode the email in
    source — it comes from `VITE_ALLOWED_EMAIL` and is mirrored in the rules file.
-3. **The sync prompt comes after her first completed study session**, framed as safety and
-   convenience: *"want to keep this safe, and open it on your laptop too?"* Never on first load.
+3. **Post-eviction recovery:** if local storage is empty and remote data exists, restore automatically
+   and never present it as a problem. If she is signed out because ITP also cleared the auth session,
+   lead with *"your notes are safe — tap to sign in and get them back"*, never with empty-state
+   onboarding that implies her work is gone.
 4. **Firestore sync:** push-on-write, pull-on-open, last-write-wins on `updatedAt`, tombstones via
-   `deletedAt`. Sync is **fire-and-forget and never blocks the UI** — Dexie is the source of truth,
-   and a failed sync must be invisible while she studies. **But** a failed sync must be *visible*
-   somewhere persistent ("not synced since…"), because with no install it is her only automatic
-   backup ([ADR 0007](adr/0007-browser-only-no-install.md)).
+   `deletedAt`. Sync is **fire-and-forget and never blocks the UI** — Dexie is the source of truth, and
+   a failed sync must be invisible while she studies. **But** it must be *visible* somewhere persistent
+   ("not saved since…"), because with no install it is her only automatic backup
+   ([ADR 0007](adr/0007-browser-only-no-install.md)). Sync **per write**, not on a timer: an eviction
+   between writes loses whatever was not yet pushed.
 5. **Merge function as a pure unit** (`sync/lib/merge.ts`), tested before it ever touches real data.
    Cases: local-only, remote-only, both-changed-newer-local, both-changed-newer-remote, soft-deleted
-   locally, soft-deleted remotely.
+   locally, soft-deleted remotely. Two alternating devices make conflicts more likely than usual.
 6. **Firestore rules, owner-only**, tested against the emulator for three cases: allowed user, denied
    anonymous, denied other authenticated user. Never open rules.
 7. **Migration path for both schemas.** A local Dexie version bump and the Firestore document shape
    must move together — see `docs/ai/change-data-model.md`.
-8. **Call `navigator.storage.persist()`** once she has measurable engagement (a few completed
-   sessions), and record whether it was granted. Do not build a promise on it.
-9. **Output:** her decks and review history appear on the second device, survival of a Safari eviction
-   is demonstrated, and a card deleted on the phone stays deleted.
+8. **Output:** her decks and review history appear on both devices; a **simulated eviction** (clear all
+   site data, reload) restores everything from sync with no user confusion; and a card deleted on the
+   laptop stays deleted on the iPad.
 
 ### Workflow G — In-App Attention Nudges
 
@@ -517,10 +539,11 @@ state — see the reference file.)
 
 | Risk | Impact | Mitigation |
 | --- | --- | --- |
-| **Safari evicts her data after 7 days of Safari use without visiting** (no install, D5) | Total local data loss if sync never ran; **top risk in the project** | Sync runs on open and after writes; export as a first-class screen; visible "not synced" state; call `persist()`. Details in [ADR 0007](adr/0007-browser-only-no-install.md) |
-| **Sync silently stops working** | Now a data-loss bug, not an inconvenience — there is no install to fall back on | Surface sync state persistently in the UI; never swallow a sync error; test the failure path |
-| **Surprise-gift adoption** (D6: she does not know, and did not ask) | An unused app helps nobody, and there is no one to give feedback | Zero-friction first run; no sign-in wall; value visible in 30 seconds; conservative defaults; pre-seeded decks so it is not an empty box |
-| Cloud sync conflicts | Deleted cards reappear, edits vanish | `updatedAt` LWW + `deletedAt` tombstones; merge function tested before it touches real data |
+| **iPad browser storage eviction after 7 days without a visit** (no install, D5) | Total local data loss; anything unsynced is gone permanently. **Top risk in the project** | Sync **on by default, per write**; export as a first-class screen; visible "not saved" state; automatic silent restore. All browsers on iPad are WebKit, so there is **no browser workaround** ([ADR 0007](adr/0007-browser-only-no-install.md)) |
+| **Sync silently stops working** | Now a data-loss bug, not an inconvenience — there is no install to fall back on | Surface sync state persistently; never swallow a sync error; test the failure path and the post-eviction restore |
+| **She is signed out after an eviction** | Looks like data loss even though it is not | Detect "empty local + remote data exists" and lead with *"your notes are safe — tap to sign in"*. Never show empty-state onboarding in that case |
+| **Surprise-gift adoption** (D6: she does not know, and did not ask) | An unused app helps nobody, and there is no one to give feedback | One-tap sign-in with a warm reason, no permissions, pre-seeded decks, value in 30 seconds; conservative defaults |
+| Cloud sync conflicts | Deleted cards reappear, edits vanish | `updatedAt` LWW + `deletedAt` tombstones; merge function tested before it touches real data. Two alternating devices make this likelier than a single-device app |
 | Open Firestore rules | Personal data public | Owner-email rules; `noindex`; emulator-tested. The rules file is the entire security boundary ([ADR 0005](adr/0005-auth-google-single-user.md)) |
 | Notification fatigue | She turns nudges off and the feature is dead | Quiet hours, one idle nudge per session, rotating copy, a visible off-switch |
 | **She closes the tab mid-session, so no cue ever fires** | The Pomodoro's main payoff is lost | Accepted ([ADR 0006](adr/0006-in-app-notifications-only.md)). Say plainly that the tab must stay open; show elapsed time prominently on return |
@@ -548,8 +571,9 @@ state — see the reference file.)
 - **G:** during a live session, going idle for `idleNudgeMin` shows exactly one nudge; switching away
   and returning shows a "welcome back" with the correct remaining time; the session-end cue fires with
   the tab visible; nothing shows during quiet hours.
-- **H:** full click-through on a real phone **in a browser tab**, offline, with export/import verified
-  round-trip; first open requires no sign-in and shows no prompt.
+- **H:** full click-through on a real iPad and on the Windows laptop, **in a browser tab**, offline,
+  with export/import verified round-trip; first open is one Google tap and nothing else; a simulated
+  eviction restores silently.
 
 ---
 
@@ -610,13 +634,15 @@ she has thousands of cards filed under the old taxonomy.
 She does not know this exists (D6), she did not ask for it, and she will not install it (D5). That
 combination means the first thirty seconds carry most of the adoption risk:
 
-- **Zero friction on first open.** No sign-in, no permissions, no tutorial, no install prompt. Decks
-  pre-seeded so it is not an empty box. Working cards she can review immediately.
+- **One tap, then value.** Sign-in is required (D12) so it *is* the first screen — but it must be a
+  single prominent Google button with a warm, honest reason attached (*"sign in so your notes are safe
+  and show up on your laptop too"*), not an account form, not a permissions tour, not a tutorial. Then
+  straight into reviewing pre-seeded cards.
 - **A URL is the whole distribution channel.** No home-screen icon, no notification to pull her back.
-  Make it short, memorable, and easy to bookmark — and expect the browser tab to be where it lives.
-- **The sync ask comes after the first session**, not before it, framed as *"keep this safe, and open
-  it on your laptop too"*. On iPhone this is not optional for her data's sake, so it has to be an easy
-  yes, not a wall.
+  Make it short, memorable, and easy to bookmark — and expect the tab to be where it lives.
+- **She uses an iPad and a Windows laptop.** Verify both, because they behave differently: the laptop's
+  storage is durable, the iPad's is not, and the iPad is where a surprise "where did my cards go?"
+  moment would happen.
 - **Nobody can give feedback on the voice**, so the defaults must be conservative and the copy must be
   the kind that reads well on day 40 as well as day 1.
 

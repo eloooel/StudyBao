@@ -64,8 +64,8 @@ are never done later.
 npm run typecheck && npm run lint:check && npm run test:run
 ```
 
-Then walk the page on a phone viewport, and once with the network disabled if the feature reads or
-writes data.
+Then walk the page at iPad width and at a small viewport, and once with the network disabled if the
+feature reads or writes data.
 
 ## Do not
 

@@ -92,35 +92,30 @@ a date seven months past.
 
 Static bundle, no backend, free HTTPS. Nothing else to configure.
 
-### D5. Will she install it? — ✅ **RESOLVED: no. Purely browser-based.**
+### D5. Will she install it? — ✅ **RESOLVED: no. Browser-only — and the obvious workaround does not exist**
 
-This was the most consequential answer so far, and it is recorded as
-[ADR 0007](adr/0007-browser-only-no-install.md). The short version:
+**Devices: a Windows laptop and an iPad.** That split decides this whole topic.
 
-**On iPhone, not installing means Safari will delete her data.** Verified against WebKit's own ITP
-announcement: after **seven days of Safari use without interacting with the site**, all script-writable
-storage is deleted — **IndexedDB, localStorage, SessionStorage, and the service worker with its
-cache**. Installing to the home screen is the only exemption. (Chrome has no such timer; its storage
-is only evicted under pressure, which is rare for a regularly visited site.)
+Recorded as [ADR 0007](adr/0007-browser-only-no-install.md). The short version, all verified:
 
-Consequences, all now in the plan:
+- On **iPad**, ITP deletes a site's script-writable storage — IndexedDB, `localStorage`,
+  `SessionStorage`, **and the service worker with its cache** — after **seven days of browser use
+  without interacting with the site**.
+- **Every browser on iPad is WebKit**, and ITP is a WebKit feature. So Chrome, Firefox, and Edge on
+  iPad behave the same. **"Just tell her to use another browser" does not work on iPad.** I checked
+  this specifically because it was the proposed mitigation, and it would have created false confidence
+  on the one device that has the problem.
+- **`navigator.storage.persist()` does not exempt an origin.** It resolves successfully and changes
+  nothing — WebKit explicitly rejected a 2025 PR that would have exempted persistent origins.
+- **The Windows laptop is completely safe.** Chrome and Edge on Windows have no such timer.
+- The **only** exemption is a Home Screen Web App (Share → Add to Home Screen — two taps, not an app
+  download). D5 declines it, so it is documented as a fallback, and offered only if she asks.
+- This is not theoretical: 1Password, Dashlane, Simplenote, and Element have reported real data loss
+  from it (WebKit bug 209563).
 
-1. **Cloud sync is promoted from convenience to safety net** — not "nice for two devices", but the
-   thing that makes her data survive an eviction. Sync runs on open and after writes.
-2. **Export/import is a first-class screen**, not a hidden setting. It is the only backup she controls.
-3. **A failed sync must be visible** ("not synced since…"). With no install to fall back on, a silently
-   broken sync is a data-loss bug.
-4. **No install prompt, ever.** Settings carries one dismissible line about the risk, pointing at
-   Export. Information, not a nag.
-5. **`navigator.storage.persist()`** gets called once she has measurable engagement — it can help, and
-   Safari/Chromium auto-decide with no prompt, so nothing is promised on the back of it.
-6. Manifest still ships (browsers expect one) but **installability polish is dropped** — no maskable
-   icons, no iOS splash screens, no `display: standalone` work.
-
-**⚠️ One thing to confirm: her device.** This risk is *Safari-specific*. If she is on Android, almost
-all of the above is moot and the export emphasis can drop to a normal "download your data" feature. If
-she is on iPhone, this is the top risk in the project. I have been assuming an iPhone because the
-original guide talked about iOS install flows — worth correcting if wrong.
+Consequences in the plan: **sync on by default and per write** (D12, below), **export as a first-class
+screen**, **automatic silent restore** after an eviction, **visible sync-failure state**, and no install
+prompt ever.
 
 ### D6. Does she know you're building this? — ✅ **RESOLVED: no. It's a surprise.**
 
@@ -130,15 +125,13 @@ Recorded because it changes the copy and, more importantly, the onboarding:
   an app. That is the charm budget this project has, and it should be spent here rather than on the bow
   decorations.
 - **The reveal is a deliverable, not an afterthought.** She did not ask for this, so the first thirty
-  seconds decide whether she ever opens it again: zero friction, no sign-in wall, pre-seeded decks, a
-  card she can review immediately.
+  seconds decide whether she ever opens it again: one tap, then value.
 - **Nobody can give feedback on cadence or tone**, so defaults stay conservative and copy must read
   well on day 40 as well as day 1.
 - **A URL is the entire distribution channel** — no home-screen icon, no notification to bring her
   back. Make it short and memorable.
-- **Adoption is the real risk**, and it is now listed in `BUILD_GUIDE.md` §7. A surprise study tool
-  that is even slightly annoying mid-prep gets quietly abandoned, and there is no feedback loop to
-  catch that.
+- **Adoption is the real risk**, and it is listed in `BUILD_GUIDE.md` §7. A surprise study tool that is
+  even slightly annoying mid-prep gets quietly abandoned, and there is no feedback loop to catch that.
 
 ---
 
@@ -188,35 +181,31 @@ she'd pick.
 **Needs from you:** a direction, or an asset. I can generate a placeholder, but an icon she chose will
 get installed and kept.
 
-### D12. Should cloud sync default on once it exists? — ✅ **RESOLVED** (see below)
+### D12. Should cloud sync default on? — ✅ **RESOLVED: ON, by your call. And it turned out to be necessary.**
 
-**What it meant.** Sync needs her to sign in with Google. This was the question of *when* that sign-in
-happens: does the app arrive with sync already switched on (so the first thing she sees is a Google
-sign-in prompt), or does it arrive switched off, with sync as a setting she has to find and turn on?
+You overrode my recommendation, on the grounds that you do not want to risk her data. **That was the
+right call, and for a stronger reason than either of us had at the time.**
 
-It sounds cosmetic. It is a genuine fork:
+I had proposed "off on first open, offered after the first session" to protect the surprise-gift first
+impression. That reasoning assumed the iPad risk could be dodged by using a different browser. It
+cannot — every browser on iPad is WebKit, and ITP is a WebKit feature ([ADR 0007](adr/0007-browser-only-no-install.md)).
+So on her iPad, **default-on sync is not a preference, it is the only protection her data has.**
 
-| Option | Good | Bad |
-| --- | --- | --- |
-| **Default on** | Sync protects her data from the moment she starts; nothing to discover | First open is a **sign-in wall** — the worst possible first impression for a surprise gift she did not ask for |
-| **Default off** | Zero-friction first open; she just studies | On iPhone, her data is unprotected until she goes looking for a setting she has no reason to look for. **If Safari evicts, it's gone** |
+Resolution:
 
-**Resolution — neither, and better than both: local-first start, prompted opt-in after the first
-session.**
+1. **Sync is ON by default.** First open is a **single one-tap Google sign-in**, with a warm, honest
+   reason attached: *"sign in so your notes are safe and show up on your laptop too."*
+2. **Sync per write, not on a timer** — an eviction between writes would lose whatever had not been
+   pushed.
+3. **Post-eviction restore is automatic and silent.** Empty local storage plus remote data means
+   restore without confirmation. If ITP also cleared the auth session (it will), lead with *"your notes
+   are safe — tap to sign in and get them back"*, never with empty-state onboarding that looks like
+   data loss.
+4. **A sync failure is visible** ("not saved since…").
 
-1. First open: no sign-in, no prompts, no permissions. Pre-seeded decks, immediately usable.
-2. After her **first completed study session**, one gentle ask: *"want to keep this safe, and open it
-   on your laptop too?"* → Google sign-in.
-3. If she declines, the app keeps working and Settings shows sync as available. The periodic export
-   nudge covers her meanwhile.
-4. Sync is **off until she accepts**, then on permanently for that device.
-
-This sequencing matters most on iPhone, where sync is her only automatic protection against Safari
-evicting a week's work. The ask has to arrive *after* she has something worth protecting — which is
-exactly when it is an easy yes — rather than before she has seen any value, which is when it is a wall.
-
-**Still worth confirming:** her device (see D5). On Android this timing is a nicety; on iPhone it is
-the difference between keeping and losing her history.
+**The trade-off accepted:** first open now has one required tap. That is the cost of protecting her
+data, and it is worth it. The mitigation is framing: one prominent button with a reason, not an account
+form or a feature tour.
 
 ### D13. Backup behaviour
 
@@ -293,7 +282,7 @@ Worth stating explicitly, because each one is a plausible-looking detour:
 
 ## Summary
 
-**Every decision is now closed except her device.** Nothing blocks Workflow A.
+**Every decision is closed. Nothing blocks Workflow A.**
 
 | # | Status |
 | --- | --- |
@@ -302,14 +291,16 @@ Worth stating explicitly, because each one is a plausible-looking detour:
 | D2 — auth | ✅ Closed: Google, one email. You put the email in `.env` + the rules file. |
 | D3 — exam date | ✅ Closed: **Fri Feb 26, 2027 — 156 days.** Ordering in `BUILD_GUIDE.md` §9. |
 | D4 — hosting | ✅ Closed: **Vercel**. |
-| D5 — install | ✅ Closed: **no, browser only.** Promotes sync to safety net; export becomes first-class ([ADR 0007](adr/0007-browser-only-no-install.md)). |
+| D5 — install | ✅ Closed: **no, browser-only.** Devices: **Windows laptop (safe) + iPad (at risk)**. Browser-switching does **not** help on iPad. ([ADR 0007](adr/0007-browser-only-no-install.md)). |
 | D6 — does she know | ✅ Closed: **no, it's a surprise.** Reveal is a deliverable (`BUILD_GUIDE.md` §9.5). |
 | D7 — deck taxonomy | ✅ Closed. Verified against the official PRC program. |
-| D12 — sync default | ✅ Closed: local-first start, **prompted opt-in after the first session**. |
+| D12 — sync default | ✅ Closed: **ON**, per your call — and it is the only thing protecting her iPad data. |
 | D8–D11, D13 | Defaults exist; answer whenever. None blocks anything. |
-| **Device (new)** | 🟠 **Open — and it matters a lot.** Safari-specific storage eviction is the project's top risk; on Android it barely applies. |
 
-**The next thing I need is not a decision — it's a go-ahead, plus her device.**
+**The next thing I need is a go-ahead.**
 
-Worth re-reading once before we start: §C above, ranked by what a reversal actually costs. Three
-decisions there are genuinely one-way (anything that records history); the rest are refactorable.
+One thing worth knowing before we start: the iPad risk is real and unfixable within D5. The lever that
+would eliminate it is **Share → Add to Home Screen in Safari** — two taps, not an app download, and the
+only WebKit-exempted configuration. I am not going to prompt her to do it, and it is not in the plan.
+I am noting it because if she ever asks *"how do I make this stick"*, that is the answer, and because
+it is a zero-cost thing to reverse if the occasional sign-out screen turns out to annoy her.

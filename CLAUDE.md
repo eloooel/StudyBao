@@ -17,9 +17,9 @@ with SM-2 spaced repetition, a Pomodoro timer, a lesson tracker, and in-app atte
 tools only, **no backend**, and **browser-only — she will not install it** ([ADR 0007](docs/adr/0007-browser-only-no-install.md)).
 Coquette pink & white visual identity.
 
-The user is **one non-technical person on a phone**. That single fact decides most trade-offs:
-offline-first beats server-first, a wrong number is worse than a missing one, and anything that
-requires her to understand how it works is a defect.
+The user is **one non-technical person**, on an **iPad and a Windows laptop**, in a browser tab. That
+decides most trade-offs: offline-first beats server-first, a wrong number is worse than a missing one,
+and anything that requires her to understand how it works is a defect.
 
 ---
 
@@ -219,22 +219,30 @@ do not "improve" a colour without re-checking WCAG AA (4.5:1 body text, 3:1 larg
   allow-listed email, and are tested against the emulator (allowed user / anonymous / other
   authenticated user) before any deploy. Never open rules.
 - Sync must stay **fire-and-forget**: Dexie is the source of truth, and a failed sync must never block
-  or slow the study loop. Sync starts **off with no sign-in wall** and is offered after her first
-  completed session — see the UX rules below, which are the authority on this.
+  or slow the study loop. But it is **on by default and per write** (D12) — on her iPad it is the only
+  thing protecting her data. See the UX rules below, which are the authority.
 
 ---
 
 ## UX rules that are not negotiable
 
-- **First open must require nothing.** No sign-in, no permission prompt, no install prompt, no tutorial
-  wall, no empty state that asks her to create something first. This is a surprise gift she did not ask
-  for ([ADR 0007](docs/adr/0007-browser-only-no-install.md)); the first 30 seconds decide whether it
-  is ever opened again.
+- **First open is one tap and nothing else.** A single Google sign-in, framed with a reason
+  (*"sign in so your notes are safe and show up on your laptop too"*), then straight into reviewing
+  pre-seeded cards. No permissions, no install prompt, no tutorial wall, no empty-state that asks her
+  to create something first. Sign-in is required (D12) because on her iPad it is the only thing
+  protecting her data ([ADR 0007](docs/adr/0007-browser-only-no-install.md)), but it must not *feel*
+  like a gate.
 - **Never ask her to install the app.** Browser-only is the decision (D5). Settings may carry one
-  dismissible line about iOS storage and a link to Export. Nothing more.
-- **The sync ask comes after her first completed study session**, never on load.
-- **A sync failure must be visible** ("not synced since…"). With no install, a silently broken sync is
+  dismissible line about iPad storage and a link to Export. If she ever asks how to make it stick, the
+  answer is Share → Add to Home Screen in Safari — two taps, not an app download. Offer only on ask.
+- **Survive the local database being deleted at any time.** Empty IndexedDB plus remote data means
+  restore automatically and silently, and never present it as a problem.
+- **Expect to be signed out after an eviction** — ITP clears the auth session too. Detect "no local
+  data, remote data exists" and lead with *"your notes are safe — tap to sign in and get them back"*.
+  Never show empty-state onboarding in that situation; it reads as data loss.
+- **A sync failure must be visible** ("not saved since…"). With no install, a silently broken sync is
   a data-loss bug, not an inconvenience.
+- **Sync per write**, not on a timer — an eviction between writes loses whatever was not yet pushed.
 - **Export/import is a first-class screen**, reachable in two taps.
 - **Never use a decrementing timer.** Derive elapsed time from `startedAt` and `Date.now()`.
 
@@ -243,5 +251,5 @@ do not "improve" a colour without re-checking WCAG AA (4.5:1 body text, 3:1 larg
 ## CI
 
 GitHub Actions runs lint (tsc + eslint + prettier), test (vitest + coverage), and build. All must
-pass. Deployment is manual and deliberate — this app runs on a real person's phone, so a broken
-deploy is not a cosmetic problem.
+pass. Deployment is manual and deliberate — this app runs on a real person's device mid-exam-prep, so
+a broken deploy is not a cosmetic problem.

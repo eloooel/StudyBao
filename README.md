@@ -3,7 +3,8 @@
 A study companion for PNLE review: flashcards with real spaced repetition, a Pomodoro timer, a lesson
 tracker, and true background push notifications. Free tools only. Coquette pink & white.
 
-Built for one person, on a phone, with limited attention span and a real exam date.
+Built for one person, on an iPad and a Windows laptop, with limited attention span and a real exam
+date. Browser-only — no install, no backend.
 
 ## Status
 

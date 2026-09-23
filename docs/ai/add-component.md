@@ -52,7 +52,8 @@ never guilt-inducing. If you write a string that sounds like a system message, r
 npm run typecheck && npm run lint:check && npm run test:run
 ```
 
-Visual check at 375px width (iPhone SE/13 mini class) and at desktop width.
+Visual check at **iPad width (768px and 1024px, both orientations)** — her primary device — and at a
+small viewport (375px) to catch anything that only works when there is room.
 
 ## Do not
 

@@ -6,8 +6,8 @@
 
 ## Context
 
-The app is used by one person, on a phone, while studying — often on campus wifi, on a bus, or in
-airplane mode. Two storage options were on the table:
+The app is used by one person, on an iPad and a Windows laptop, while studying — often on campus wifi,
+on a bus, or with no connection at all. Two storage options were on the table:
 
 1. **Firestore as the source of truth** (the original recommendation), with a local cache.
 2. **Local-first IndexedDB** (Dexie) as the source of truth, with Firestore as an optional sync target.
