@@ -415,36 +415,35 @@ Why these fields, in one line each:
 - Timezone: store epoch ms; do date arithmetic in the device's local zone. Streak day boundary is
   04:00 local (decision #10).
 
-**Pre-seeded decks (decision #7) — corrected.**
+**Pre-seeded decks (decision #7) — verified against the official PRC program.**
 
-My first draft of this list was wrong. The PRC Program of the Nurses Licensure Examination organises
-the exam into **five Nursing Practice parts**, not the older "content area" labels I guessed. Seed the
-decks to match the exam's own structure, so the tracker, the dashboard, and her own mental model all
-line up:
+My first draft of this list was wrong (guessed "content areas"). The official PRC program organises the
+exam into **five Nursing Practice parts**. Seed the decks to match exactly, so the tracker, the
+dashboard, and her own mental model all line up:
 
-| Deck | Official scope (per the PRC program) |
+| Deck | Official scope (verbatim from the PRC program) |
 | --- | --- |
-| **Nursing Practice I** | Care of individuals, families, population groups, and communities — incl. Community Health Nursing |
-| **Nursing Practice II** | Care of mothers and adolescents (well, at-risk, acute, chronic) + human growth and development |
-| **Nursing Practice III** | Surgery; oxygenation; fluids and electrolytes; infectious, inflammatory and immunologic response; cellular aberrations |
-| **Nursing Practice IV** | Nutrition; gastrointestinal, metabolic and endocrine problems; perception and coordination |
-| **Nursing Practice V** | Maladaptive patterns of behavior; life-threatening conditions, acute illness, multi-organ problems, high acuity, emergencies |
+| **Nursing Practice I** | Care of Individuals, Families, Population Groups and Community (Community Health Nursing) |
+| **Nursing Practice II** | Part 1: Care of Mother, Adolescent (Well Clients), At Risk or With Problems (Acute & Chronic); Part 2: Human Growth and Development |
+| **Nursing Practice III** | Care of Clients with Problems in Surgery, Oxygenation, Fluid and Electrolytes, Infectious, Inflammatory and Immunologic Response, Cellular Aberrations (Acute and Chronic) |
+| **Nursing Practice IV** | Care of Client with Problems in Nutrition, and Gastro-Intestinal, Metabolism and Endocrine. Perception and Coordination (Acute and Chronic) |
+| **Nursing Practice V** | Care of Clients with Maladaptive Patterns of Behavior (Acute and Chronic); Care of Clients with Life-Threatening Condition, Acutely Ill/Multi-Organ Problems, High Acuity and Emergency Situation |
 
-The exam also integrates these **knowledge areas** across all five parts: anatomy & physiology,
-pathophysiology, nutrition & diet therapy, parasitology & microbiology, and pharmacology &
-therapeutics — with the nursing process as the framework. Model them as **tags on cards**, not as
-decks. That gives a second axis for the dashboard ("pharmacology is your weak spot") without
-duplicating every card into two decks.
+The program also names these **integrated knowledge areas**, applied across all five parts: Anatomy
+and Physiology, Nutrition and Diet Therapy, Pathophysiology, Parasitology and Microbiology, and
+Pharmacology and Therapeutics — with the nursing process as the framework. Model them as **tags on
+cards**, not as decks. That gives a second axis for the dashboard ("pharmacology is your weak spot")
+without duplicating every card into two decks.
 
-**Verify this against the actual PRC PDF before seeding.** I could not open the source documents
-(`web_fetch` rejects `application/pdf`), so the table above comes from secondary sources that cite the
-PRC program. Download the current program from `prc.gov.ph` and reconcile — this is a five-minute task
-and it is the difference between a taxonomy that matches her exam and one that quietly doesn't.
+Full transcription, citations, and the verbatim source: [`reference/pnle-scope.md`](reference/pnle-scope.md).
 
-**Consequence for the dashboard:** PRC does **not** publish topic-by-topic percentage weights. So do
-**not** invent a "worth X% of the exam" weighting anywhere in the UI. Weight weak-topic surfacing by
-*her* review data and simple coverage of the official five parts. A fabricated percentage chart is
-worse than none, because she will allocate scarce study time by it.
+**Consequence for the dashboard:** the PRC program contains **no Table of Specifications and no
+per-topic item weights** — verified by reading all 8 pages of the program. So do **not** invent a
+"worth X% of the exam" weighting anywhere in the UI. Weight weak-topic surfacing by *her* review data
+and simple coverage of the official five parts. A fabricated percentage chart is worse than none,
+because she will allocate scarce study time by it. (A popular prep site publishes a "5 Subjects"
+breakdown that contradicts the official scope on every part *and* asserts item counts PRC does not
+state — see the reference file.)
 
 ---
 

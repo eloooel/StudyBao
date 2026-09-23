@@ -17,6 +17,7 @@ review of that plan, and the AI-agent governance that keeps both honest. Workflo
 | -------------------------------------------------- | ------------------------------------------------------------ |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | **Start here.** Every decision the repo needs, with the six that actually block work marked. |
 | [`docs/BUILD_GUIDE.md`](docs/BUILD_GUIDE.md) | The plan of record. Feature set, closed decisions, tech stack, workflows A–H, data model, design system. |
+| [`docs/reference/pnle-scope.md`](docs/reference/pnle-scope.md) | The official PRC five-part exam scope, transcribed from the primary source. Drives the deck taxonomy. |
 | [`docs/CRITIQUE.md`](docs/CRITIQUE.md) | Line-by-line review of the original plan: six blocking flaws, verified technical corrections, and what was kept. |
 | [`CLAUDE.md`](CLAUDE.md) | Constraints for anyone (human or AI) changing this repo. |
 | [`docs/ai/README.md`](docs/ai/README.md) | Task runbooks. |

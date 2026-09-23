@@ -46,12 +46,24 @@ her notes are world-readable or the "secret" ships in the browser bundle.
 **Needs from you:** which option. If Google — **her email address** (do not commit it; it goes in
 `.env` and the Firestore rules).
 
-### D3. Her exam date
+### D3. Her exam date 🔴 **— and a date problem I need you to resolve**
 
-Drives cram mode, the dashboard countdown, and notification tone. The PRC program lists the August
-2026 sitting as **August 29–30, 2026**; I did not verify which sitting she is registered for.
+Drives cram mode, the dashboard countdown, and notification tone.
 
-**Needs from you:** the date, and whether she is taking the next sitting or a later one.
+**The program you sent is for a sitting that has already happened.** It is the *Program of the Nurses
+Licensure Examination on Feb. 26-27, 2026*, approved Dec 1, 2025. Today is **September 23, 2026** —
+that exam was **210 days ago**.
+
+Per PRC's 2026 calendar, there were exactly two NLE sittings in 2026: **February 26–27** and
+**August 29–30**. Both are past. So if she is still preparing, her exam is a **2027** sitting (the NLE
+runs roughly May and November), and the date is currently unknown to me.
+
+**Needs from you:** which sitting she is actually preparing for. See the question at the end of the
+last message — this is the one thing I cannot infer.
+
+The good news: the **scope structure is unaffected**. PRC reuses the program template between sittings
+(the Feb 2026 document's own footer still reads "November 4-5, 2025"), so the five-part taxonomy in
+[`reference/pnle-scope.md`](reference/pnle-scope.md) remains correct. Only the date changes.
 
 ### D4. Hosting platform *(was decision #2)*
 
@@ -87,11 +99,18 @@ need different voices:
 
 ## B. Needs your input, but not blocking
 
-### D7. Verify the deck taxonomy against the actual PRC program
+### D7. ~~Verify the deck taxonomy against the actual PRC program~~ — ✅ **RESOLVED**
 
-I seeded five decks from secondary sources because I could not open the PRC PDFs (`web_fetch` rejects
-`application/pdf`). Download the current program from `prc.gov.ph` and reconcile the five Nursing
-Practice parts. Five minutes, and it decides whether the taxonomy matches her exam.
+Verified. You supplied the official 8-page program and I extracted it: the five Nursing Practice
+parts, the integrated knowledge areas, and the two-day schedule are transcribed verbatim in
+[`reference/pnle-scope.md`](reference/pnle-scope.md). Two findings worth keeping:
+
+1. **No Table of Specifications and no item weights exist in the official document** — confirmed by
+   reading all 8 pages (pages 4–8 are Memorandum Order No. 52 on exam conduct, not content). So the
+   "don't invent percentage weights" rule stands, and it came from the primary source.
+2. **A popular prep site is confidently wrong** about the exam's own structure — it maps every
+   Nursing Practice part to different content than PRC does, and asserts item counts PRC never
+   states. Useful proof that the app should never surface a third-party "TOS".
 
 ### D8. Notification cadence and quiet hours
 
@@ -194,8 +213,15 @@ Worth stating explicitly, because each one is a plausible-looking detour:
 
 ## Summary
 
-**Six decisions block you** — D1 (push backend), D2 (auth + her email), D3 (exam date), D4 (hosting),
-D5 (will she install it), D6 (does she know). Everything else has a working default.
+**Six decisions block you** — D1 (push backend), D2 (auth + her email), D3 (**exam date — see the
+problem below**), D4 (hosting), D5 (will she install it), D6 (does she know). Everything else has a
+working default, and D7 is now closed.
+
+**D3 is the urgent one.** The program you supplied is for the **Feb 26–27, 2026** sitting, which is
+210 days past, and PRC's 2026 calendar shows **no NLE remaining in 2026** (the two sittings were
+Feb 26–27 and Aug 29–30). If she is still preparing, her exam is a 2027 sitting and the date is
+unknown to me. The scope is unaffected, but the countdown, cram mode, and urgency framing all depend on
+this.
 
 If you want to move fastest: answer those six, ratify or overturn the five ADRs in §C, and Workflow A
 can start.
