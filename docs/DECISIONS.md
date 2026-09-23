@@ -255,6 +255,37 @@ Two judgement calls worth naming explicitly:
 2. **No feature flags, no component library, no settings framework.** One user, so all three would be
    pure overhead. These are all cheap to add later, so the cost of omitting them is genuinely low.
 
+### Added during Workflow B — ratify or overturn
+
+**Two dependencies** (`dexie` runtime, `fake-indexeddb` dev), both MIT, neither with a network call or a
+paid tier. You approved both before they were added.
+
+**Six data-model decisions**, each of which existed as an ambiguity in the written contract. All are in
+`BUILD_GUIDE.md` §4 with their reasoning, and each has a test that fails if it is changed:
+
+| Decision                                                     | Why it was needed                                                                                                         | Cost to reverse later                                                                                               |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `repetitions` counts **graduated** reviews only              | Otherwise the Workflow B definition of done ("Good four times → ~15 days") is false, and the two readings of §6 disagree  | **Free now, moderate later** — it is derived state, but changing it re-schedules every card in her database         |
+| A lapse **zeroes `intervalDays`**                            | Mastery is `intervalDays >= 21`, so a stale 38 would report a just-failed card as mature                                  | **Free** — one line, and the next review corrects everything                                                        |
+| Mastery is `learningStep === null && intervalDays >= 21`     | Cannot be true mid-learning by any route                                                                                  | **Free** — derived on read, never stored                                                                            |
+| **Hard repeats the step; Easy graduates on Good's path**     | The contract fixed the steps but not how q=3 and q=5 traverse them                                                        | **Free-ish** — changes only future reviews, not history                                                             |
+| Day-scale intervals **snap to the 04:00 study day**          | `now + n days` silently gains a day for an evening studier                                                                | **Free** — a constant in one function, but it changes what she sees tomorrow                                        |
+| `learningStep` names the step being **waited on**            | Keeps `schedule` a pure function of `(state, grade, now)`; the alternative needed a clock comparison inside the scheduler | **Free** — internal meaning only                                                                                    |
+| Review session is a **route**, not mode state                | A hard refresh mid-session is realistic on iPad; a route resumes from the database                                        | **Cheap** — it is a UI shape, not data                                                                              |
+| **`ReviewLog` has no `updatedAt`/`deletedAt`** (append-only) | It is never mutated, so both fields would be lies — and a last-write-wins merge on it would lose history                  | **Free now, expensive later** — Workflow S must merge it union-only, and it is the kind of rule that gets forgotten |
+
+**One correction:** `CLAUDE.md` and `docs/ai/change-data-model.md` said "`updatedAt` on every synced
+record". That was wrong once an append-only table existed, so both now say "every **mutable** synced
+record" and name `ReviewLog` as the exception. If you would rather `ReviewLog` carried the fields for
+uniformity, say so — but the union-only merge rule has to stay either way.
+
+**One thing I did not decide, and should flag:** the request described the shipped EF formula as
+producing **Again −0.90**, but `EF + (0.1 − (5−q) × (0.08 + (5−q) × 0.02))` gives **−0.80** (it is the
+standard SM-2 expression, and the other three grades match your figures exactly: Hard −0.14, Good 0.00,
+Easy +0.10). The formula as written in `BUILD_GUIDE.md` §6 and ADR 0003 is implemented, and the tests
+assert its actual output: 2.5 → 1.7 → 1.3 (floored). If you intended −0.90, the inner term has to
+change, and that is an ADR-level change to a scheduling constant — so it is your call, not mine.
+
 ---
 
 ## D. Decisions I deliberately deferred

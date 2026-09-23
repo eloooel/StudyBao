@@ -6,9 +6,13 @@ domain concept (deck, timer, lesson, dashboard).
 ## 1. Read the canonical examples first
 
 - The simplest complete feature: `src/features/timer/` — page, view, and the folder shape
+- **The complete data-backed feature, and the best thing to copy: `src/features/flashcards/`** —
+  `lib/` pure rules with co-located tests, `hooks/` for Dexie access, Layer 1 pages, Layer 3 views,
+  and a route per screen
 - The feature with the most structure so far: `src/features/dashboard/`
 - The router: `src/router.tsx`
 - The shared primitives you should reuse: `src/components/ui/`
+- The data layer it talks to: `src/db/repositories/` and `src/db/schema.ts`
 
 Do not write anything until you have read them. Your output should be structurally indistinguishable
 from the existing features.
@@ -74,3 +78,7 @@ feature reads or writes data.
 - Do not put card/deck/session data into a Zustand store. Dexie is the source of truth.
 - Do not import `dexie` or `firebase/*` from a feature file. Go through `src/db/` and `src/sync/`.
 - Do not add a feature flag. This app has one user; flags are for teams.
+- Do not add a second "refresh the data" mechanism. `useDatabaseValue` in
+  `src/features/flashcards/hooks/` subscribes every reader to a single change signal; a feature that
+  invents its own will eventually show a stale count that she cannot explain. (When a third feature
+  needs it, promote it out of `flashcards/` — do not copy it.)

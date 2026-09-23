@@ -50,7 +50,7 @@ export default tseslint.config(
             {
               name: 'dexie',
               message:
-                'Import from @/db (which does not exist yet — see Workflow B) instead of using dexie directly. All IndexedDB access is centralised so migrations and sync have one audit point. See docs/ai/change-data-model.md.',
+                'Only src/db/ may import dexie. Feature code goes through a repository from @/db/repositories/ or a hook in src/db/. All IndexedDB access is centralised so migrations and sync have one audit point. See docs/ai/change-data-model.md and ADR 0001.',
             },
           ],
           patterns: [
@@ -70,6 +70,17 @@ export default tseslint.config(
             'Use @/lib/api-client instead of raw fetch() in feature code, so failures surface in one place and every request is reviewable.',
         },
       ],
+    },
+  },
+
+  // src/db/ IS the one place dexie may be imported — that is the whole point of the
+  // rule above. Restating the block here with `dexie` dropped from `paths` would be
+  // the same thing with more ways to drift, so the rule is switched off for this one
+  // directory and the reason is the rule's own message elsewhere.
+  {
+    files: ['src/db/**/*.ts'],
+    rules: {
+      'no-restricted-imports': 'off',
     },
   },
 

@@ -1,6 +1,25 @@
-import { FlashcardsView } from '../components/flashcards-view'
+import { useNavigate } from 'react-router-dom'
 
-/** Layer 1 — thin route component. */
+import { DeckListView } from '../components/deck-list-view'
+import { useDecksData } from '../hooks/use-decks-data'
+
+/**
+ * Layer 1 — thin route component.
+ *
+ * Cram mode is read from the URL rather than from a store, so "review everything due" and
+ * "cram" are two different links she can bookmark and refresh into.
+ */
 export default function FlashcardsPage() {
-  return <FlashcardsView deckCount={0} />
+  const navigate = useNavigate()
+  const { decks, totalDue, loading } = useDecksData()
+
+  return (
+    <DeckListView
+      decks={decks}
+      loading={loading}
+      totalDue={totalDue}
+      onOpenDeck={(deckId) => void navigate(`/cards/${deckId}`)}
+      onStartReview={() => void navigate('/cards/review')}
+    />
+  )
 }

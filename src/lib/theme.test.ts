@@ -63,27 +63,34 @@ describe('storage access', () => {
   })
 
   it('returns null instead of throwing when storage is blocked', () => {
-    // Safari can deny storage entirely, and a throw here would take the app down
-    // before it rendered. The theme must degrade to the system setting instead.
-    const original = window.localStorage.getItem
-    window.localStorage.getItem = () => {
+    // Safari can deny storage entirely, and a throw here would take the app down before it
+    // rendered. The theme must degrade to the system setting instead.
+    //
+    // Patched on `Storage.prototype`, not on `window.localStorage`. In jsdom the `localStorage`
+    // getter hands back a *new* Storage instance each time it is read, so an own-property override
+    // never applies to the instance the code under test actually uses — and asserting against it
+    // silently tests the previous test's leftovers instead.
+    const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('SecurityError')
+    })
+
+    try {
+      expect(readStoredTheme()).toBeNull()
+    } finally {
+      spy.mockRestore()
     }
-
-    expect(readStoredTheme()).toBeNull()
-
-    window.localStorage.getItem = original
   })
 
   it('does not throw when writing is blocked', () => {
-    const original = window.localStorage.setItem
-    window.localStorage.setItem = () => {
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('QuotaExceededError')
+    })
+
+    try {
+      expect(() => storeTheme('night')).not.toThrow()
+    } finally {
+      spy.mockRestore()
     }
-
-    expect(() => storeTheme('night')).not.toThrow()
-
-    window.localStorage.setItem = original
   })
 
   it('falls back to light when matchMedia is unavailable or partial', () => {
@@ -95,9 +102,11 @@ describe('storage access', () => {
     })
     const matchMediaSpy = vi.spyOn(window, 'matchMedia')
 
-    expect(prefersNight()).toBe(false)
-    expect(matchMediaSpy).toHaveBeenCalled()
-
-    Object.defineProperty(window, 'matchMedia', { writable: true, value: original })
+    try {
+      expect(prefersNight()).toBe(false)
+      expect(matchMediaSpy).toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(window, 'matchMedia', { writable: true, value: original })
+    }
   })
 })

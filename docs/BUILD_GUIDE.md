@@ -253,7 +253,7 @@ Corrected DAG — ✅ done, ⏸ not started:
 ```
 A0 (decisions)                            ✅
  └─ A (scaffold + design system)          ✅
-     ├─ B (flashcards + SM-2)             ⏸   ← next, awaiting explicit go-ahead
+     ├─ B (flashcards + SM-2)             ✅
      │   └─ C (ingest → flashcards)       ⏸
      ├─ D (Pomodoro)                      ⏸
      └─ E (tracker)                       ⏸
@@ -295,17 +295,43 @@ Shipped. What exists now, and where it differs from the plan:
 CSS-first, so tokens live only in `theme.css`. Vitest is pinned to v3 because npm 10 cannot resolve
 vitest 4/5's optional browser peers — see the toolchain constraints in `CLAUDE.md`.
 
-### Workflow B — Flashcards + Spaced Repetition — ⏸ **NOT STARTED** (waiting on an explicit go-ahead)
+### Workflow B — Flashcards + Spaced Repetition — ✅ **DONE**
 
-1. Data model — see §6. Note the fields the original model was missing (`updatedAt`, `deletedAt`,
-   `lapses`, `learningStep`, and a separate `ReviewLog`).
-2. Implement SM-2 as a **pure function**: `schedule(cardState, grade, now) → newState`. Unit-test the
-   boundary cases in `docs/ai/write-tests.md` before wiring any UI.
-3. Manual CRUD: create deck, add/edit/delete cards.
-4. Review session UI: pulls due cards (`nextReview <= now`), flip-to-reveal, 4-button grading.
-5. Wire grading → SM-2 → Dexie → append `ReviewLog`.
-6. Add cram mode behind the exam-date setting.
+1. Data model — §6, with the fields the original model was missing (`updatedAt`, `deletedAt`,
+   `lapses`, `learningStep`, and a separate `ReviewLog`). Dexie **version 1**: `decks`, `cards`,
+   `reviewLogs`, `settings`. `Lesson` and `Session` are deliberately not created until Workflows E
+   and D exist to fill them.
+2. SM-2 as a **pure function**: `schedule(cardState, grade, now) → newState` in
+   `src/features/flashcards/lib/sm2.ts`, with 25 tests written before any UI.
+3. Manual CRUD: the five PRC decks are seeded and gated on a `seededAt` marker (so a deck she deletes
+   stays deleted), plus add/edit/delete/reset-progress for cards.
+4. Review session UI at `/cards/review` and `/cards/:deckId/review`: due cards (`nextReview <= now`),
+   flip-to-reveal, 4-button grading, and keyboard shortcuts 1–4.
+5. Grading → SM-2 → Dexie → `ReviewLog` happens in **one transaction**, so a card write cannot land
+   without its history row.
+6. Cram mode behind the exam date, automatic inside a configurable threshold (default 30 days) with a
+   visible badge and a "show due cards instead" override.
 7. **Output:** working manual flashcard system with real spaced repetition, usable standalone.
+
+**Decisions taken during the build that are not in §6** (each fixes something that was ambiguous):
+
+- **`repetitions` counts graduated reviews only.** The sub-day learning steps do not increment it.
+  This is what makes "Good four times → 15 days" true; if the steps counted, the fourth Good would
+  give 6 days. `docs/BUILD_GUIDE.md` §8 is the disambiguating constraint.
+- **Hard repeats the current step; Easy graduates immediately** on the same path as Good. Easy's
+  reward is the ease-factor increase, deliberately **not** a longer first interval — skipping steps on
+  a card she has seen twice is how intervals run away.
+- **A lapse zeroes `intervalDays`** as well as `repetitions`, and mastery is
+  `learningStep === null && intervalDays >= 21`. Without both, a card she just failed at 38 days would
+  still report as mature on the dashboard.
+- **Day-scale intervals snap to the 04:00 study-day boundary**; learning steps stay rolling minutes.
+  A card graded at 23:50 is due the next 04:00 — inside her next session — rather than at 23:50 the
+  following night, which would silently push it a day later for an evening studier.
+- **`learningStep` names the step a card is _waiting on_**, not the one it just passed. Together with
+  `nextReview` and `lastReviewedAt` the state is unambiguous, which is what keeps `schedule` a pure
+  function of its input.
+- **The review session is a route, not mode state.** She will hard-refresh mid-session one day — a tab
+  restore, a swipe, ITP — and a route resumes cleanly from the database where React state would be lost.
 
 ### Workflow C — Ingest Pipeline (paste / PDF / OCR → flashcards)
 
@@ -490,23 +516,31 @@ Corrections to apply:
 ## 6. Data Model & Scheduling Contract
 
 ```ts
-Deck      { id, subject, name, updatedAt, deletedAt? }
-Card      { id, deckId, front, back,
+// Shipped in Dexie version 1 (Workflow B) — these four tables exist:
+Deck      { id, subject, name, scope, updatedAt, deletedAt? }
+Card      { id, deckId, front, back, tags[],
             // SM-2 state
             easeFactor,      // default 2.5, floor 1.3
-            intervalDays,    // default 0
-            repetitions,     // consecutive successful reviews
+            intervalDays,    // default 0; zeroed on a lapse
+            repetitions,     // GRADUATED reviews only — the learning steps do not count
             lapses,          // count of q<3 reviews
-            learningStep,    // 0 | 1 | null  → sub-day steps 1min / 10min
+            learningStep,    // index into LEARNING_STEPS_MINUTES, or null once graduated
             nextReview,      // epoch ms (NOT a date string)
             lastReviewedAt,
+            createdAt,       // cram mode measures a never-reviewed card's staleness from this
             updatedAt, deletedAt? }
 ReviewLog { id, cardId, deckId, reviewedAt, grade /*0|3|4|5*/, msSpent }
-Lesson    { id, subject, topic, deadline, status, notes, updatedAt, deletedAt? }
-Session   { id, startedAt, endedAt, plannedMs, actualMs, type, completed, tabHiddenCount }
-Settings  { examDate, workMin, breakMin, longBreakMin, cyclesBeforeLongBreak,
-            idleNudgeMin, quietHours: {start, end}, cloudSync: boolean }
+          // APPEND-ONLY: no updatedAt, no deletedAt. Workflow S merges it union-only.
+Settings  { id: 'app', examDate?, cramThresholdDays, seededAt?, cloudSync, updatedAt }
+
+// Not created yet — these arrive with the workflows that fill them:
+Lesson    { id, subject, topic, deadline, status, notes, updatedAt, deletedAt? }   // Workflow E
+Session   { id, startedAt, endedAt, plannedMs, actualMs, type, completed, tabHiddenCount } // D
 ```
+
+Settings will grow the timer fields (`workMin`, `breakMin`, …) when Workflow D needs them; they are
+omitted rather than invented. `seededAt` is what stops the five PRC decks being re-seeded after she
+deletes one — the gate is that marker, never "are there any decks".
 
 Why these fields, in one line each:
 
@@ -518,18 +552,33 @@ Why these fields, in one line each:
   deleted on the phone is resurrected by the laptop.
 - `msSpent` — cheap to record, and it is the only way to learn which cards are slow rather than just
   "graded Hard".
+- `createdAt` — cram ordering puts never-reviewed cards first and needs an honest "how long have I
+  been ignoring this" for cards with no `lastReviewedAt`. Reported as an age in days, never `Infinity`.
 
 **SM-2 contract (the parts implementations get wrong):**
 
 - Grades: Again = 0, Hard = 3, Good = 4, Easy = 5.
 - EF update: `EF' = EF + (0.1 − (5−q) × (0.08 + (5−q) × 0.02))`, applied on **every** grade
-  including failures, then clamped to a floor of **1.3**.
-- `q < 3` → `repetitions = 0`, `lapses += 1`, and the card re-enters learning steps. It does **not**
-  get the 1-day interval directly.
+  including failures and learning steps, then clamped to a floor of **1.3**. The deltas this produces
+  are **Again −0.80 · Hard −0.14 · Good 0.00 · Easy +0.10**; the floor is reached on the second
+  consecutive Again (2.5 → 1.7 → 1.3).
+- `q < 3` → `repetitions = 0`, `lapses += 1`, `intervalDays = 0`, and the card re-enters learning
+  steps. It does **not** get the 1-day interval directly. Zeroing the interval matters: mastery is a
+  function of `intervalDays`, so a stale 38 would make a just-failed card report as mature.
 - `repetitions = 0` → 1 day. `repetitions = 1` → 6 days. Then `interval = round(previous × EF)`,
-  minimum 1 day.
+  minimum 1 day. Note the **updated** EF is used, which is what keeps Easy > Good > Hard.
+- `learningStep` names the step the card is **waiting on** (0 = 1 minute, 1 = 10 minutes, `null` =
+  graduated). Hard repeats the current step; Good advances one and graduates past the last; Easy
+  graduates immediately on the same path as Good.
+- **Mastery is `learningStep === null && intervalDays >= 21`.** Not a repetition count, and never true
+  mid-learning.
 - Timezone: store epoch ms; do date arithmetic in the device's local zone. Streak day boundary is
-  04:00 local (decision #10).
+  04:00 local (decision #10). `src/lib/study-day.ts` is the single implementation of that boundary —
+  the scheduler and the future streak logic both call it, and no second copy may exist.
+- Day-scale intervals are **anchored to the start of the target study day** (`studyDayStart(now) + n
+days`), not to `now + n days`. Learning steps stay rolling minutes. A card graded at 23:50 with a
+  1-day interval is therefore due at the next 04:00 — inside her next session — rather than at 23:50
+  the following night, which would silently push it a day later for an evening studier.
 
 **Pre-seeded decks (decision #7) — verified against the official PRC program.**
 

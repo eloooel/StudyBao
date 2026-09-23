@@ -15,6 +15,8 @@ import { EmptyState } from '@/components/ui/empty-state'
  */
 const DashboardPage = lazy(() => import('@/features/dashboard/pages/dashboard.page'))
 const FlashcardsPage = lazy(() => import('@/features/flashcards/pages/flashcards.page'))
+const DeckDetailPage = lazy(() => import('@/features/flashcards/pages/deck-detail.page'))
+const ReviewPage = lazy(() => import('@/features/flashcards/pages/review.page'))
 const TimerPage = lazy(() => import('@/features/timer/pages/timer.page'))
 const TrackerPage = lazy(() => import('@/features/tracker/pages/tracker.page'))
 const SettingsPage = lazy(() => import('@/features/settings/pages/settings.page'))
@@ -34,6 +36,11 @@ export function AppRoutes() {
         <Route element={<AppShell />}>
           <Route index element={<DashboardPage />} />
           <Route path="cards" element={<FlashcardsPage />} />
+          {/* Order matters: the two review paths are static and must be matched before the
+              dynamic `:deckId`, or "review" would be read as a deck id. */}
+          <Route path="cards/review" element={<ReviewPage />} />
+          <Route path="cards/:deckId/review" element={<ReviewPage />} />
+          <Route path="cards/:deckId" element={<DeckDetailPage />} />
           <Route path="timer" element={<TimerPage />} />
           <Route path="lessons" element={<TrackerPage />} />
           <Route path="settings" element={<SettingsPage />} />

@@ -199,8 +199,11 @@ Only promote a component to `src/components/ui/` once **three or more features**
 Full model in `BUILD_GUIDE.md` §6. The parts that are easy to get wrong:
 
 - `nextReview` is **epoch ms**, not a date string, because learning steps are sub-day.
-- `updatedAt` on every synced record; `deletedAt` for tombstones. **Never hard-delete a synced
-  record** — hard deletes are resurrected by the other device.
+- `updatedAt` on every **mutable** synced record; `deletedAt` for tombstones. **Never hard-delete a
+  synced record** — hard deletes are resurrected by the other device. The one named exception is
+  `ReviewLog`, which is **append-only** and therefore has neither field: it is never mutated after it
+  is written, and Workflow S must merge it **union-only** — a last-write-wins merge on an append-only
+  table is silent history loss. Do not "fix" it by adding the fields back.
 - SM-2 grades map Again=0, Hard=3, Good=4, Easy=5. Ease factor updates on _every_ grade and is
   floored at **1.3**. `q < 3` resets repetitions, records a lapse, and re-enters learning steps.
 - A streak day rolls over at **04:00 local**, not midnight.

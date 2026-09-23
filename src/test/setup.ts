@@ -1,13 +1,33 @@
+/*
+ * The `@testing-library/jest-dom/vitest` import is **load-bearing for the typecheck**, not just
+ * for the matchers at runtime: it is what augments vitest's `Assertion` interface. Without it every
+ * `expect(...).toBeInTheDocument()` in the suite fails `tsc` while passing at runtime, which is a
+ * confusing way to spend an afternoon. Do not remove it.
+ */
 import '@testing-library/jest-dom/vitest'
+import 'fake-indexeddb/auto'
 
 import { cleanup } from '@testing-library/react'
 import { afterEach } from 'vitest'
 
+import { resetDatabaseForTestsIfUsed } from '@/db/schema'
+
 // React Testing Library only auto-cleans when `globals` is on, and we keep globals
 // off so every test imports what it uses. Without this, renders leak between tests
 // and failures become order-dependent.
-afterEach(() => {
+afterEach(async () => {
   cleanup()
+  // The same reason, for the database. The app's Dexie handle is a module-level singleton over a
+  // shared in-memory IndexedDB, so without an explicit wipe a deck created in one test is visible
+  // in the next and the suite becomes order-dependent.
+  //
+  // This re-seeds as well as wipes, so every test starts from the state a real first launch
+  // produces: the five PRC decks and a settings row. A test that needs a *pre-first-launch*
+  // database should call `clearDatabaseForTests()` itself.
+  //
+  // It is a no-op when nothing touched the database, so the ~200 tests that are pure logic or
+  // component rendering do not pay for an IndexedDB open and re-seed after every case.
+  await resetDatabaseForTestsIfUsed()
 })
 
 // jsdom does not implement matchMedia. The theme resolver reads it, so tests need

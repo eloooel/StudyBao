@@ -14,15 +14,22 @@ Every new field is a migration, a sync field, a test, and a permanent maintenanc
 
 ## 2. Update the model in three places — never one
 
-1. `src/db/schema.ts` — the Dexie table definition and indexes **(pending Workflow B)**
+1. `src/db/schema.ts` — the Dexie table definition and indexes
 2. `src/db/types.ts` — the TypeScript interface
-3. `src/sync/mappers.ts` — the Firestore document mapping, if the record syncs
+3. `src/sync/mappers.ts` — the Firestore document mapping, if the record syncs **(pending Workflow S)**
 
 If any of the three is missing the change, you have a latent bug.
 
+**Current version: 1.** `decks`, `cards`, `reviewLogs`, `settings` — that is all four tables that
+exist. `Lesson` (Workflow E) and `Session` (Workflow D) are in `BUILD_GUIDE.md` §6 as the eventual
+model; they are deliberately not created until the workflows that fill them are built.
+
 ## 3. Non-negotiable field rules
 
-- **Every synced record has `updatedAt: number` (epoch ms) and `deletedAt?: number`.**
+- **Every mutable synced record has `updatedAt: number` (epoch ms) and `deletedAt?: number`.** The
+  named exception is an **append-only** table — `ReviewLog` is the one that exists — which has
+  neither, because it is never mutated after it is written. Do not add them back; instead make sure
+  Workflow S merges that table **union-only**, never last-write-wins.
 - **Never hard-delete a synced record.** Set `deletedAt` and filter it out on read. A hard delete on
   one device is resurrected by the other device's next sync — this is the single most common
   local-first bug.
@@ -53,7 +60,7 @@ this.version(2)
 
 ## 5. Test the migration
 
-Add a test to `src/db/migrations.test.ts` **(pending Workflow B)** that:
+Add a test to `src/db/migrations.test.ts` that:
 
 1. Opens a v(N−1) database, seeds representative rows (including a soft-deleted row and a row with
    the field missing).
