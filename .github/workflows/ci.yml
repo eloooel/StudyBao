@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint:check
+      - run: npx prettier --check .
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:coverage
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # The service worker and manifest must exist in the build output, or the PWA silently
+      # stops being installable — which breaks push and iOS storage durability. Fail loudly.
+      - name: Verify PWA artifacts
+        run: |
+          test -f dist/sw.js || { echo "::error::dist/sw.js missing — service worker not built"; exit 1; }
+          test -f dist/manifest.webmanifest || test -f dist/manifest.json || { echo "::error::web manifest missing"; exit 1; }
