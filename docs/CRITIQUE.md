@@ -8,6 +8,18 @@ fixed in [`BUILD_GUIDE.md`](BUILD_GUIDE.md).
 
 Legend: 🔴 blocking · 🟠 significant · 🟡 worth fixing · ✅ verified correct
 
+> **Status update — September 2026.** This is a dated review of the original guide and is left intact
+> so the reasoning stays auditable. Two things have since changed, both noted inline where they
+> appear:
+>
+> 1. **Closed-app push was dropped by product decision.** The push backend (old "Workflow G0") is not
+>    built; notifications are in-app only. That resolves A1 and makes B2, B3, and most of B4 moot. See
+>    [ADR 0006](adr/0006-in-app-notifications-only.md).
+> 2. **The exam scope was verified against the official PRC program**, replacing a secondary-source
+>    guess. See [`reference/pnle-scope.md`](reference/pnle-scope.md).
+>
+> [`BUILD_GUIDE.md`](BUILD_GUIDE.md) is the current plan; this file is the reasoning behind it.
+
 ---
 
 ## A. Blocking flaws
@@ -31,6 +43,13 @@ gone, the push fires from the backend — which is the behaviour you wanted. Sam
 
 **Consequence:** Workflow G needs a backend with a subscription store, a pending-push store, and a
 1-minute tick. The guide never mentions this component. Added as **Workflow G0**.
+
+> **Resolution (2026-09).** Rather than build G0, the product owner removed the requirement: there are
+> no notifications while the app is closed, so delivery is in-app only and the backend disappears. The
+> analysis above still stands — it is *why* in-app-only was chosen, and it is why the app can no longer
+> promise a cue when she closes it. See [ADR 0006](adr/0006-in-app-notifications-only.md); the
+> pre-schedule design is preserved in [ADR 0002](adr/0002-push-architecture-and-scheduler.md) as the
+> path back.
 
 Also: there is no client-side fallback. Chrome's Notification Triggers API (`showTrigger` /
 `TimestampTrigger`) — the one API that would have made local scheduling possible — is documented as
@@ -129,6 +148,10 @@ simpler: a public key in the client, a private key in one server secret, and `we
 `@block65/webcrypto-web-push` (Workers) on the send side. Fewer moving parts on the one feature that
 is hardest to debug.
 
+> **Moot (2026-09).** [ADR 0006](adr/0006-in-app-notifications-only.md) dropped server-sent
+> notifications, so neither FCM nor VAPID is used. Kept as a record of why the original stack was
+> heavier than it needed to be.
+
 ### 🟠 B3. `vite-plugin-pwa`'s default strategy is the wrong one here
 
 The guide says "configure as installable PWA (manifest.json, icons, service worker registration)".
@@ -137,7 +160,15 @@ add `push` / `notificationclick` handlers to it cleanly. Use **`injectManifest`*
 service worker from the start; retrofitting it later means rewriting the SW and re-testing the whole
 offline path.
 
+> **Reversed (2026-09).** With no push handlers to add, `generateSW` is now sufficient and Workflow A
+> specifies it — one fewer custom file to maintain. This finding applied only while push was in scope.
+
 ### 🟠 B4. iOS specifics that decide whether push works at all
+
+> **Mostly moot (2026-09).** With in-app notifications only, the Web Push and permission items below no
+> longer apply. The **storage-eviction item still does** and is now the single reason to ask her to
+> install the app: Safari's 7-day script-writable-storage cap exempts installed web apps. The
+> `beforeinstallprompt` item also still applies, because the install screen must be hand-written.
 
 - Requires **iOS 16.4+** *and* the app added to the Home Screen. Push from a Safari tab does not work.
 - The manifest needs `"display": "standalone"` (or `fullscreen`); ship `apple-mobile-web-app-capable`
@@ -273,7 +304,8 @@ What is actually true:
 - ✅ B, D, E are genuinely parallel after A. Good call.
 - ✅ C after B is correct.
 - 🔴 **F does not only need B/D/E — it needs a history model that B does not specify.** See A4.
-- 🔴 **G needs an entire backend (G0) that is not in the graph.** See A1.
+- 🔴 **G needs an entire backend (G0) that is not in the graph.** See A1. *(Resolved 2026-09 by
+  dropping closed-app delivery rather than building G0.)*
 - 🔴 **G also needs synced activity data** to answer "did she study today?" — so G depends on the sync
   half of decision #1, not just on D.
 - 🔴 **There is no test harness anywhere in the plan.** SM-2 and the parser are pure functions with
@@ -338,7 +370,7 @@ honest caveat (a card on file if Firebase Functions is kept).
    features. Install problems found on day 1 cost an hour; found on day 20 they cost a rewrite.
 3. B and D in parallel (D is the fastest win and the thing she will use on day one).
 4. C and E in parallel.
-5. F, then G0 → G.
+5. F, then G. *(G0 was removed by ADR 0006 — G now depends on D alone.)*
 6. H, then hand it over with the install instructions.
 
 ---
@@ -431,7 +463,7 @@ is now a documented convention here.
 | `CLAUDE.md` | Invariants, commands, architecture, constraints. No procedure. Now also carries the two AI boundaries. |
 | `AGENTS.md` | A 10-line pointer, for tools that do not read `CLAUDE.md`. KadaKareer has no equivalent; added because it is cheap. |
 | `docs/ai/README.md` | Index + ground rules + the runbook skeleton + the two conventions. |
-| 7 runbooks | `add-feature`, `add-component`, `write-tests`, `change-data-model`, `add-push-trigger`, `cleanup`, `pre-pr`. Five are project-specific; two (`write-tests`, `cleanup`) are near-universal and ported in spirit. |
+| 7 runbooks | `add-feature`, `add-component`, `write-tests`, `change-data-model`, `add-notification`, `cleanup`, `pre-pr`. Five are project-specific; two (`write-tests`, `cleanup`) are near-universal and ported in spirit. |
 | `.claude/skills/*/SKILL.md` (7) | The 6-line shim mechanism, exactly. |
 | `.claude/settings.json` | Permission allow/ask/**deny**, including deny-read on `.env`, `*.pem`, `vapid*.json`, and service-account files. |
 | `docs/adr/README.md` + 5 ADRs | Their `Context / Decision / Consequences / Alternatives` shape, with a mandatory **Bad / cost** section. |
@@ -462,8 +494,8 @@ files on every commit).
 There is now a written answer, in the repo, to "how is AI use controlled here":
 
 - **What the AI may not touch** — `CLAUDE.md` → explicit must-not-do list (no scaffolding, no new
-  paid/keyed dependency, no cloud component before G0, no decision changes without an ADR, no
-  secrets, no leaving servers running).
+  paid/keyed dependency, **no backend, no push service, no server-side secret** per ADR 0006, no
+  decision changes without an ADR, no secrets, no leaving servers running).
 - **What the AI must be told to do** — `docs/ai/` runbooks, one per risky task, with `Done when`
   checklists and explicit "Do not" sections.
 - **What is machine-checked** — CI (lint + typecheck + format + test + build + PWA-artifact check),

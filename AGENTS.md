@@ -28,4 +28,4 @@ it is the canonical file and this one is only a pointer.**
 ## Claude Code users
 
 Slash commands mirror the runbooks: `/add-feature`, `/add-component`, `/write-tests`,
-`/change-data-model`, `/add-push-trigger`, `/cleanup`, `/pre-pr`.
+`/change-data-model`, `/add-notification`, `/cleanup`, `/pre-pr`.

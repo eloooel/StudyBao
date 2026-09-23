@@ -13,8 +13,8 @@ are in [`docs/DECISIONS.md`](docs/DECISIONS.md); the reasoning behind the plan i
 ## What this project is
 
 A study companion for one person's PNLE (Philippine Nurse Licensure Examination) review. Flashcards
-with SM-2 spaced repetition, a Pomodoro timer, a lesson tracker, and true background push
-notifications. Free tools only. Coquette pink & white visual identity.
+with SM-2 spaced repetition, a Pomodoro timer, a lesson tracker, and in-app attention nudges. Free
+tools only, and **no backend** — it is a static PWA. Coquette pink & white visual identity.
 
 The user is **one non-technical person on a phone**. That single fact decides most trade-offs:
 offline-first beats server-first, a wrong number is worse than a missing one, and anything that
@@ -37,8 +37,9 @@ boundary. Your output is reviewed by a human before it reaches her phone.
 - Do not scaffold, rename, or restructure the project layout — this repo's plan is
   `docs/BUILD_GUIDE.md`, and phases are sequential by design.
 - Do not add a dependency that has a paid tier, requires an API key, or phones home at runtime.
-- Do not add a cloud/backend component before Workflow G0, and never without the auth model in
-  decision #6 of the build guide.
+- Do not add a backend, a push service, an API key, or a server-side secret. [ADR 0006](docs/adr/0006-in-app-notifications-only.md)
+  removed the backend deliberately: notifications are in-app only, and nothing fires while the app is
+  closed. Reintroducing any of that needs an ADR and an explicit decision, not a quiet addition.
 - Do not change the decisions closed in `BUILD_GUIDE.md` §2. If a decision is wrong, write an ADR in
   `docs/adr/` and ask — do not silently diverge.
 - Do not touch the design-system palette values without checking contrast first (see below).
@@ -82,7 +83,7 @@ Run a single test file:
 npx vitest run src/features/flashcards/sm2.test.ts
 ```
 
-**Push notifications and service workers do not work under `npm run dev`.** Always verify with
+**The service worker does not run under `npm run dev`.** Verify anything PWA-related with
 `npm run build && npm run preview`, on a real device, over HTTPS (or a tunnel).
 
 Path alias: `@` → `./src`.
@@ -158,8 +159,9 @@ Only promote a component to `src/components/ui/` once **three or more features**
 - **No `console.log` in committed code.** Use the `src/lib/logger.ts` wrapper (and it must be silent
   in production builds).
 - **No raw `fetch()` in feature code.** Use `src/lib/api-client.ts`.
-- **The service worker is hand-written** (`src/sw.ts`, `injectManifest` strategy). Do not switch to
-  Workbox `generateSW`; the push handlers live in that file.
+- **The service worker only caches — it has no `push` handler.** Notifications never come from a
+  server (ADR 0006), so there is no VAPID key, no subscription, and no permission prompt. If a task
+  seems to need one, it is a scope change: write an ADR and ask first.
 
 ---
 
@@ -201,8 +203,8 @@ do not "improve" a colour without re-checking WCAG AA (4.5:1 body text, 3:1 larg
   only defence against silently wrong scheduling.
 - UI tests import from `@/test/render`, not directly from `@testing-library/react`.
 - Do not test Tailwind classes, implementation details, or snapshots.
-- Do not test the service worker's caching internals — test the notification payload handling as a
-  pure function instead.
+- Do not test the service worker's caching internals. Test the nudge decision instead — trigger
+  evaluation, cadence caps, and quiet hours are pure functions, so test them there.
 - Coverage threshold is enforced; see `vitest.config.ts`.
 
 ---
@@ -210,12 +212,12 @@ do not "improve" a colour without re-checking WCAG AA (4.5:1 body text, 3:1 larg
 ## Security rules
 
 - `.env` is never committed. `.env.example` documents every variable.
-- Firebase client config (`apiKey` etc.) is not a secret; **Firestore rules are the security
-  boundary**. Rules are owner-only and are tested against the emulator before deploy.
-- The VAPID **private** key exists only as a server/deploy secret. Only the public key may appear in
-  client code.
-- Every mutating backend endpoint requires a Firebase ID token. An unauthenticated `/schedule`
-  endpoint lets a stranger buzz her phone.
+- **There are no server-side secrets, because there is no server.** The only auth-shaped risk left is
+  Firestore, and only if cloud sync is enabled: Firebase client config (`apiKey` etc.) is *not* a
+  secret, so **Firestore rules are the entire security boundary**. Rules are owner-only and are tested
+  against the emulator before any deploy.
+- If cloud sync is ever enabled, keep it optional and off by default until the merge function has
+  migration tests. A wrong merge reaching her data is worse than no sync.
 
 ---
 

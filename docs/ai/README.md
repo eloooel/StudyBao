@@ -9,7 +9,7 @@ any AI assistant, or follow them by hand.
 | [add-component.md](add-component.md) | Add a UI component (shared or feature-local) |
 | [write-tests.md](write-tests.md) | Add or fix tests, especially for pure logic |
 | [change-data-model.md](change-data-model.md) | Add or change a Dexie table, field, or index |
-| [add-push-trigger.md](add-push-trigger.md) | Add a notification trigger or message-bank entry |
+| [add-notification.md](add-notification.md) | Add a notification trigger, message-bank entry, or nudge behaviour |
 | [cleanup.md](cleanup.md) | Delete dead code, speculative abstraction, and leftovers |
 | [pre-pr.md](pre-pr.md) | Get a branch ready to hand over |
 
@@ -23,7 +23,7 @@ any AI assistant, or follow them by hand.
 ## How to use with your AI tool
 
 - **Claude Code** — each runbook has a matching skill in `.claude/skills/`, invocable as
-  `/add-feature`, `/add-component`, `/write-tests`, `/change-data-model`, `/add-push-trigger`,
+  `/add-feature`, `/add-component`, `/write-tests`, `/change-data-model`, `/add-notification`,
   `/cleanup`, `/pre-pr`.
 - **Cursor** — reference the file in chat: `@docs/ai/add-feature.md implement the decks page`.
 - **Copilot / ChatGPT / DSH / other** — paste the runbook contents into the prompt before describing

@@ -1,7 +1,9 @@
 # ADR 0005 — Authentication: Google Sign-In, one allow-listed email
 
-- **Status:** Accepted
-- **Date:** 2026-02 (planning)
+- **Status:** **Conditional** — applies only if cloud sync is enabled. [ADR 0006](0006-in-app-notifications-only.md)
+  removed the other reason auth existed (authenticating a push backend), so if sync is dropped this
+  ADR does not apply and the app needs no auth at all.
+- **Date:** 2026-02 (planning; narrowed 2026-09)
 - **Supersedes:** decision #6 in the original build guide ("single-user app, no login is fine")
 
 ## Context
@@ -20,6 +22,12 @@ options are:
 2. **A shared secret in the client** — not a secret; it ships in the bundle and is visible in
    devtools.
 3. **Security by obscurity** — an unguessable project ID. Not a security model.
+
+**Update (2026-09).** There was originally a second, independent reason for auth: the push backend
+needed to authenticate its callers. [ADR 0006](0006-in-app-notifications-only.md) removed the backend
+entirely, so that reason is gone. What remains is the sync reason only — which means this ADR is
+**conditional on cloud sync being wanted at all**. If it is not, skip all of this: no auth, no
+Firestore, no rules file.
 
 ## Decision
 
@@ -42,7 +50,6 @@ options are:
 - Firestore rules become a one-liner that is easy to review and hard to get wrong.
 - Two devices share data through a real identity, so an iOS reinstall (which changes anonymous auth
   UIDs) does not orphan her data. This is why Google Sign-In beats anonymous auth here.
-- The push backend can authenticate its callers for free, reusing the same token.
 
 **Bad / cost**
 

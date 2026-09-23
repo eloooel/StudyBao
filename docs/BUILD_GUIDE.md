@@ -1,8 +1,8 @@
 # StudyBao — Build Guide (v2, corrected)
 
 A free-tools-only study companion for PNLE review: flashcards, Pomodoro, lesson tracker, and
-true background push notifications. Built for low-attention-span, high-stakes prep.
-Coquette pink & white visual identity.
+in-app attention nudges. Built for low-attention-span, high-stakes prep. Coquette pink & white visual
+identity.
 
 > **v2 note.** This supersedes the original build guide. Every technical claim was re-verified and
 > six blocking flaws were fixed. What changed and why is documented in
@@ -61,21 +61,38 @@ the favicon/apple-touch-icon language. Tagline: *"Study buddy for the PNLE 💗"
 - Calendar + list view, filterable by status.
 - OCR-assisted schedule import from a photo, with a **mandatory** confirm/edit pass before saving.
 
-### Push Notifications — true background (PWA + Web Push)
+### Notifications — in-app only, no backend
 
-- Service worker + Web Push subscription, with a **small backend** that owns the subscription and
-  the schedule. See §4 Workflow G0 — the original guide was missing this and it is not optional.
-- Motivating message bank (rotating, tagged by trigger, never repeating back-to-back).
-- Triggers, with the mechanism corrected:
-  - **Session-end push** — pre-scheduled at session start, cancelled if she ends/pauses early.
-  - **Idle nudge** — pre-scheduled at `startedAt + X` min, cancelled the moment she interacts.
-    (Not "detect idle, then send": while the app is closed nothing is running to detect anything.)
-  - **Tab-switch detection** — `visibilitychange` increments a counter; a gentle in-app
-    "welcome back" toast on return. Notification-level delivery only from the backend schedule.
-  - **Daily streak reminder** — backend cron checks "has any activity been logged today?" and
-    sends only if not, inside quiet hours, and never twice.
-- **Quiet hours** (new, default 22:00–06:30 local): no push is delivered in the window. This is a
-  nursing student's sleep; a study app that pings at 1 a.m. is a net negative.
+**Scope changed by product decision (see [ADR 0006](adr/0006-in-app-notifications-only.md)).** No
+notification is delivered while the app is closed. That removes the entire push backend: no VAPID
+keys, no cron, no subscription store, no Cloud Functions, no FCM, no Blaze, no permissions prompt.
+
+- Rotating message bank, tagged by trigger, never repeating back-to-back.
+- Four triggers, all requiring a live page:
+  - **Idle nudge** — no interaction for `idleNudgeMin` during an active Working session → in-app
+    banner. Fires while the page is foregrounded; on mobile it effectively becomes a
+    "welcome back" cue, because switching apps suspends the page.
+  - **Welcome back** — `visibilitychange` → hidden increments `tabHiddenCount`; on return, if a
+    session is still active, show remaining time.
+  - **Session end** — wall-clock timer hits zero → sound + visual + banner.
+  - **Streak reminder** — on app open, if no activity yet today and it is past her usual study hour,
+    show it once. Because it can only fire when she opens the app, it can never nag her at 1 a.m.
+- **Quiet hours** (default 22:00–06:30 local): a trivial client-side check. Kept because a study app
+  that pings at 1 a.m. is a net negative, even in-app.
+
+**Honest limits, which the UI must not oversell:**
+
+1. **Nothing fires when the app is closed or terminated.** Accepted trade-off.
+2. **On mobile, switching apps suspends the page** — so the idle nudge does not wake her; it greets
+   her on return. The UI should promise the welcome-back behaviour, not the idle-nudge behaviour.
+3. **Background tabs are throttled to roughly once per minute**, so a session-end cue is exact when
+   the tab is visible and may be up to ~1 minute late when hidden. Never tick a counter: derive
+   everything from `startedAt` and `Date.now()`, and recompute on becoming visible.
+4. **The most common pattern is the one that suffers**: start a 25-minute Pomodoro, switch to a PDF,
+   and the break cue never arrives. The timer screen must say so — *"keep this tab open for the cue."*
+5. **Optional desktop recovery:** when the tab is open but behind another window, an OS-level
+   notification created by the live page (`new Notification(...)` — no push, no server) is the only
+   way to reach her. Opt-in, because it reintroduces a permission prompt.
 
 ### Extras
 
@@ -94,12 +111,12 @@ the favicon/apple-touch-icon language. Tagline: *"Study buddy for the PNLE 💗"
 | # | Decision | Closed answer | Why (and what was wrong before) |
 | --- | --- | --- | --- |
 | 1 | Data storage | **Local-first IndexedDB (Dexie) as source of truth**, with optional background sync to Firestore | Firestore-as-source-of-truth breaks the app the moment she is on airplane mode or campus wifi drops — which is most of the time she studies. Local-first also means the app is fully usable with the network down. |
-| 2 | Hosting | **Cloudflare Pages** (or Vercel/Firebase Hosting — all fine) | Any of the three gives free HTTPS. Pick the one that matches wherever the push backend ends up living, so there is one deploy surface and one set of secrets. |
-| 3 | Push delivery | **Standard Web Push + VAPID**, sent by a tiny backend. **Not FCM.** | FCM buys nothing for a single user and adds an SDK, a second service, and a service-worker dependency. VAPID is a public key in the client and a private key in a server secret. The sender is the real problem — see #1 in §3. |
+| 2 | Hosting | **Any static host** — Cloudflare Pages, Vercel, or GitHub Pages | With no backend (ADR 0006) this is a static bundle, so the choice is pure preference. All give free HTTPS. |
+| 3 | Notification delivery | **Client-side only. No push, no backend.** | Product decision, Sept 2026 — see [ADR 0006](adr/0006-in-app-notifications-only.md). Removes VAPID, FCM, cron, the subscription store, and the permission prompt entirely. The cost: nothing fires while the app is closed. |
 | 4 | OCR accuracy | Always show an edit/confirm screen; never auto-save OCR text | Unchanged. Reinforced: default the UI to paste/PDF ingest and label photo OCR honestly as best-effort. |
 | 5 | Notification cadence | Conservative, quiet hours, hard caps | Unchanged default, plus: max 1 idle nudge per session, max 1 streak reminder/day, none 22:00–06:30 local. |
-| 6 | Auth | **Google Sign-In, allow-listed to one email** | The original "single-user, no login" is **incompatible with cloud sync**: Firestore security rules need an authenticated identity to scope data to. Without auth you either leave the database world-readable/writable or ship a shared secret in the client (bypassable). One Google account = one tap, two devices, correct rules. |
-| 7 | Subjects/decks | Pre-seed the standard PNLE content areas | Unchanged. See §6 for the seed list. |
+| 6 | Auth | **Google Sign-In, one allow-listed email — only if cloud sync is wanted.** Otherwise none. | The original "single-user, no login" is **incompatible with cloud sync**: Firestore rules need an authenticated identity. But auth is *only* needed for sync — ADR 0006 removed the other reason (authenticating a push backend). So this is now a consequence of decision #1, not an independent requirement. |
+| 7 | Subjects/decks | Pre-seed the five PRC Nursing Practice parts | See §6. Verified against the official PRC program — see [`reference/pnle-scope.md`](reference/pnle-scope.md). |
 | 8 | **Exam date** (new) | Capture it on first run | Drives cram mode, the dashboard countdown, and notification tone. |
 | 9 | **Backup/export** (new) | JSON export + import in Settings | Local-first without export is a single point of loss (iOS storage eviction, cleared browser data). |
 | 10 | **Timezone/streaks** (new) | Streak day rolls over at **04:00 local**, not midnight | A student reviewing at 1 a.m. must not lose the streak she just earned. |
@@ -112,57 +129,46 @@ the favicon/apple-touch-icon language. Tagline: *"Study buddy for the PNLE 💗"
 | --- | --- | --- |
 | Frontend | React + Vite + TypeScript | Vitest for unit tests. |
 | Styling | Tailwind CSS | Custom coquette theme tokens; see §5 for the corrected, contrast-safe palette. |
-| Storage | **Dexie (IndexedDB)** = source of truth; optional Firestore sync | Firestore **Spark plan** covers this comfortably (1 GiB, 50k reads / 20k writes per day). |
-| Auth | Firebase Auth, Google provider, one allow-listed email | Required for any cloud path. |
+| Storage | **Dexie (IndexedDB)** = source of truth; optional Firestore sync | Firestore **Spark plan** covers this comfortably (1 GiB, 50k reads / 20k writes per day). Sync is optional — the app is complete without it. |
+| Auth | Firebase Auth, Google, one allow-listed email | **Only if cloud sync is enabled.** Not needed otherwise (ADR 0006). |
 | OCR | Tesseract.js, **self-hosted** core + `eng.traineddata` | Do **not** rely on the default CDN. See "OCR reality" below. |
 | PDF text | `pdfjs-dist` | Client-side, free, no OCR error at all for digital PDFs. |
-| Push | Web Push + VAPID (`web-push` on Node, or `@block65/webcrypto-web-push` on Workers) | Private key is a server secret only. |
-| Scheduler | **Cloudflare Workers Cron Triggers** (1-minute granularity, free) | See "Who sends the push" below. |
-| Hosting | Cloudflare Pages / Vercel / Firebase Hosting | HTTPS by default. |
+| Notifications | **None — in-app UI only** | Toasts/banners, `visibilitychange`, and a wall-clock timer. No service-worker `push` handler, no VAPID, no permission prompt. |
+| Backend | **None** | Removed by [ADR 0006](adr/0006-in-app-notifications-only.md). If sync is enabled, Firestore is contacted directly from the client; there is still no server of ours. |
+| Hosting | Any static host (Cloudflare Pages / Vercel / GitHub Pages) | HTTPS by default. |
 | Spaced repetition | Custom SM-2 + sub-day learning steps | Pure function, unit-tested. No library. |
 
-### Who sends the push (the original guide's biggest gap)
+### No backend, and what that removed
 
-Firebase Cloud Functions is the obvious choice for "run something on a schedule" and it is where the
-original guide's free-tier assumption breaks: **deploying Cloud Functions requires the Blaze
-(pay-as-you-go) plan with a card on file.** At this scale the bill is $0, but "no billing account"
-was an explicit goal, and a card on file is a real behavioural change.
+The original guide assumed a scheduled push sender, and the free-tier analysis of that is preserved in
+[ADR 0002](adr/0002-push-architecture-and-scheduler.md) (Cloud Functions needs Blaze + a card;
+Cloudflare Workers Cron is free with 5 triggers and a 10 ms CPU budget; GitHub Actions cron is too
+coarse). **None of it is needed any more.** Dropping closed-app notifications deleted:
 
-Genuinely free, no-card options for the scheduler:
+- the subscription store, the pending-push store, and the 1-minute tick
+- VAPID keys, and with them the only server-side secret in the project
+- service-worker `push` / `notificationclick` handling
+- the notification-permission UX and its "notifications are off" state
+- iOS Home Screen installation as a *notifications* prerequisite
+- an entire workflow (old G0)
 
-| Option | Granularity | Verdict |
-| --- | --- | --- |
-| **Cloudflare Workers Cron Triggers** | 1 minute; **free plan allows 5 cron triggers per account and 10 ms CPU per invocation** | **Recommended.** Owns the tick; pair with Workers KV (subscription + pending pushes) and keep Firestore for card data. 10 ms CPU is plenty to sign and send a couple of pushes (WebCrypto is native; `fetch()` waits are not billed as CPU) but **not** enough to batch-send to many subscribers — irrelevant at one user. Free plan: 100k requests/day. |
-| GitHub Actions `schedule` | ~5 min minimum, routinely delayed 5–20 min; disabled after 60 days of repo inactivity | Fine for the once-a-day streak reminder. Too coarse for idle nudges. |
-| Vercel Cron (Hobby) | Once per day, timing imprecise | Streak reminder only. |
-| Firebase Cloud Functions + Cloud Scheduler | Fine | Requires Blaze + card. |
+If the decision is ever revisited, ADR 0002 is the starting point, not this section.
 
-Scheduler limits verified against Cloudflare's own plan-limits table; a widely-circulated community
-doc claims Cron Triggers require the paid plan, and that is not what Cloudflare's documentation says.
+### iOS reality check — what still applies
 
-Whatever you pick, the backend needs exactly three things: a **subscription store**, a
-**pending-push store** keyed by time, and a **1-minute tick**. That is a Workflow of its own (§4 G0).
+Notifications no longer depend on any of this, but two items still matter:
 
-### iOS reality check (verified)
+- **Manifest**: `"display": "standalone"` (or `fullscreen`), plus the legacy
+  `apple-mobile-web-app-capable` and `apple-touch-icon` tags — iOS does not read every manifest field.
+- **IndexedDB on iOS is subject to Safari's 7-day script-writable-storage cap unless the site is
+  added to the Home Screen**, which exempts it. Installing is therefore a **data-durability**
+  requirement. This is now the *only* hard reason to ask her to install, and the install screen should
+  say exactly that rather than promising notifications.
+- iOS does **not** fire `beforeinstallprompt`, so the install screen must be hand-written
+  (Share → Add to Home Screen) with screenshots.
 
-- Web Push on iOS requires **iOS/iPadOS 16.4+** and the app must be **added to the Home Screen**.
-  Push does not work from a Safari tab.
-- The manifest must declare `"display": "standalone"` (or `fullscreen`). Ship the legacy
-  `apple-mobile-web-app-capable` / `apple-touch-icon` tags as well — iOS does not read every
-  manifest field.
-- Permission must be requested from a **user gesture**, while installed. Request it after her first
-  completed Pomodoro, exactly as the original guide proposed. That part was right.
-- iOS does **not** fire `beforeinstallprompt`. There is no install button to show. Workflow H must
-  include a hand-written "how to install on iPhone" screen with screenshots (Share → Add to Home
-  Screen), or push will simply never work for her.
-- There is **no client-side scheduled-notification API to fall back on.** Chrome's Notification
-  Triggers (`showTrigger` / `TimestampTrigger`) was abandoned by the Chrome team — the documented
-  status is "development is no longer pursued". Do not design around it.
-- IndexedDB on iOS is subject to Safari's 7-day script-writable-storage cap **unless the site is
-  added to the Home Screen**, which exempts it. Installing is therefore a *data-durability*
-  requirement, not just a push requirement. Say this in the install screen.
-- A subscription is invalidated if she deletes the home-screen app. Handle push-service `404`/`410`
-  responses by deleting the stored subscription rather than retrying forever.
+No longer relevant: the iOS 16.4 Web Push requirement, the user-gesture permission prompt, push
+subscription `404`/`410` handling, and Chrome's abandoned Notification Triggers API.
 
 ### OCR reality check
 
@@ -196,30 +202,30 @@ A0 (decisions + test harness)
      │   └─ C (ingest → flashcards)
      ├─ D (Pomodoro)
      └─ E (tracker)
-          └─ F (dashboard)          ← needs B, D, E data
-          └─ G0 (sync + push backend) ← needs decisions #1/#3/#6
-               └─ G (push triggers)   ← needs D's session state + G0
-                    └─ H (polish)
+          └─ F (dashboard)                ← needs B, D, E data
+          └─ G (in-app attention nudges)  ← needs D's session state only
+               └─ H (polish)
 ```
 
-The original graph put G directly under D. It also needs a backend that does not exist yet, and it
-needs synced activity data to answer "did she study today?". Hence G0.
+Corrections to the original graph: F needs a history model that B did not specify (see §6), and the
+original G needed a backend plus synced activity data. **ADR 0006 removed the backend**, so G now
+depends on D alone and shrinks to a small UI module. Old G0 is deleted.
 
 ### Workflow A — Scaffold & Design System
 
 1. Scaffold React + Vite + TS + Tailwind **+ Vitest** (added — SM-2 and the parser are pure
    functions and are the two things most likely to be silently wrong).
-2. Configure the PWA with `vite-plugin-pwa` using the **`injectManifest`** strategy, not
-   `generateSW`. You need custom `push` and `notificationclick` handlers in the service worker, and
-   `generateSW`'s generated Workbox worker is the wrong shape for that.
+2. Configure the PWA with `vite-plugin-pwa`. **`generateSW` is now sufficient** — there are no push
+   handlers to add, so the default Workbox service worker does exactly the one job left (offline
+   caching). This is a direct simplification from ADR 0006.
 3. Manifest: `name`, `short_name`, `start_url`, `display: standalone`, `theme_color`,
    `background_color`, icons at 192/512 + a maskable variant + `apple-touch-icon` 180.
 4. Self-host fonts (`@fontsource/*`). A Google Fonts CDN link is a network dependency and breaks the
    offline story.
 5. Implement the design system as Tailwind theme tokens using the **contrast-corrected** palette in
    §5.
-6. Shared components first: Button, Card, Modal, Input, Tag/Chip, ProgressBar — each with an empty
-   state and a disabled state.
+6. Shared components first: Button, Card, Modal, Input, Tag/Chip, ProgressBar, **Toast/Banner** —
+   each with an empty state and a disabled state.
 7. Routing shell: Dashboard / Flashcards / Timer / Tracker / Settings.
 8. **Output:** styled, installable, offline-capable app shell with a green test run.
 
@@ -272,37 +278,36 @@ needs synced activity data to answer "did she study today?". Hence G0.
 3. Dashboard: streak, per-subject progress bars, weak spots, exam-date countdown.
 4. **Output:** one glanceable screen.
 
-### Workflow G0 — Sync & Push Backend *(new)*
+### Workflow G — In-App Attention Nudges
 
-1. Firebase Auth (Google, one allow-listed email) + Firestore sync: push-on-write, pull-on-open,
-   last-write-wins on `updatedAt`, tombstones via `deletedAt`.
-2. Firestore rules: owner-only (`request.auth.token.email == '<her email>'`). Never open rules.
-3. Backend (Workers/Node): `POST /subscribe`, `POST /schedule`, `POST /cancel`, `GET /vapid-public`.
-   Authenticate every mutating endpoint with the Firebase ID token — an unauthenticated `/schedule`
-   lets anyone spam her phone.
-4. Subscription + pending-push storage; 1-minute cron tick; delete-and-forget on `404`/`410`.
-5. **Output:** an authenticated pipe that can deliver a push at a chosen time.
+No backend, no service-worker push, no permission prompt (ADR 0006). This is a small UI module plus
+a pure trigger evaluator.
 
-### Workflow G — Push Triggers & Message Bank
-
-1. Register the service worker with push handling; request permission after her first completed
-   Pomodoro (correct in the original guide).
-2. Message bank: short, warm, tagged `idle` / `welcomeBack` / `streak` / `encouragement`; no repeat
-   back-to-back; no guilt framing.
-3. Session start → schedule idle nudge at `+X` min and session-end push at `endedAt`.
-   Any interaction → `POST /cancel`. Timer end/pause → `POST /cancel`.
-4. On return-to-tab during a live session → in-app "welcome back" toast with remaining time.
-5. Daily streak cron: if no activity today and inside allowed hours → one push.
-6. **Output:** notifications that arrive with the app closed, tuned to when she actually drifts.
+1. Message bank: short, warm, tagged `idle` / `welcomeBack` / `streak` / `encouragement`; no repeat
+   back-to-back; no guilt framing. A **pure function**, unit-tested for the no-repeat invariant.
+2. Interaction tracking: listen for `pointerdown` / `keydown` / `scroll` / `touchstart` and store
+   `lastInteractionAt`. Idle = `now - lastInteractionAt > idleNudgeMin` during a Working session.
+3. **Idle nudge** → in-app banner. Max one per session. Cancelled by any interaction.
+4. **Tab-switch**: `visibilitychange` → hidden increments `tabHiddenCount` (persisted on the session
+   row). On return while a session is still active → "welcome back" banner with remaining time.
+5. **Session end** → sound + visual change + banner. On `visibilitychange` → visible, recompute from
+   `startedAt` and immediately fire any cue that was missed while hidden.
+6. **Streak reminder** on app open: if no activity today and it is past the configured hour, show it
+   once. It cannot fire while the app is closed, so it can never nag.
+7. Quiet hours: a trivial client-side check before showing anything.
+8. Optional (desktop only): an OS notification via `new Notification(...)` **from the live page** when
+   the tab is open but behind another window. Opt-in; reintroduces a permission prompt.
+9. **Output:** nudges that arrive when she has drifted, with the timer screen stating plainly that the
+   tab must stay open for the session-end cue.
 
 ### Workflow H — Polish
 
-1. Installability verified on **Android Chrome and iOS 16.4+**, including the hand-written iOS
-   install screen (no `beforeinstallprompt` on iOS).
+1. Installability verified on **Android Chrome and iOS**, including the hand-written iOS install
+   screen (no `beforeinstallprompt` on iOS) — framed as **data durability**, not notifications.
 2. Empty states for every screen, on-theme.
 3. Microcopy pass: warm, playful, never clinical, never nagging.
-4. Notification permission UX: a pre-permission explainer, plus a visible "notifications off" state
-   with a re-enable path.
+4. Notification UX: a settings toggle for nudges, the idle threshold, and quiet hours. **No permission
+   flow** — in-app banners need none.
 5. Full click-through of A→G on a real phone, with the network toggled off for the study surfaces.
 6. **Output:** shippable.
 
@@ -451,11 +456,11 @@ state — see the reference file.)
 
 | Risk | Impact | Mitigation |
 | --- | --- | --- |
-| iOS storage eviction (7-day cap) if not installed | She loses everything | Install screen framed as data safety; JSON export; cloud sync optional-on-by-default once G0 ships |
-| Cloud sync conflicts | Deleted cards reappear, edits vanish | `updatedAt` LWW + `deletedAt` tombstones; sync is fire-and-forget, never blocks the UI |
-| Open Firestore rules | Personal data public | Owner-email rules; `noindex`; test with the rules emulator |
-| Notification fatigue | She disables notifications, feature is dead | Quiet hours, hard caps, rotating copy, a visible off-switch |
-| Unauthenticated `/schedule` | Anyone spams her phone | Firebase ID token required on all mutating endpoints |
+| iOS storage eviction (7-day cap) if not installed | She loses everything | Install screen framed as **data safety** (now the only reason to install); JSON export; cloud sync optional, default off |
+| Cloud sync conflicts (only if sync is enabled) | Deleted cards reappear, edits vanish | `updatedAt` LWW + `deletedAt` tombstones; sync is fire-and-forget, never blocks the UI |
+| Open Firestore rules (only if sync is enabled) | Personal data public | Owner-email rules; `noindex`; test with the rules emulator |
+| Notification fatigue | She turns nudges off and the feature is dead | Quiet hours, one idle nudge per session, rotating copy, a visible off-switch |
+| **She closes the app mid-session, so no cue ever fires** | The Pomodoro's main payoff is lost | Accepted trade-off ([ADR 0006](adr/0006-in-app-notifications-only.md)). Mitigate in the UI: say plainly that the tab must stay open, and show elapsed time prominently on return |
 | Tesseract on handwriting | Discouraging first experience | Paste/PDF as the default tab; photo OCR labelled best-effort |
 | Textbook question banks | Copyright | Cards are generated from *her* notes for personal study; do not publish or share decks. Keep the deployment unlisted. |
 | Single maintainer | Rot | Tests only where they pay (SM-2, parser, sync merge); docs in `docs/ai/` so anyone (including an AI agent) can pick it up |
@@ -473,7 +478,7 @@ state — see the reference file.)
 - **E:** a lesson can be created, filtered, and completed without touching OCR.
 - **F:** streak, per-subject bars, and weak spots all render from real data; a brand-new install
   shows a themed empty state, not a blank screen.
-- **G0:** a test push arrives on a real iPhone with the app fully closed.
-- **G:** session-end and idle pushes arrive; both are cancelled when she interacts; no push arrives
-  during quiet hours.
+- **G:** during a live session, going idle for `idleNudgeMin` shows exactly one nudge; switching away
+  and returning shows a "welcome back" with the correct remaining time; the session-end cue fires with
+  the tab visible; nothing shows during quiet hours.
 - **H:** full click-through on a real phone, offline, with the install flow followed from scratch.

@@ -1,6 +1,9 @@
 # ADR 0002 — Push architecture: pre-schedule then cancel, with our own cron
 
-- **Status:** Accepted
+- **Status:** ⚠️ **Superseded by [ADR 0006](0006-in-app-notifications-only.md)** — the product no longer
+  delivers notifications while the app is closed, so the backend this ADR specifies is not built.
+  Retained because the analysis of *why* client-side scheduling is impossible remains correct and is
+  the reason ADR 0006 scopes what it does.
 - **Date:** 2026-02 (planning)
 - **Supersedes:** the "Firebase Cloud Messaging + attention triggers" design in the original build guide
 

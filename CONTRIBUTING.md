@@ -21,7 +21,8 @@ about team process.
 | Timestamps are epoch milliseconds; never hard-delete a synced record | Hard deletes are resurrected by the other device. |
 | Any data-model change gets a Dexie version bump **and a tested migration** | There is no undo on her phone. |
 | Never weaken a check to get green | A failing test is a defect report. |
-| Never commit secrets; VAPID private key is server-side only | Obvious, and still the most common way personal apps get owned. |
+| No backend, no push service, no server-side secret | [ADR 0006](docs/adr/0006-in-app-notifications-only.md) — notifications are in-app only. Adding one back is a decision, not a detail. |
+| Never commit secrets; `.env` is gitignored with `.env.example` as the contract | Obvious, and still the most common way personal apps get owned. |
 | Push respects quiet hours and the cadence caps | A study app that pings at 1 a.m. gets deleted. |
 
 ## The day-to-day

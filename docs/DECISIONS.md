@@ -16,35 +16,50 @@ judgement call on your behalf.
 These six change the service worker, the auth flow, the security rules, or the database schema.
 Answering them later means rework, not a config change.
 
-### D1. Push backend shape *(was decision #3)*
+### D1. ~~Push backend shape~~ — ✅ **RESOLVED: there is no backend**
 
-The original plan assumed Firebase Cloud Messaging, which needs a sender, which means Cloud Functions,
-which requires the Blaze plan with a card on file. Pick one:
+You chose: **no notifications while the app is closed; only when she is idle or has switched tabs.**
 
-| Option | Cost | Consequence |
-| --- | --- | --- |
-| **Cloudflare Worker + Cron Triggers** *(recommended)* | Free, no card | Adds one small service to deploy and keep alive. 1-minute tick, 10 ms CPU per run — verified fine for a couple of pushes. |
-| Firebase Cloud Functions on Blaze | $0 at this scale, **card on file** | Least new code. Budget alerts notify but do not hard-stop spending. |
-| GitHub Actions cron | Free | ~5 min minimum granularity with routine 5–20 min delays, disabled after 60 days of repo inactivity. **Only good for the once-daily streak reminder.** Cannot do idle nudges. |
-| **No push at all** | Free | Loses the headline feature. In-app toasts only, and only while the app is open. |
+That removes the question rather than answering it. There is no scheduler, no subscription store, no
+VAPID key, no Cloud Functions, no FCM, and no Cloudflare Worker. The app is a static bundle. Recorded
+as [ADR 0006](adr/0006-in-app-notifications-only.md), which supersedes
+[ADR 0002](adr/0002-push-architecture-and-scheduler.md). The free-tier analysis in ADR 0002 is kept
+because it is the map back if this is ever revisited.
 
-**Needs from you:** which of these, and — if Cloudflare — whether you have an account or want to make
-one.
+**The honest consequence, so it is not a surprise later:** nothing fires when the app is closed. The
+specific case that suffers is the common one — start a 25-minute Pomodoro, switch to a PDF or notes
+app, and the break cue never arrives. On mobile, switching apps suspends the page, so the idle nudge
+becomes a "welcome back" on return rather than a nudge while she is away. The timer screen will say
+plainly that the tab must stay open.
 
-### D2. Auth model *(was decision #6)*
+If that turns out to be unacceptable in practice, the fix is already scoped (ADR 0002) and the cost is
+one small service. It is not a rewrite.
+
+### D1b. Cascade: is cloud sync still wanted?
+
+Auth existed for two reasons: to authenticate the push backend and to scope Firestore rules. ADR 0006
+removed the first. **So decision #1 now stands alone**: if she studies on both a phone and a laptop,
+sync is still worth it (and then Google Sign-In and owner-only rules come with it). If a single device
+is fine, the app can be local-only with export — and then there is no auth, no Firestore, and no rules
+file at all.
+
+
+### D2. Auth model — now conditional on D1b
 
 Cloud sync and "no login" cannot coexist: Firestore rules need an authenticated identity, otherwise
-her notes are world-readable or the "secret" ships in the browser bundle.
+her notes are world-readable or the "secret" ships in the browser bundle. But auth is only needed
+**if** you want sync. Answer D1b first:
 
-| Option | Consequence |
+| If D1b is… | Then auth is… |
 | --- | --- |
-| **Google Sign-In, one allow-listed email** *(recommended)* | One tap per device. Survives an iOS reinstall. Rules become a one-liner. |
-| Local-only, no sync, no auth | Simplest and safest, but she studies on two devices — this loses the feature. |
-| Anonymous auth | No sign-in friction, but the identity is per-install: a reinstall or cleared browser silently orphans her data. |
-| Make it multi-user | Changes the rules, the data model, and the deployment. Not now. |
+| **Yes, sync wanted** | **Google Sign-In, one allow-listed email** *(recommended)* — one tap per device, survives an iOS reinstall, rules become a one-liner. |
+| **No, single device is fine** | **None.** No auth, no Firestore, no rules file, no Google account. The app is local-only with JSON export, and it is meaningfully simpler. |
 
-**Needs from you:** which option. If Google — **her email address** (do not commit it; it goes in
-`.env` and the Firestore rules).
+Anonymous auth is still rejected either way: the identity is per-install, so a reinstall or cleared
+browser silently orphans her data.
+
+**Needs from you:** if sync — **her email address** (it goes in `.env` and the Firestore rules, never
+committed).
 
 ### D3. Her exam date 🔴 **— and a date problem I need you to resolve**
 
@@ -67,14 +82,11 @@ The good news: the **scope structure is unaffected**. PRC reuses the program tem
 
 ### D4. Hosting platform *(was decision #2)*
 
-All three are free with HTTPS. Pick the one that matches where the push backend lives, so there is one
-deploy surface and one set of secrets:
+Now that there is no backend (D1), this is a static bundle and the choice is pure preference — all
+three give free HTTPS. **GitHub Pages is also viable**, which removes one more account entirely.
 
-- **Cloudflare Pages** — pairs with a Cloudflare Worker backend *(recommended if you pick D1's first option)*
-- **Vercel** — easiest DX
-- **Firebase Hosting** — pairs with Firestore
-
-**Needs from you:** a choice. Also: is this public or unlisted? (Recommend unlisted + `noindex`.)
+**Needs from you:** a choice. Also: is this public or unlisted? (Recommend unlisted + `noindex` —
+her study data lives on-device, but the deployment does not need to be discoverable.)
 
 ### D5. Will she actually install it to her Home Screen?
 
@@ -162,20 +174,25 @@ no reliable "write to a folder I choose" on iOS.
 
 ## C. Decisions I made for you — ratify or overturn
 
-Five ADRs are marked `Accepted` because the build is otherwise blocked. Each is cheap to overturn
-**now** and expensive later. Read one line each; the full reasoning is in the linked file.
+Six ADRs exist; five are `Accepted` and in force. Each is cheap to overturn **now** and expensive
+later. Read one line each; the full reasoning is in the linked file.
 
-| # | Decision | Overturn it if… |
+| # | Decision | Status / overturn it if… |
 | --- | --- | --- |
-| [0001](adr/0001-local-first-with-indexeddb.md) | **Local-first IndexedDB**, Firestore as optional sync | You want server-authoritative data and accept that the app needs network for basic study. |
-| [0002](adr/0002-push-architecture-and-scheduler.md) | **Pre-schedule then cancel**, own cron, plain VAPID (no FCM) | You'd rather take the Blaze card-on-file and skip writing a backend. |
-| [0003](adr/0003-sm2-scheduler-and-learning-steps.md) | **SM-2 + sub-day learning steps**, epoch-ms, `ReviewLog` history | You want textbook date-only SM-2 — simpler, but the first-day experience is bad. |
-| [0004](adr/0004-no-llm-in-runtime.md) | **No LLM in the shipped product** | You disagree that a hallucinated flashcard is worse than a missing one. |
-| [0005](adr/0005-auth-google-single-user.md) | **Google Sign-In, one email** | D2 goes local-only, which makes this ADR moot. |
+| [0001](adr/0001-local-first-with-indexeddb.md) | **Local-first IndexedDB**, Firestore as optional sync | Accepted. Overturn if you want server-authoritative data and accept the app needing network for basic study. |
+| [0002](adr/0002-push-architecture-and-scheduler.md) | Pre-schedule then cancel, own cron, plain VAPID | **Superseded by 0006.** Kept as the map back if closed-app notifications are ever wanted. |
+| [0003](adr/0003-sm2-scheduler-and-learning-steps.md) | **SM-2 + sub-day learning steps**, epoch-ms, `ReviewLog` history | Accepted. Overturn if you want textbook date-only SM-2 — simpler, but the first-day experience is bad. |
+| [0004](adr/0004-no-llm-in-runtime.md) | **No LLM in the shipped product** | Accepted. Overturn if you disagree that a hallucinated flashcard is worse than a missing one. |
+| [0005](adr/0005-auth-google-single-user.md) | Google Sign-In, one email | **Conditional** — only applies if D1b says yes to cloud sync. |
+| [0006](adr/0006-in-app-notifications-only.md) | **In-app notifications only: no backend, no push** | Accepted. Overturn if losing the closed-app cue turns out to matter (then see 0002). |
 
-One more judgement call worth naming explicitly: I put **`ReviewLog`** (a row per review) in the data
-model. It costs some storage and one extra write per card, and it is the only way "weak topics from
-grading history" can work at all. If you cut it, Workflow F loses its best feature.
+Two judgement calls worth naming explicitly:
+
+1. **`ReviewLog`** (a row per review) is in the data model. It costs some storage and one extra write
+   per card, and it is the only way "weak topics from grading history" can work at all. Cut it and
+   Workflow F loses its best feature.
+2. **No feature flags, no component library, no settings framework.** One user, so all three would be
+   pure overhead. If you want any of them, say so now rather than after they are missing.
 
 ---
 
@@ -213,15 +230,15 @@ Worth stating explicitly, because each one is a plausible-looking detour:
 
 ## Summary
 
-**Six decisions block you** — D1 (push backend), D2 (auth + her email), D3 (**exam date — see the
-problem below**), D4 (hosting), D5 (will she install it), D6 (does she know). Everything else has a
-working default, and D7 is now closed.
+**Four decisions block you now** (down from six, because D1 was resolved by removing the backend):
+D1b (is cloud sync wanted?), D2 (auth — only if sync), D3 (**exam date**), D4 (hosting), D5 (will she
+install it), D6 (does she know).
 
-**D3 is the urgent one.** The program you supplied is for the **Feb 26–27, 2026** sitting, which is
-210 days past, and PRC's 2026 calendar shows **no NLE remaining in 2026** (the two sittings were
-Feb 26–27 and Aug 29–30). If she is still preparing, her exam is a 2027 sitting and the date is
-unknown to me. The scope is unaffected, but the countdown, cram mode, and urgency framing all depend on
-this.
+- **D1 — closed.** No backend; notifications are in-app only ([ADR 0006](adr/0006-in-app-notifications-only.md)).
+- **D1b — new, and it cascades.** No sync → no auth, no Firestore, no rules file, no Google account.
+- **D2** is now conditional on D1b rather than independent.
+- **D3 is the one I cannot infer**, and it is the one that decides how urgent all of this is.
+- **D7 — closed.** Scope verified against the official PRC program.
 
-If you want to move fastest: answer those six, ratify or overturn the five ADRs in §C, and Workflow A
-can start.
+If you want to move fastest: answer D1b, D3, D4, D5, D6, ratify or overturn the ADRs in §C, and
+Workflow A can start.
