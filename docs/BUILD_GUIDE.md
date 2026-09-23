@@ -507,3 +507,57 @@ state — see the reference file.)
   and returning shows a "welcome back" with the correct remaining time; the session-end cue fires with
   the tab visible; nothing shows during quiet hours.
 - **H:** full click-through on a real phone, offline, with the install flow followed from scratch.
+
+---
+
+## 9. Timeline against the exam date
+
+**Exam: Friday, February 26, 2027.** From 2026-09-23 that is **156 days — 22.3 weeks, ~5.1 months.**
+
+This is the single most useful number in this document, because it decides *ordering*, not just scope.
+Three consequences:
+
+### 9.1 The app must be usable long before it is complete
+
+Spaced repetition only pays off over time. A perfect app delivered in January gives her five weeks of
+spacing; a working flashcard system delivered in October gives her **nineteen**. So:
+
+- **B (flashcards + SM-2) and D (Pomodoro) are the only things that need to exist early.** Everything
+  else is optional to the core loop.
+- C, E, F, S, and G can all land later without reducing the value she gets, *provided* the data model
+  is right from day one (§6). That is why the model carries `ReviewLog`, `updatedAt`, and `deletedAt`
+  before anything uses them.
+
+### 9.2 Rough phase budget
+
+Relative to build start; the dates assume starting immediately.
+
+| Window | Dates | Work | Why here |
+| --- | --- | --- | --- |
+| Weeks 1–3 | Sep 23 – Oct 14 | A (shell), then B and D | She can start studying with real cards and a real timer in under a month |
+| Weeks 4–8 | Oct 14 – Nov 18 | C (ingest), E (tracker) | Removes the manual card-entry tax once she is actually using it |
+| Weeks 9–12 | Nov 18 – Dec 16 | F (dashboard), S (sync) | Nice-to-have until there is enough data to display or a second device in play |
+| Weeks 13–16 | Dec 16 – Jan 13 | G (nudges), H (polish) | Comfort features, once the core is proven in daily use |
+| Weeks 17–22 | Jan 13 – Feb 26 | **Buffer. Cram mode. Bug fixes. No new features.** | |
+
+**Hard rule: no new feature lands after mid-January.** A feature shipped two weeks before a licensure
+exam is a liability, not a gift — she will not have time to work around a bug in it. Weeks 17–22 exist
+to absorb slippage and to make cram mode good.
+
+### 9.3 Cram mode turns on around 2027-01-27
+
+If cram mode engages within 30 days of the exam, it matters from **January 27, 2027** (or Feb 5 if the
+window is 21 days). By then the normal SM-2 schedule is counterproductive: it will happily tell her a
+card is not due for three weeks when the exam is in two. Cram mode ignores due dates and orders by
+weakness × staleness. It needs to exist and be tested *before* that date, not on it.
+
+### 9.4 Verify the 2027 program around December 2026
+
+The Feb 2026 program was **approved 2025-12-01** for a 2026-02-26 exam — an 87-day lead. Applying the
+same lead, PRC should publish the **February 2027 program around early December 2026**. Re-run the
+five-point check in [`reference/pnle-scope.md`](reference/pnle-scope.md#verification-checklist-for-a-future-sitting) then.
+
+Risk is low: the Feb 2026 document still carried "November 4-5, 2025" in its footer, so PRC reuses the
+template and the five-part structure has been stable. Seed the decks from the current structure now —
+do not wait for December, or she loses weeks. Just confirm in December that nothing moved, **before**
+she has thousands of cards filed under the old taxonomy.

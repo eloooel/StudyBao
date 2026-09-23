@@ -112,6 +112,10 @@ study blog, and not this file either — this file is a transcription and could 
 
 ## Verification checklist for a future sitting
 
+**Her sitting is Friday, February 26, 2027.** The Feb 2026 program was approved 2025-12-01 for a
+2026-02-26 exam — an 87-day lead — so the **February 2027 program is expected around early December
+2026**. Re-run this check then, before she has thousands of cards filed under the current taxonomy.
+
 When the next program is published, confirm in five minutes:
 
 1. Are there still exactly five Nursing Practice parts, with the same scopes? (Expected: yes — the
@@ -119,3 +123,7 @@ When the next program is published, confirm in five minutes:
 2. Have the exam dates changed? (Expected: yes.)
 3. Has an item count or weight table been added? (Expected: no. If one appears, the "no invented
    weights" rule can be revisited.)
+
+Source to re-fetch: `prc.gov.ph` → Examination Schedule / Downloads → the program PDF for the
+Feb 2027 NLE. Note that `web_fetch` cannot read PDFs directly; download it and extract with PyMuPDF
+(`get_text()` for text pages, and read scanned pages visually).

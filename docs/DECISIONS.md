@@ -63,24 +63,30 @@ it in the Firestore rules file — do not send it to me, and do not commit it. B
 placeholder and a one-line instruction. (`VITE_ALLOWED_EMAIL` ends up in the client bundle either way,
 which is fine; the *protection* is the rules file, not secrecy.)
 
-### D3. Her exam date 🔴 **— and a date problem I need you to resolve**
+### D3. Her exam date — ✅ **RESOLVED: Friday, February 26, 2027**
 
-Drives cram mode, the dashboard countdown, and notification tone.
+**156 days from today (2026-09-23) — 22.3 weeks, ~5.1 months.** That is a real runway, and it changes
+the build *order* rather than the scope. Full reasoning in `BUILD_GUIDE.md` §9; the three consequences
+worth knowing here:
 
-**The program you sent is for a sitting that has already happened.** It is the *Program of the Nurses
-Licensure Examination on Feb. 26-27, 2026*, approved Dec 1, 2025. Today is **September 23, 2026** —
-that exam was **210 days ago**.
+1. **The app must be usable long before it is complete.** Spaced repetition pays off over time, so a
+   working flashcard system in October is worth far more than a perfect one in January. B and D land in
+   the first three weeks; C, E, F, S, and G follow without reducing what she gets — *provided the data
+   model is right from day one*.
+2. **No new feature after mid-January 2027.** Weeks 17–22 are buffer, cram mode, and bug fixes. A
+   feature shipped two weeks before a licensure exam is a liability.
+3. **Cram mode must be finished before 2027-01-27**, which is when a 30-day window opens. On that date
+   normal SM-2 becomes counterproductive — it will say a card is not due for three weeks when the exam
+   is in two.
 
-Per PRC's 2026 calendar, there were exactly two NLE sittings in 2026: **February 26–27** and
-**August 29–30**. Both are past. So if she is still preparing, her exam is a **2027** sitting (the NLE
-runs roughly May and November), and the date is currently unknown to me.
+Also scheduled: **re-verify the PRC program around early December 2026** (see
+[`reference/pnle-scope.md`](reference/pnle-scope.md)), before she has thousands of cards filed under
+the current taxonomy.
 
-**Needs from you:** which sitting she is actually preparing for. See the question at the end of the
-last message — this is the one thing I cannot infer.
-
-The good news: the **scope structure is unaffected**. PRC reuses the program template between sittings
-(the Feb 2026 document's own footer still reads "November 4-5, 2025"), so the five-part taxonomy in
-[`reference/pnle-scope.md`](reference/pnle-scope.md) remains correct. Only the date changes.
+**Origin of the confusion worth noting:** the program you sent was for the Feb 26–27, **2026** sitting.
+Her date is Feb 26, **2027** — the same seasonal sitting, one year later, and PRC ran no NLE between
+Sept 2026 and then. If that program had been assumed to be hers, the app would have been built around
+a date seven months past.
 
 ### D4. Hosting platform *(was decision #2)*
 
@@ -176,25 +182,33 @@ no reliable "write to a folder I choose" on iOS.
 
 ## C. Decisions I made for you — ratify or overturn
 
-Six ADRs exist; five are `Accepted` and in force. Each is cheap to overturn **now** and expensive
-later. Read one line each; the full reasoning is in the linked file.
+Six ADRs exist; five are `Accepted` and in force. **"Cheap to overturn now, expensive later" was too
+loose a thing for me to have written.** Here is the concrete version: a reversal is expensive when
+either (a) data has already been written under the decision and cannot be reconstructed, or
+(b) every feature is built on top of it. Before code exists, every one of these is free to change.
 
-| # | Decision | Status / overturn it if… |
-| --- | --- | --- |
-| [0001](adr/0001-local-first-with-indexeddb.md) | **Local-first IndexedDB**, Firestore as optional sync | Accepted. Overturn if you want server-authoritative data and accept the app needing network for basic study. |
-| [0002](adr/0002-push-architecture-and-scheduler.md) | Pre-schedule then cancel, own cron, plain VAPID | **Superseded by 0006.** Kept as the map back if closed-app notifications are ever wanted. |
-| [0003](adr/0003-sm2-scheduler-and-learning-steps.md) | **SM-2 + sub-day learning steps**, epoch-ms, `ReviewLog` history | Accepted. Overturn if you want textbook date-only SM-2 — simpler, but the first-day experience is bad. |
-| [0004](adr/0004-no-llm-in-runtime.md) | **No LLM in the shipped product** | Accepted. Overturn if you disagree that a hallucinated flashcard is worse than a missing one. |
-| [0005](adr/0005-auth-google-single-user.md) | Google Sign-In, one email | **Conditional** — only applies if D1b says yes to cloud sync. |
-| [0006](adr/0006-in-app-notifications-only.md) | **In-app notifications only: no backend, no push** | Accepted. Overturn if losing the closed-app cue turns out to matter (then see 0002). |
+Ranked by what a reversal actually costs, **assuming five months of her using the app**:
+
+| # | Decision | Reverse it today | Reverse it in Feb 2027 | Why |
+| --- | --- | --- | --- | --- |
+| [0003](adr/0003-sm2-scheduler-and-learning-steps.md) | SM-2 + learning steps + `ReviewLog` | Free | **Brutal** | **Not backfillable.** If `ReviewLog` and `lapses` are not recorded from the first review, that history is gone forever — you cannot reconstruct which cards she struggled with, and FSRS becomes impossible without starting over. Same for `nextReview` as epoch-ms: switching to date-only means migrating every card. |
+| [0001](adr/0001-local-first-with-indexeddb.md) | Local-first IndexedDB | Free | **Expensive** | Every feature's data layer, every query, and the UI's assumption that reads never fail are built on it. Server-first later means rewriting B, E, F *and* handling offline, which the UI currently assumes away. |
+| [0005](adr/0005-auth-google-single-user.md) | Google Sign-In, one email | Free | **Moderate** | Changing the *email* is trivial. Changing the *provider* means re-keying every synced document, because ownership is stamped on each one. |
+| [0006](adr/0006-in-app-notifications-only.md) | In-app notifications only | Free | **Cheap — by design** | Deliberately additive: [ADR 0002](adr/0002-push-architecture-and-scheduler.md) is the preserved path back and costs one small service plus a permission UX. Nothing in the data model blocks it. |
+| [0004](adr/0004-no-llm-in-runtime.md) | No LLM in the shipped product | Free | **Cheap technically, costly in consequence** | Adding an LLM ingest path later is *additive* — a third tab next to paste and PDF. But it ends the offline guarantee, adds a key and a per-request cost, and puts generated content in front of someone memorising for a licensure exam. Reverse this one knowingly, not accidentally. |
+
+**The practical rule:** the decisions worth agonising over now are the ones that involve **recording
+history** — `ReviewLog`, `lapses`, `updatedAt`, `deletedAt`, epoch-ms timestamps. Fields that capture
+*when* something happened cannot be added retroactively. Everything else is refactoring, and 22 weeks
+is enough runway to refactor.
 
 Two judgement calls worth naming explicitly:
 
 1. **`ReviewLog`** (a row per review) is in the data model. It costs some storage and one extra write
    per card, and it is the only way "weak topics from grading history" can work at all. Cut it and
-   Workflow F loses its best feature.
+   Workflow F loses its best feature — and by the time you want it back, the history will not exist.
 2. **No feature flags, no component library, no settings framework.** One user, so all three would be
-   pure overhead. If you want any of them, say so now rather than after they are missing.
+   pure overhead. These are all cheap to add later, so the cost of omitting them is genuinely low.
 
 ---
 
@@ -232,22 +246,23 @@ Worth stating explicitly, because each one is a plausible-looking detour:
 
 ## Summary
 
-**Three decisions block you now** (down from six):
+**All architecture decisions are closed.** What remains is preference and one date-driven schedule.
 
 | # | Status |
 | --- | --- |
-| D1 — push backend | ✅ **Closed.** No backend; notifications are in-app only ([ADR 0006](adr/0006-in-app-notifications-only.md)). |
-| D1b — cloud sync | ✅ **Closed: yes.** So Google Sign-In, Firestore, owner-only rules. Sync restored as **Workflow S**. |
-| D2 — auth | ✅ **Closed: Google, one email.** You supply the email into `.env` + the rules file. |
-| D7 — deck taxonomy | ✅ **Closed.** Verified against the official PRC program. |
-| **D3 — exam date** | 🔴 **OPEN — the one I cannot infer.** |
-| **D4 — hosting** | 🔴 OPEN (pure preference now). |
-| **D5 — will she install it** | 🔴 OPEN. Still matters: installing is what exempts her data from Safari's 7-day eviction. |
-| **D6 — does she know** | 🔴 OPEN. Sets the notification voice. |
-| D8–D13 | Has defaults; answer whenever. |
+| D1 — push backend | ✅ Closed. No backend; notifications in-app only ([ADR 0006](adr/0006-in-app-notifications-only.md)). |
+| D1b — cloud sync | ✅ Closed: yes. Google Sign-In, Firestore, owner-only rules, **Workflow S**. |
+| D2 — auth | ✅ Closed: Google, one email. You supply the email into `.env` + the rules file. |
+| D3 — exam date | ✅ Closed: **Fri Feb 26, 2027 — 156 days.** Ordering implications in `BUILD_GUIDE.md` §9. |
+| D7 — deck taxonomy | ✅ Closed. Verified against the official PRC program. |
+| **D4 — hosting** | 🟠 Open. Pure preference — everything is free and HTTPS. |
+| **D5 — will she install it** | 🟠 Open. Still load-bearing: installing is what exempts her data from Safari's 7-day eviction. |
+| **D6 — does she know** | 🟠 Open. Sets the notification voice and whether this is a surprise. |
+| D8–D13 | Defaults exist; answer whenever. The one to decide early is **D12** (sync default on/off), because Workflow S needs to know. |
 
-**D3 is the only one that changes what I build next**, because cram mode, the dashboard countdown, and
-the whole urgency framing depend on it.
+**Nothing blocks Workflow A any more.** The next thing I need is not an answer — it is a decision to
+start, plus the sequencing in `BUILD_GUIDE.md` §9 if the 22-week runway looks different from your side.
 
-If you want to move fastest: give me the 2027 exam date, answer D4/D5/D6, ratify or overturn the ADRs
-in §C, and Workflow A can start.
+Worth re-reading once before we start: §C above, ranked by what a reversal actually costs. Three of
+those decisions are genuinely one-way (anything that records history); the others are refactorable and
+should not hold anything up.
