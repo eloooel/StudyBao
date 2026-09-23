@@ -74,6 +74,7 @@ export const MASTERY_INTERVAL_DAYS = 21
 
 const AGAIN_QUALITY = 0
 const HARD_QUALITY = 3
+const EASY_QUALITY = 5
 
 /** The scheduler's whole input. A card's SM-2 fields, and nothing UI-shaped. */
 export interface SchedulerState {
@@ -187,17 +188,6 @@ export function nextReviewForIntervalDays(intervalDays: number, now: number): nu
   return studyDayStart(now) + intervalDays * MS_PER_DAY
 }
 
-/**
- * When a brand-new card is first due: after the first learning step.
- *
- * Exported so the repository does not reimplement the rule when it creates a card. A second
- * copy of "how long is the first step" is exactly the kind of duplication that ends up
- * disagreeing with the scheduler.
- */
-export function firstReviewAt(now: number): number {
-  return now + learningStepMinutes(FIRST_LEARNING_STEP) * MS_PER_MINUTE
-}
-
 interface Outcome {
   intervalDays: number
   repetitions: number
@@ -224,11 +214,14 @@ function lapseOutcome(now: number): Outcome {
 /**
  * Hard, Good or Easy while the card is still on a sub-day step.
  *
- * Hard repeats the current step without advancing — it is a failure to move forward, and
- * treating it as progress is how a card graduates on difficulty alone. Easy graduates
- * immediately, and its reward is the ease-factor increase: it deliberately does **not**
- * get a longer graduating interval than Good, because a card she has seen twice should
- * not jump several days ahead of schedule.
+ * - **Hard repeats the current step without advancing.** It is a failure to move forward, and
+ *   treating it as progress is how a card graduates on difficulty alone.
+ * - **Good advances one step**, graduating when there is no step left.
+ * - **Easy graduates immediately, from any step**, skipping whatever is left of the ladder. Its
+ *   reward is the ease-factor increase, deliberately **not** a longer graduating interval: a card
+ *   she has seen twice should not jump several days ahead of schedule, and keeping one graduation
+ *   path is one thing to test. Without this, Easy and Good would do exactly the same thing on a
+ *   fresh card and the fourth button would be arbitrary.
  */
 function learningOutcome(
   state: SchedulerState,
@@ -246,6 +239,10 @@ function learningOutcome(
       nextReview: now + learningStepMinutes(step) * MS_PER_MINUTE,
       lapseIncrement: 0,
     }
+  }
+
+  if (grade === EASY_QUALITY) {
+    return graduatedOutcome(state, easeFactor, now)
   }
 
   const nextStep = step + 1

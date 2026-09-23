@@ -72,6 +72,50 @@ export function orderByDue(cards: readonly Card[]): Card[] {
   )
 }
 
+/** One minute — the first learning step, and the window a session will wait for a card. */
+export const DEFAULT_WAIT_WINDOW_MS = 60_000
+
+export interface PickNextCardOptions {
+  /**
+   * Ignore due dates, which is what cram mode means. The caller is responsible for having ordered
+   * the candidates by cram score first — this function only decides *whether* to serve one.
+   */
+  ignoreDueDates?: boolean
+  /**
+   * How long a card may be away and still be served now, in ms. Defaults to the first learning
+   * step: without a window, a card scheduled 1 minute out is never served and the sub-day steps
+   * stop existing inside a session.
+   */
+  waitWindowMs?: number
+}
+
+/**
+ * The first card that is ready to be served, or `undefined` when none is yet.
+ *
+ * **This exists instead of a boolean check at grade time, and that is the whole point.**
+ * `schedule` guarantees `nextReview > now`, so asking "is it due already?" immediately after
+ * grading always answers no — a card scheduled 1 minute out would never come back, and
+ * `LEARNING_STEPS_MINUTES` would be unenforceable inside a session. The decision has to be made
+ * against the clock at the moment of *choosing*, not at the moment of grading.
+ *
+ * `candidates` is expected **already ordered** by the caller — `orderByDue` for normal review,
+ * `orderForCram` for cram — and the first ready one wins. That keeps cram's weakness ordering
+ * intact instead of being re-sorted into due-date order here. `shown` is every card already served
+ * in this session, so nothing repeats; the session's membership is frozen by the caller.
+ */
+export function pickNextCard(
+  candidates: readonly Card[],
+  shown: ReadonlySet<string>,
+  now: number,
+  options: PickNextCardOptions = {},
+): Card | undefined {
+  const waitWindow = options.ignoreDueDates
+    ? Number.POSITIVE_INFINITY
+    : (options.waitWindowMs ?? DEFAULT_WAIT_WINDOW_MS)
+
+  return candidates.find((card) => !shown.has(card.id) && card.nextReview <= now + waitWindow)
+}
+
 function deckIndexOf(order: Map<string, number>, card: Card): number {
   // A card in a deck that is somehow not in the order list sorts last rather than being
   // dropped — a card she cannot see is worse than one she sees slightly late.

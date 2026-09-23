@@ -1,4 +1,4 @@
-import { firstReviewAt, newCardState, schedule } from '@/features/flashcards/lib/sm2'
+import { newCardState, schedule } from '@/features/flashcards/lib/sm2'
 import { getDb } from '../schema'
 import type { Card, Grade } from '../types'
 import type { ReviewLog } from '../types'
@@ -48,21 +48,21 @@ export async function getCard(id: string): Promise<Card | undefined> {
 }
 
 /**
- * A new card, with fresh SM-2 state and a first learning step.
+ * A new card, with fresh SM-2 state, **due immediately**.
  *
- * `createdAt` is stamped separately from `updatedAt` even though they are equal today:
- * `updatedAt` moves on every edit, and cram mode measures staleness for a never-reviewed
- * card from when it was created. Deriving one from the other would be wrong the first time
- * she edits a card.
+ * `nextReview = now` on purpose, and the same as `resetCardProgress`. She has just written the card
+ * and the next thing she will want is to review it; making her wait a minute to satisfy the shape of
+ * the first learning step would be a bad first thirty seconds, and it is not what the step means —
+ * the step decides when the card comes *back* after a review, not when it may be seen at all. Two
+ * routes to "brand-new" state also have to agree, or they drift.
+ *
+ * `createdAt` is stamped separately from `updatedAt` even though they are equal today: `updatedAt`
+ * moves on every edit, and cram mode measures staleness for a never-reviewed card from when it was
+ * created. Deriving one from the other would be wrong the first time she edits a card.
  */
 export async function createCard(draft: CardDraft, now = Date.now()): Promise<Card> {
   const db = await getDb()
   const state = newCardState()
-
-  // A new card waits on the first learning step, so its due time is a minute out rather
-  // than `now`. `nextReview` is not part of `SchedulerState` — it is the schedule's output —
-  // so this comes from the scheduler's own rule rather than a second copy of it.
-  const nextReview = firstReviewAt(now)
 
   const card: Card = {
     id: crypto.randomUUID(),
@@ -71,7 +71,7 @@ export async function createCard(draft: CardDraft, now = Date.now()): Promise<Ca
     back: draft.back.trim(),
     tags: draft.tags ?? [],
     ...state,
-    nextReview,
+    nextReview: now,
     createdAt: now,
     updatedAt: now,
   }

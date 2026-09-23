@@ -195,6 +195,65 @@ describe('useReviewSession', () => {
     expect(result.current.gradedCount).toBe(0)
   })
 
+  it('brings a graded card back inside the same session once it is due', async () => {
+    // The bug this pins: `schedule` guarantees `nextReview > now`, so asking "is it due already?"
+    // at grade time always answers no, and the card would never return. A learning step is only
+    // enforceable if the session re-reads the database after the grade and decides against the
+    // clock at the moment of *choosing*.
+    //
+    // The clock is not faked: faking it while Dexie writes breaks the write's internal scheduling.
+    // Instead the card's own due time is moved, which exercises the same code path — the session
+    // re-reads, finds it due, and serves it again — without lying about time.
+    await clearCards()
+    const card = await createCard({ deckId: DECK, front: 'comes back', back: 'b' })
+    const db = await getDb()
+    await db.cards.update(card.id, { nextReview: Date.now() - 1000 })
+
+    const { result } = renderHook(() =>
+      useReviewSession({ deckId: DECK, cram: false, pollIntervalMs: 10, waitWindowMs: 0 }),
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.card?.id).toBe(card.id)
+
+    await act(async () => {
+      await result.current.grade(GRADE_AGAIN)
+    })
+
+    // It has just been served, and its next due time is in the future, so it must not come
+    // straight back...
+    expect(result.current.card).toBeNull()
+    const [stored] = await listCardsByDeck(DECK)
+    expect(stored?.learningStep).toBe(0)
+    expect(stored?.nextReview).toBeGreaterThan(Date.now())
+
+    // ...but once it is genuinely due, the same session must serve it again.
+    await db.cards.update(card.id, { nextReview: Date.now() - 1 })
+
+    await waitFor(() => expect(result.current.card?.id).toBe(card.id), { timeout: 3000 })
+    expect(result.current.gradedCount).toBe(1)
+  })
+
+  it('reports that a card is on its way back rather than finishing the session', async () => {
+    await clearCards()
+    const card = await createCard({ deckId: DECK, front: 'waiting', back: 'b' })
+    const db = await getDb()
+    await db.cards.update(card.id, { nextReview: Date.now() - 1000 })
+
+    const { result } = renderHook(() =>
+      useReviewSession({ deckId: DECK, cram: false, pollIntervalMs: 10, waitWindowMs: 0 }),
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => {
+      await result.current.grade(GRADE_AGAIN)
+    })
+
+    // Nothing on screen, but the session is not over — that card is coming back.
+    await waitFor(() => expect(result.current.card).toBeNull())
+    expect(result.current.waitingToReturn).toBe(1)
+    expect(result.current.finished).toBe(false)
+  })
+
   it('serves every due card across decks when no deck is given', async () => {
     await clearCards()
     await dueCard('a', deckIdForPart('practice-i'))

@@ -15,6 +15,7 @@ import {
 import { countDecks, listDecks, softDeleteDeck } from '@/db/repositories/decks'
 import { countReviewLogs, listReviewLogsByCard } from '@/db/repositories/review-logs'
 import { deckIdForPart } from '@/db/seed-data'
+import { selectDueCards } from '@/features/flashcards/lib/queue'
 import { STUDY_DAY_ROLLOVER_HOUR } from '@/lib/study-day'
 import { MS_PER_DAY, MS_PER_MINUTE } from '@/lib/time'
 
@@ -37,7 +38,7 @@ const DECK = deckIdForPart('practice-i')
 const NOW = new Date(2026, 8, 21, 10, 0, 0, 0).getTime()
 
 describe('cards repository', () => {
-  it('creates a card on the first learning step, due in a minute', async () => {
+  it('creates a card that is due immediately, on the first learning step', async () => {
     const card = await createCard({ deckId: DECK, front: '  Front  ', back: ' Back ' }, NOW)
 
     expect(card.front).toBe('Front') // trimmed on the way in
@@ -47,10 +48,44 @@ describe('cards repository', () => {
     expect(card.repetitions).toBe(0)
     expect(card.lapses).toBe(0)
     expect(card.learningStep).toBe(0)
-    expect(card.nextReview).toBe(NOW + MS_PER_MINUTE)
+    // Due now, not a minute from now: she has just written it and the next thing she wants is to
+    // review it. The learning step decides when it comes *back* after a review, not when it may be
+    // seen at all.
+    expect(card.nextReview).toBe(NOW)
     expect(card.createdAt).toBe(NOW)
     expect(card.updatedAt).toBe(NOW)
     expect(card.deletedAt).toBeUndefined()
+  })
+
+  it('lets a new card be reviewed the moment it is created', async () => {
+    // The first thirty seconds matter: add a card, tap Review, and it must be there rather than
+    // telling her there is nothing to do for a minute.
+    await createCard({ deckId: DECK, front: 'just added', back: 'b' })
+
+    const cards = await listCardsByDeck(DECK)
+    expect(cards).toHaveLength(1)
+    expect(selectDueCards(cards, Date.now())).toHaveLength(1)
+  })
+
+  it('agrees with resetCardProgress about what brand-new means', async () => {
+    // Two routes to "fresh state" must not disagree about the due time, or they drift.
+    const fresh = await createCard({ deckId: DECK, front: 'fresh', back: 'b' }, NOW)
+    const reviewed = await createCard({ deckId: DECK, front: 'reviewed', back: 'b' }, NOW)
+
+    let current = reviewed
+    for (let i = 0; i < 4; i += 1) {
+      current = await recordReview(current, GRADE_GOOD, 100, current.nextReview)
+    }
+    expect(current.intervalDays).toBe(15)
+
+    await resetCardProgress(reviewed.id, NOW + 10_000)
+
+    const reset = await getCard(reviewed.id)
+    expect(reset?.nextReview).toBe(NOW + 10_000)
+    expect(reset?.learningStep).toBe(fresh.learningStep)
+    expect(reset?.easeFactor).toBe(fresh.easeFactor)
+    expect(reset?.repetitions).toBe(fresh.repetitions)
+    expect(reset?.intervalDays).toBe(fresh.intervalDays)
   })
 
   it('leaves a soft-deleted card out of every read', async () => {
@@ -203,6 +238,32 @@ describe('recordReview', () => {
     const due = new Date(current.nextReview)
     expect(due.getHours()).toBe(STUDY_DAY_ROLLOVER_HOUR)
     expect(due.getMinutes()).toBe(0)
+  })
+
+  it('walks the whole ladder a new card takes: 10 minutes, 1 day, 6 days, 15 days', async () => {
+    // The Workflow B definition of done, asserted on the real path she takes — create a card, then
+    // grade it Good four times — rather than only on the pure scheduler. A new card is due
+    // immediately, so the first press happens at once and the ladder is step 1 → graduated → 6 → 15.
+    const card = await createCard({ deckId: DECK, front: 'F', back: 'B' }, NOW)
+    expect(card.nextReview).toBe(NOW)
+
+    const observed: Array<{ minutes: number; days: number; step: number | null }> = []
+    let current = card
+
+    for (let press = 0; press < 4; press += 1) {
+      current = await recordReview(current, GRADE_GOOD, 100, current.nextReview)
+      observed.push({
+        minutes: Math.round((current.nextReview - NOW) / 60_000),
+        days: current.intervalDays,
+        step: current.learningStep,
+      })
+    }
+
+    // Press 1 moves it to the 10-minute step; then 1 day, 6 days, 15 days.
+    expect(observed.map((entry) => entry.step)).toEqual([1, null, null, null])
+    expect(observed.map((entry) => entry.days)).toEqual([0, 1, 6, 15])
+    expect(current.easeFactor).toBe(2.5)
+    expect(current.repetitions).toBe(3)
   })
 })
 

@@ -8,6 +8,7 @@ import {
   EASE_FACTOR_FLOOR,
   MASTERY_INTERVAL_DAYS,
   newCardState,
+  nextReviewForIntervalDays,
   schedule,
   type ScheduleResult,
   type SchedulerState,
@@ -90,7 +91,7 @@ describe('SM-2 · learning steps', () => {
     expect(result.nextReview).toBe(NOW + MS_PER_MINUTE)
   })
 
-  it('graduates on Easy and Good by the same path, with no longer interval for Easy', () => {
+  it('graduates on Easy and Good by the same path from the last step, with no longer interval', () => {
     const graduating = state({ learningStep: 1 })
     const onGood = schedule(graduating, GRADE_GOOD, NOW)
     const onEasy = schedule(graduating, GRADE_EASY, NOW)
@@ -102,6 +103,40 @@ describe('SM-2 · learning steps', () => {
     expect(onEasy.nextReview).toBe(onGood.nextReview)
     // Easy's reward is the ease factor, not a longer first interval.
     expect(onEasy.easeFactor).toBeGreaterThan(onGood.easeFactor)
+  })
+
+  it('graduates immediately on Easy from the first step, while Good only advances one step', () => {
+    // The two must diverge on a *fresh* card, or the fourth button is arbitrary: it would do exactly
+    // what Good does, with an ease-factor difference she cannot see for weeks. Easy skips the rest of
+    // the ladder, and its reward is the ease factor — deliberately **not** a longer interval, because
+    // one graduation path is one thing to test and jumping a twice-seen card several days ahead is how
+    // intervals run away.
+    const fresh = state()
+
+    const onGood = schedule(fresh, GRADE_GOOD, NOW)
+    const onEasy = schedule(fresh, GRADE_EASY, NOW)
+
+    expect(onGood.learningStep).toBe(1)
+    expect(onGood.intervalDays).toBe(0)
+    expect(onGood.repetitions).toBe(0)
+
+    expect(onEasy.learningStep).toBeNull()
+    expect(onEasy.intervalDays).toBe(1)
+    expect(onEasy.repetitions).toBe(1)
+
+    // The same graduating interval Good would get from the last step, and a better ease factor.
+    expect(onEasy.nextReview).toBe(nextReviewForIntervalDays(1, NOW))
+    expect(onEasy.easeFactor).toBeGreaterThan(onGood.easeFactor)
+  })
+
+  it('graduates immediately on Easy from every learning step, not just the first', () => {
+    for (const learningStep of [0, 1]) {
+      const result = schedule(state({ learningStep }), GRADE_EASY, NOW)
+
+      expect(result.learningStep).toBeNull()
+      expect(result.intervalDays).toBe(1)
+      expect(result.repetitions).toBe(1)
+    }
   })
 })
 

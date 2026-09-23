@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest'
 
 import type { Card } from '@/db/types'
 import { MS_PER_DAY } from '@/lib/time'
-import { cramScore, daysSinceLastTouched, orderByDue, orderForCram, selectDueCards } from './queue'
+import {
+  cramScore,
+  daysSinceLastTouched,
+  orderByDue,
+  orderForCram,
+  pickNextCard,
+  selectDueCards,
+} from './queue'
 
 /**
  * Queue selection and ordering. Pure, so no database and no clock.
@@ -214,5 +221,77 @@ describe('orderForCram', () => {
     orderForCram(cards, deckOrder, NOW)
 
     expect(cards.map((row) => row.id)).toEqual(before)
+  })
+})
+
+describe('pickNextCard', () => {
+  const MINUTE = 60_000
+
+  it('picks a card that is due now', () => {
+    const due = card({ id: 'due', nextReview: NOW - MINUTE })
+
+    expect(pickNextCard([due], new Set(), NOW)?.id).toBe('due')
+  })
+
+  it('serves a card due within the wait window, so a learning step does not stall the session', () => {
+    // This is the case that makes LEARNING_STEPS_MINUTES enforceable: a card graded Again is
+    // scheduled 1 minute out, and it has to come back in the same session rather than never.
+    const soon = card({ id: 'soon', nextReview: NOW + 30_000 })
+
+    expect(pickNextCard([soon], new Set(), NOW)?.id).toBe('soon')
+  })
+
+  it('skips a card that is not due within the wait window', () => {
+    const later = card({ id: 'later', nextReview: NOW + 10 * MINUTE })
+
+    expect(pickNextCard([later], new Set(), NOW)).toBeUndefined()
+  })
+
+  it('never serves a card that has already been shown', () => {
+    const due = card({ id: 'due', nextReview: NOW - MINUTE })
+
+    expect(pickNextCard([due], new Set(['due']), NOW)).toBeUndefined()
+  })
+
+  it('takes the first ready card in the order it was given, so cram ordering survives', () => {
+    // The caller orders candidates (orderByDue, orderForCram) and this only decides readiness.
+    // Re-sorting by due date here would quietly undo cram's weakness ordering.
+    const cramFirst = card({ id: 'cram-first', nextReview: NOW + 40_000 })
+    const dueSooner = card({ id: 'due-sooner', nextReview: NOW - MINUTE })
+
+    expect(pickNextCard([cramFirst, dueSooner], new Set(), NOW)?.id).toBe('cram-first')
+    expect(pickNextCard([dueSooner, cramFirst], new Set(), NOW)?.id).toBe('due-sooner')
+  })
+
+  it('skips a not-yet-ready card and takes the next ready one', () => {
+    const later = card({ id: 'later', nextReview: NOW + 10 * MINUTE })
+    const ready = card({ id: 'ready', nextReview: NOW })
+
+    expect(pickNextCard([later, ready], new Set(), NOW)?.id).toBe('ready')
+  })
+
+  it('serves anything in cram mode, because cram ignores due dates', () => {
+    const anyCard = card({ id: 'any', nextReview: NOW + 100 * MS_PER_DAY })
+
+    expect(pickNextCard([anyCard], new Set(), NOW, { ignoreDueDates: true })?.id).toBe('any')
+  })
+
+  it('still respects the shown set in cram mode', () => {
+    const anyCard = card({ id: 'any', nextReview: NOW + 100 * MS_PER_DAY })
+
+    expect(pickNextCard([anyCard], new Set(['any']), NOW, { ignoreDueDates: true })).toBeUndefined()
+  })
+
+  it('honours an explicit wait window rather than the default minute', () => {
+    const inFiveMinutes = card({ id: 'five', nextReview: NOW + 5 * MINUTE })
+
+    expect(pickNextCard([inFiveMinutes], new Set(), NOW, { waitWindowMs: 10 * MINUTE })?.id).toBe(
+      'five',
+    )
+    expect(pickNextCard([inFiveMinutes], new Set(), NOW, { waitWindowMs: 1000 })).toBeUndefined()
+  })
+
+  it('returns undefined for an empty candidate list', () => {
+    expect(pickNextCard([], new Set(), NOW)).toBeUndefined()
   })
 })
