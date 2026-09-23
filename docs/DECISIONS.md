@@ -35,31 +35,33 @@ plainly that the tab must stay open.
 If that turns out to be unacceptable in practice, the fix is already scoped (ADR 0002) and the cost is
 one small service. It is not a rewrite.
 
-### D1b. Cascade: is cloud sync still wanted?
+### D1b. Cascade: is cloud sync still wanted? — ✅ **RESOLVED: yes**
 
-Auth existed for two reasons: to authenticate the push backend and to scope Firestore rules. ADR 0006
-removed the first. **So decision #1 now stands alone**: if she studies on both a phone and a laptop,
-sync is still worth it (and then Google Sign-In and owner-only rules come with it). If a single device
-is fine, the app can be local-only with export — and then there is no auth, no Firestore, and no rules
-file at all.
+She will use a phone and a laptop, so **cloud sync is in scope**. That means Google Sign-In on one
+allow-listed email, Firestore, owner-only rules, and a last-write-wins merge with tombstones — see
+[ADR 0001](adr/0001-local-first-with-indexeddb.md) and [ADR 0005](adr/0005-auth-google-single-user.md).
+
+The sync work was originally bundled into the deleted push backend (old G0); it is now restored as its
+own **Workflow S** in `BUILD_GUIDE.md` §4. It is the half of G0 that survives.
+
+Remaining sub-decision: **D12** — should sync default on at first ship, or become default-on only once
+the merge tests pass? (Recommendation: off at first ship, on after.)
 
 
-### D2. Auth model — now conditional on D1b
 
-Cloud sync and "no login" cannot coexist: Firestore rules need an authenticated identity, otherwise
-her notes are world-readable or the "secret" ships in the browser bundle. But auth is only needed
-**if** you want sync. Answer D1b first:
+### D2. Auth model — ✅ **RESOLVED: Google Sign-In, one allow-listed email**
 
-| If D1b is… | Then auth is… |
-| --- | --- |
-| **Yes, sync wanted** | **Google Sign-In, one allow-listed email** *(recommended)* — one tap per device, survives an iOS reinstall, rules become a one-liner. |
-| **No, single device is fine** | **None.** No auth, no Firestore, no rules file, no Google account. The app is local-only with JSON export, and it is meaningfully simpler. |
+Confirmed alongside sync (D1b). Cloud sync and "no login" cannot coexist: Firestore rules need an
+authenticated identity, otherwise her notes are world-readable or the "secret" ships in the browser
+bundle.
 
-Anonymous auth is still rejected either way: the identity is per-install, so a reinstall or cleared
-browser silently orphans her data.
+Anonymous auth is rejected: the identity is per-install, so a reinstall or a cleared browser silently
+orphans her data — and on iOS, reinstalling is a routine event.
 
-**Needs from you:** if sync — **her email address** (it goes in `.env` and the Firestore rules, never
-committed).
+**Still needed from you:** **her email address.** Put it in `.env` as `VITE_ALLOWED_EMAIL` and mirror
+it in the Firestore rules file — do not send it to me, and do not commit it. Both files will carry a
+placeholder and a one-line instruction. (`VITE_ALLOWED_EMAIL` ends up in the client bundle either way,
+which is fine; the *protection* is the rules file, not secrecy.)
 
 ### D3. Her exam date 🔴 **— and a date problem I need you to resolve**
 
@@ -230,15 +232,22 @@ Worth stating explicitly, because each one is a plausible-looking detour:
 
 ## Summary
 
-**Four decisions block you now** (down from six, because D1 was resolved by removing the backend):
-D1b (is cloud sync wanted?), D2 (auth — only if sync), D3 (**exam date**), D4 (hosting), D5 (will she
-install it), D6 (does she know).
+**Three decisions block you now** (down from six):
 
-- **D1 — closed.** No backend; notifications are in-app only ([ADR 0006](adr/0006-in-app-notifications-only.md)).
-- **D1b — new, and it cascades.** No sync → no auth, no Firestore, no rules file, no Google account.
-- **D2** is now conditional on D1b rather than independent.
-- **D3 is the one I cannot infer**, and it is the one that decides how urgent all of this is.
-- **D7 — closed.** Scope verified against the official PRC program.
+| # | Status |
+| --- | --- |
+| D1 — push backend | ✅ **Closed.** No backend; notifications are in-app only ([ADR 0006](adr/0006-in-app-notifications-only.md)). |
+| D1b — cloud sync | ✅ **Closed: yes.** So Google Sign-In, Firestore, owner-only rules. Sync restored as **Workflow S**. |
+| D2 — auth | ✅ **Closed: Google, one email.** You supply the email into `.env` + the rules file. |
+| D7 — deck taxonomy | ✅ **Closed.** Verified against the official PRC program. |
+| **D3 — exam date** | 🔴 **OPEN — the one I cannot infer.** |
+| **D4 — hosting** | 🔴 OPEN (pure preference now). |
+| **D5 — will she install it** | 🔴 OPEN. Still matters: installing is what exempts her data from Safari's 7-day eviction. |
+| **D6 — does she know** | 🔴 OPEN. Sets the notification voice. |
+| D8–D13 | Has defaults; answer whenever. |
 
-If you want to move fastest: answer D1b, D3, D4, D5, D6, ratify or overturn the ADRs in §C, and
-Workflow A can start.
+**D3 is the only one that changes what I build next**, because cram mode, the dashboard countdown, and
+the whole urgency framing depend on it.
+
+If you want to move fastest: give me the 2027 exam date, answer D4/D5/D6, ratify or overturn the ADRs
+in §C, and Workflow A can start.

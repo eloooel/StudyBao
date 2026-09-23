@@ -110,12 +110,12 @@ keys, no cron, no subscription store, no Cloud Functions, no FCM, no Blaze, no p
 
 | # | Decision | Closed answer | Why (and what was wrong before) |
 | --- | --- | --- | --- |
-| 1 | Data storage | **Local-first IndexedDB (Dexie) as source of truth**, with optional background sync to Firestore | Firestore-as-source-of-truth breaks the app the moment she is on airplane mode or campus wifi drops — which is most of the time she studies. Local-first also means the app is fully usable with the network down. |
+| 1 | Data storage | **Local-first IndexedDB (Dexie) as source of truth**, with Firestore sync for phone ↔ laptop | Firestore-as-source-of-truth breaks the app the moment she is on airplane mode or campus wifi drops — which is most of the time she studies. Local-first also means the app is fully usable with the network down. Sync confirmed in scope (D1b, Sept 2026). |
 | 2 | Hosting | **Any static host** — Cloudflare Pages, Vercel, or GitHub Pages | With no backend (ADR 0006) this is a static bundle, so the choice is pure preference. All give free HTTPS. |
 | 3 | Notification delivery | **Client-side only. No push, no backend.** | Product decision, Sept 2026 — see [ADR 0006](adr/0006-in-app-notifications-only.md). Removes VAPID, FCM, cron, the subscription store, and the permission prompt entirely. The cost: nothing fires while the app is closed. |
 | 4 | OCR accuracy | Always show an edit/confirm screen; never auto-save OCR text | Unchanged. Reinforced: default the UI to paste/PDF ingest and label photo OCR honestly as best-effort. |
 | 5 | Notification cadence | Conservative, quiet hours, hard caps | Unchanged default, plus: max 1 idle nudge per session, max 1 streak reminder/day, none 22:00–06:30 local. |
-| 6 | Auth | **Google Sign-In, one allow-listed email — only if cloud sync is wanted.** Otherwise none. | The original "single-user, no login" is **incompatible with cloud sync**: Firestore rules need an authenticated identity. But auth is *only* needed for sync — ADR 0006 removed the other reason (authenticating a push backend). So this is now a consequence of decision #1, not an independent requirement. |
+| 6 | Auth | **Google Sign-In, one allow-listed email** | Confirmed in scope with sync (D1b). The original "single-user, no login" is **incompatible with cloud sync**: Firestore rules need an authenticated identity. ADR 0006 removed the push-backend reason, so sync is now the only reason — but it is sufficient. One Google account = one tap, two devices, correct rules. |
 | 7 | Subjects/decks | Pre-seed the five PRC Nursing Practice parts | See §6. Verified against the official PRC program — see [`reference/pnle-scope.md`](reference/pnle-scope.md). |
 | 8 | **Exam date** (new) | Capture it on first run | Drives cram mode, the dashboard countdown, and notification tone. |
 | 9 | **Backup/export** (new) | JSON export + import in Settings | Local-first without export is a single point of loss (iOS storage eviction, cleared browser data). |
@@ -129,12 +129,12 @@ keys, no cron, no subscription store, no Cloud Functions, no FCM, no Blaze, no p
 | --- | --- | --- |
 | Frontend | React + Vite + TypeScript | Vitest for unit tests. |
 | Styling | Tailwind CSS | Custom coquette theme tokens; see §5 for the corrected, contrast-safe palette. |
-| Storage | **Dexie (IndexedDB)** = source of truth; optional Firestore sync | Firestore **Spark plan** covers this comfortably (1 GiB, 50k reads / 20k writes per day). Sync is optional — the app is complete without it. |
-| Auth | Firebase Auth, Google, one allow-listed email | **Only if cloud sync is enabled.** Not needed otherwise (ADR 0006). |
+| Storage | **Dexie (IndexedDB)** = source of truth, **synced to Firestore** (decision D1b) | Firestore **Spark plan** covers this comfortably (1 GiB, 50k reads / 20k writes per day). Sync is additive: the app is fully usable if it never runs. |
+| Auth | Firebase Auth, Google, one allow-listed email | Required by sync ([ADR 0005](adr/0005-auth-google-single-user.md)). Nothing else needs it — [ADR 0006](adr/0006-in-app-notifications-only.md) removed the push-backend reason. |
 | OCR | Tesseract.js, **self-hosted** core + `eng.traineddata` | Do **not** rely on the default CDN. See "OCR reality" below. |
 | PDF text | `pdfjs-dist` | Client-side, free, no OCR error at all for digital PDFs. |
 | Notifications | **None — in-app UI only** | Toasts/banners, `visibilitychange`, and a wall-clock timer. No service-worker `push` handler, no VAPID, no permission prompt. |
-| Backend | **None** | Removed by [ADR 0006](adr/0006-in-app-notifications-only.md). If sync is enabled, Firestore is contacted directly from the client; there is still no server of ours. |
+| Backend | **None** | Removed by [ADR 0006](adr/0006-in-app-notifications-only.md). Sync talks to Firestore directly from the client (Workflow S); there is no server of ours anywhere. |
 | Hosting | Any static host (Cloudflare Pages / Vercel / GitHub Pages) | HTTPS by default. |
 | Spaced repetition | Custom SM-2 + sub-day learning steps | Pure function, unit-tested. No library. |
 
@@ -150,7 +150,7 @@ coarse). **None of it is needed any more.** Dropping closed-app notifications de
 - service-worker `push` / `notificationclick` handling
 - the notification-permission UX and its "notifications are off" state
 - iOS Home Screen installation as a *notifications* prerequisite
-- an entire workflow (old G0)
+- the push half of the old G0 (the sync half survives as Workflow S)
 
 If the decision is ever revisited, ADR 0002 is the starting point, not this section.
 
@@ -203,13 +203,15 @@ A0 (decisions + test harness)
      ├─ D (Pomodoro)
      └─ E (tracker)
           └─ F (dashboard)                ← needs B, D, E data
+          └─ S (cloud sync)               ← needs B/E data model + decisions #1/#6
           └─ G (in-app attention nudges)  ← needs D's session state only
                └─ H (polish)
 ```
 
 Corrections to the original graph: F needs a history model that B did not specify (see §6), and the
-original G needed a backend plus synced activity data. **ADR 0006 removed the backend**, so G now
-depends on D alone and shrinks to a small UI module. Old G0 is deleted.
+original G needed a backend plus synced activity data. **ADR 0006 removed the push backend**, so G now
+depends on D alone and shrinks to a small UI module. **Cloud sync (S) is still in scope** — it was
+bundled into the old G0, and it is the half that survives now that push is gone.
 
 ### Workflow A — Scaffold & Design System
 
@@ -277,6 +279,26 @@ depends on D alone and shrinks to a small UI module. Old G0 is deleted.
    rather than `repetitions >= 3`, which is a proxy that Easy-grading games.
 3. Dashboard: streak, per-subject progress bars, weak spots, exam-date countdown.
 4. **Output:** one glanceable screen.
+
+### Workflow S — Cloud Sync
+
+The half of old G0 that survives. No server of ours: the client talks to Firestore directly.
+
+1. **Firebase Auth** (Google provider), allow-listed to her one email. Do not hardcode the email in
+   source — it comes from `VITE_ALLOWED_EMAIL` and is mirrored in the rules file.
+2. **Firestore sync:** push-on-write, pull-on-open, last-write-wins on `updatedAt`, tombstones via
+   `deletedAt`. Sync is **fire-and-forget and never blocks the UI** — Dexie is the source of truth,
+   and a failed sync must be invisible while she studies.
+3. **Merge function as a pure unit** (`sync/lib/merge.ts`), tested before it ever touches real data.
+   Cases: local-only, remote-only, both-changed-newer-local, both-changed-newer-remote, soft-deleted
+   locally, soft-deleted remotely.
+4. **Firestore rules, owner-only**, tested against the emulator for three cases: allowed user, denied
+   anonymous, denied other authenticated user. Never open rules.
+5. **Migration path for both schemas.** A local Dexie version bump and the Firestore document shape
+   must move together — see `docs/ai/change-data-model.md`.
+6. **Off by default at first ship**, then default-on once the merge tests pass (decision D12).
+7. **Output:** her decks and review history appear on the second device, and a deleted card stays
+   deleted.
 
 ### Workflow G — In-App Attention Nudges
 
@@ -478,6 +500,9 @@ state — see the reference file.)
 - **E:** a lesson can be created, filtered, and completed without touching OCR.
 - **F:** streak, per-subject bars, and weak spots all render from real data; a brand-new install
   shows a themed empty state, not a blank screen.
+- **S:** a card created on the laptop appears on the phone; a card deleted on the phone stays deleted
+  after the laptop syncs; the merge tests cover all six cases; the rules emulator denies anonymous
+  access.
 - **G:** during a live session, going idle for `idleNudgeMin` shows exactly one nudge; switching away
   and returning shows a "welcome back" with the correct remaining time; the session-end cue fires with
   the tab visible; nothing shows during quiet hours.

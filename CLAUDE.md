@@ -212,12 +212,13 @@ do not "improve" a colour without re-checking WCAG AA (4.5:1 body text, 3:1 larg
 ## Security rules
 
 - `.env` is never committed. `.env.example` documents every variable.
-- **There are no server-side secrets, because there is no server.** The only auth-shaped risk left is
-  Firestore, and only if cloud sync is enabled: Firebase client config (`apiKey` etc.) is *not* a
-  secret, so **Firestore rules are the entire security boundary**. Rules are owner-only and are tested
-  against the emulator before any deploy.
-- If cloud sync is ever enabled, keep it optional and off by default until the merge function has
-  migration tests. A wrong merge reaching her data is worse than no sync.
+- **There are no server-side secrets, because there is no server.** The one auth-shaped surface is
+  Firestore (cloud sync, Workflow S): Firebase client config (`apiKey` etc.) is *not* a secret, so
+  **the Firestore rules file is the entire security boundary**. Rules are owner-only on her
+  allow-listed email, and are tested against the emulator (allowed user / anonymous / other
+  authenticated user) before any deploy. Never open rules.
+- Sync must stay **fire-and-forget**: Dexie is the source of truth, and a failed sync must never block
+  or slow the study loop. Keep sync off by default until the merge tests pass.
 
 ---
 

@@ -9,7 +9,7 @@ of [`0001-local-first-with-indexeddb.md`](0001-local-first-with-indexeddb.md).
 | [0002](0002-push-architecture-and-scheduler.md) | Push architecture: pre-schedule then cancel, with our own cron | Superseded by 0006 |
 | [0003](0003-sm2-scheduler-and-learning-steps.md) | SM-2 with sub-day learning steps, epoch-ms scheduling | Accepted |
 | [0004](0004-no-llm-in-runtime.md) | No LLM in the shipped product | Accepted |
-| [0005](0005-auth-google-single-user.md) | Auth: Google Sign-In, one allow-listed email | Conditional — see ADR 0006 |
+| [0005](0005-auth-google-single-user.md) | Auth: Google Sign-In, one allow-listed email | Accepted |
 | [0006](0006-in-app-notifications-only.md) | In-app notifications only: no backend, no push | Accepted |
 
 ## When to write one
