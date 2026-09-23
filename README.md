@@ -25,16 +25,17 @@ npm run build && npm run preview   # required to exercise the service worker
 
 ## Read these
 
-| Document                                                       | What it is                                                                                                       |
-| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| [`docs/DECISIONS.md`](docs/DECISIONS.md)                       | **Start here.** Every decision the repo needs, with the six that actually block work marked.                     |
-| [`docs/BUILD_GUIDE.md`](docs/BUILD_GUIDE.md)                   | The plan of record. Feature set, closed decisions, tech stack, workflows A–H, data model, design system.         |
-| [`docs/reference/pnle-scope.md`](docs/reference/pnle-scope.md) | The official PRC five-part exam scope, transcribed from the primary source. Drives the deck taxonomy.            |
-| [`docs/CRITIQUE.md`](docs/CRITIQUE.md)                         | Line-by-line review of the original plan: six blocking flaws, verified technical corrections, and what was kept. |
-| [`CLAUDE.md`](CLAUDE.md)                                       | Constraints for anyone (human or AI) changing this repo.                                                         |
-| [`docs/ai/README.md`](docs/ai/README.md)                       | Task runbooks.                                                                                                   |
-| [`docs/adr/`](docs/adr/README.md)                              | The five decisions that are expensive to reverse.                                                                |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md)                           | The non-negotiables, and how to review an agent-authored change.                                                 |
+| Document                                                       | What it is                                                                                                                                         |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`docs/HANDOFF.md`](docs/HANDOFF.md)                           | **Read this second** (after CLAUDE.md, or first if you are picking the work up). Current state, every decision, what is one-way, and what is next. |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md)                       | The full decision register, including the reversals and their reasoning.                                                                           |
+| [`docs/BUILD_GUIDE.md`](docs/BUILD_GUIDE.md)                   | The plan of record. Feature set, closed decisions, tech stack, workflows A–H, data model, design system.                                           |
+| [`docs/reference/pnle-scope.md`](docs/reference/pnle-scope.md) | The official PRC five-part exam scope, transcribed from the primary source. Drives the deck taxonomy.                                              |
+| [`docs/CRITIQUE.md`](docs/CRITIQUE.md)                         | Line-by-line review of the original plan: six blocking flaws, verified technical corrections, and what was kept.                                   |
+| [`CLAUDE.md`](CLAUDE.md)                                       | Constraints for anyone (human or AI) changing this repo.                                                                                           |
+| [`docs/ai/README.md`](docs/ai/README.md)                       | Task runbooks.                                                                                                                                     |
+| [`docs/adr/`](docs/adr/README.md)                              | The decisions that are expensive to reverse.                                                                                                       |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md)                           | The non-negotiables, and how to review an agent-authored change.                                                                                   |
 
 ## What it does
 

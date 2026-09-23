@@ -3,9 +3,11 @@
 Guidance for AI coding agents (Claude Code, Cursor, Copilot, DSH, or anything else) working in this
 repository. Humans should read it too — everything here applies to you.
 
-**Read this file, then [`docs/ai/README.md`](docs/ai/README.md), then the runbook that matches your
-task.** The plan of record is [`docs/BUILD_GUIDE.md`](docs/BUILD_GUIDE.md); open questions for the human
-are in [`docs/DECISIONS.md`](docs/DECISIONS.md); the reasoning behind the plan is
+**Read this file, then [`docs/HANDOFF.md`](docs/HANDOFF.md), then the runbook that matches your
+task.** The handoff carries the current state: what exists, every decision and its outcome, what is
+one-way, and what to do next. The plan of record is
+[`docs/BUILD_GUIDE.md`](docs/BUILD_GUIDE.md); open questions for the human are in
+[`docs/DECISIONS.md`](docs/DECISIONS.md); the reasoning behind the plan is
 [`docs/CRITIQUE.md`](docs/CRITIQUE.md).
 
 ---
