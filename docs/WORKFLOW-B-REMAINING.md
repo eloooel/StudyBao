@@ -5,16 +5,16 @@ small, and none of it blocks the next workflow.
 
 Use `git log --oneline -4` for the real hashes — this file is not rewritten on every commit.
 
-|              |                                                                                           |
-| ------------ | ----------------------------------------------------------------------------------------- |
-| `3eb1fd2`    | **feat: Workflow B** — data model, SM-2, repositories, CRUD UI, review session, cram mode |
-| `520290b`    | **fix:** the learning steps actually work — defects A, B and C from review                |
-| third commit | the follow-up: UI for the "coming back" state, DST coverage, cram-order test, docs        |
-| tests        | 261 passing, 23 files                                                                     |
-| coverage     | 83.9% lines, 91.7% branches against a 70% floor (`vitest.config.ts`)                      |
+|           |                                                                                           |
+| --------- | ----------------------------------------------------------------------------------------- |
+| `3eb1fd2` | **feat: Workflow B** — data model, SM-2, repositories, CRUD UI, review session, cram mode |
+| `520290b` | **fix:** the learning steps actually work — defects A, B and C from review                |
+| `91afb24` | **feat:** surface the waiting state, DST coverage, cram-order test, lint hardening        |
+| tests     | 261 passing, 23 files                                                                     |
+| coverage  | 83.9% lines, 91.7% branches against a 70% floor (`vitest.config.ts`)                      |
 
-**All six checks are green on the third commit**: typecheck, lint, prettier, `test:coverage`, `build`,
-and `preview` (service worker served 200 with no `push` handler; manifest 200). Also verified: three
+**All six checks are green on `91afb24`**: typecheck, lint, prettier, `test:coverage`, `build`, and
+`preview` (service worker served 200 with no `push` handler; manifest 200). Also verified: three
 `--sequence.shuffle` runs, and the whole suite under `TZ=Europe/London`.
 
 ---
