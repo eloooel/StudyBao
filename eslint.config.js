@@ -59,6 +59,14 @@ export default tseslint.config(
               message:
                 'Import from @/sync instead of firebase directly. Firestore access is centralised so the merge function and rules stay reviewable. See docs/adr/0001-local-first-with-indexeddb.md.',
             },
+            {
+              // Test infrastructure must never reach the bundle. Noticing it in a diff is not a
+              // control: this makes it impossible to import a fake IndexedDB from production code,
+              // and names the fix so the failure explains itself.
+              group: ['fake-indexeddb', 'fake-indexeddb/*'],
+              message:
+                'fake-indexeddb is test-only and must not be imported by app code. Import it once in src/test/setup.ts, or use @/test/render in a test file. See docs/ai/write-tests.md.',
+            },
           ],
         },
       ],
@@ -73,14 +81,30 @@ export default tseslint.config(
     },
   },
 
-  // src/db/ IS the one place dexie may be imported — that is the whole point of the
-  // rule above. Restating the block here with `dexie` dropped from `paths` would be
-  // the same thing with more ways to drift, so the rule is switched off for this one
-  // directory and the reason is the rule's own message elsewhere.
+  // src/db/ IS the one place dexie may be imported — that is the whole point of the rule above.
+  // The rule is not switched off wholesale here: it is restated with `dexie` dropped from `paths`,
+  // because switching it off would also let `src/db/` import test infrastructure such as
+  // fake-indexeddb, which is exactly the kind of leak this file exists to prevent.
   {
     files: ['src/db/**/*.ts'],
     rules: {
-      'no-restricted-imports': 'off',
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['firebase', 'firebase/*'],
+              message:
+                'Import from @/sync instead of firebase directly. Firestore access is centralised so the merge function and rules stay reviewable. See docs/adr/0001-local-first-with-indexeddb.md.',
+            },
+            {
+              group: ['fake-indexeddb', 'fake-indexeddb/*'],
+              message:
+                'fake-indexeddb is test-only and must not be imported by app code, including src/db/. Import it once in src/test/setup.ts, or use @/test/render in a test file. See docs/ai/write-tests.md.',
+            },
+          ],
+        },
+      ],
     },
   },
 

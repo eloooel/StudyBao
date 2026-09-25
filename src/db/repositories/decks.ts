@@ -58,17 +58,18 @@ export async function softDeleteDeck(id: string, now = Date.now()): Promise<void
   })
 }
 
-/** Tombstones only. Not used by the UI; this is what Workflow S will push. */
+/**
+ * Tombstones only. Not used by the UI; this is what Workflow S will push.
+ *
+ * Uses the `deletedAt` index rather than reading the whole table and filtering in JS — that is what
+ * the index is for.
+ */
 export async function listDeletedDecks(): Promise<Deck[]> {
   const db = await getDb()
-  const decks = await db.decks.toArray()
-  return decks.filter(isDeleted)
+  // Epoch ms is always positive, so `above(0)` means "has a deletion timestamp".
+  return db.decks.where('deletedAt').above(0).toArray()
 }
 
 function isLive(record: { deletedAt?: number }): boolean {
   return record.deletedAt === undefined
-}
-
-function isDeleted(record: { deletedAt?: number }): boolean {
-  return record.deletedAt !== undefined
 }

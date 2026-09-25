@@ -304,6 +304,50 @@ describe('useReviewSession', () => {
     expect(stored?.nextReview).toBeGreaterThan(Date.now())
   })
 
+  it('orders cram by official deck order when cards are equally weak and stale', async () => {
+    // Cram walks decks in official exam order (I before II) as its tie-break, and the hook has to
+    // pass the *real* deck order for that.
+    //
+    // Deriving that order from the cards' own deck ids is the tempting shortcut, and sorting those
+    // ids happens to give the right answer for the five PRC decks — so the discriminator here is a
+    // card in a deck whose id sorts **before** "deck-practice-i". `orderForCram` puts an unknown
+    // deck last; a card-id-derived order would put this one first. Without it, this test passes
+    // whichever way the hook obtains the order, which makes it worthless.
+    await clearCards()
+    const orphan = await createCard({ deckId: 'aaa-phantom', front: 'orphan', back: 'b' })
+    const second = await createCard({
+      deckId: deckIdForPart('practice-ii'),
+      front: 'II',
+      back: 'b',
+    })
+    const first = await createCard({ deckId: deckIdForPart('practice-i'), front: 'I', back: 'b' })
+
+    // Identical weakness and staleness, and none of them due — cram ignores due dates entirely.
+    const db = await getDb()
+    for (const id of [first.id, second.id, orphan.id]) {
+      await db.cards.update(id, {
+        lapses: 0,
+        lastReviewedAt: undefined,
+        nextReview: Date.now() + 100 * 86_400_000,
+      })
+    }
+
+    const { result } = renderHook(() => useReviewSession({ deckId: undefined, cram: true }))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.startCount).toBe(3)
+
+    const served: string[] = []
+    for (let i = 0; i < 3; i += 1) {
+      served.push(result.current.card?.id ?? 'missing')
+      await act(async () => {
+        await result.current.grade(GRADE_GOOD)
+      })
+    }
+
+    // Nursing Practice I, then II, then the orphan deck — unknown decks sort last, deterministically.
+    expect(served).toEqual([first.id, second.id, orphan.id])
+  })
+
   it('starts its clock only when markShown is called', async () => {
     await clearCards()
     await dueCard('timed')

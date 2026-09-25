@@ -67,3 +67,22 @@ export function studyDayStart(timestamp: number): number {
 export function studyDaysBetween(from: number, to: number): number {
   return Math.round((studyDayStart(to) - studyDayStart(from)) / MS_PER_DAY)
 }
+
+/**
+ * The study day `days` study days after the one `timestamp` falls in.
+ *
+ * **Calendar arithmetic, not a fixed multiple of 24 hours.** `studyDayStart` is deliberately built
+ * from local calendar parts so it stays correct across a DST transition; adding `n × MS_PER_DAY` to
+ * its result would not be, and in a DST zone a "1 day" interval would land at 03:00 — the previous
+ * study day, an hour short. The two halves of this module have to agree about what a day is.
+ *
+ * The Philippines has no DST, so today this changes nothing for her. It is fixed anyway, because
+ * the contradiction is invisible rather than harmless, and a future reader would otherwise have to
+ * work out which half was wrong.
+ */
+export function addStudyDays(timestamp: number, days: number): number {
+  const start = new Date(studyDayStart(timestamp))
+  // `setDate` normalises month, year and DST boundaries, which is exactly why it is used here.
+  start.setDate(start.getDate() + days)
+  return start.getTime()
+}

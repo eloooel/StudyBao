@@ -140,6 +140,14 @@ export async function softDeleteCard(id: string, now = Date.now()): Promise<void
  * `msSpent` is passed in already measured (see the review hook, which uses
  * `performance.now()`), because a monotonic duration and a wall-clock instant are different
  * questions and this function should not be guessing at either.
+ *
+ * **Known limitation, deliberate for now:** this writes the whole card with `put`, so it is a
+ * read-modify-write on the caller's snapshot of the record. Today the review screen is the only
+ * writer of a card's SM-2 state, so it cannot lose anything. Once there is a second tab, or sync, a
+ * concurrent text edit committed between the caller's read and this write would be reverted.
+ * The fix is a field-level `update` inside this same transaction rather than a whole-record `put`;
+ * it is not done now because the narrower write would silently ignore any SM-2 field added later,
+ * and one writer means the tradeoff costs nothing yet.
  */
 export async function recordReview(
   card: Card,
@@ -179,10 +187,17 @@ export async function recordReview(
   return updated
 }
 
-/** Tombstones only. Workflow S pushes these; nothing in the UI reads them. */
+/**
+ * Tombstones only. Workflow S pushes these; nothing in the UI reads them.
+ *
+ * Uses the `deletedAt` index rather than reading the whole table and filtering in JS — that index
+ * exists for this query, and "read everything then filter" is the pattern that stops being fine
+ * once she has a few thousand cards.
+ */
 export async function listDeletedCards(): Promise<Card[]> {
   const db = await getDb()
-  return (await db.cards.toArray()).filter((card) => card.deletedAt !== undefined)
+  // Epoch ms is always positive, so `above(0)` means "has a deletion timestamp".
+  return db.cards.where('deletedAt').above(0).toArray()
 }
 
 function liveCards(cards: Card[]): Card[] {

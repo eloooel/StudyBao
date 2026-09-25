@@ -49,6 +49,14 @@ These are all in `src/features/flashcards/lib/sm2.test.ts`:
 10. A day-scale interval snaps to the **04:00 study day**, and a 03:00 review is due an hour later
     because it still belongs to the previous study day. That is deliberate — make it a test, not a
     "fix".
+11. **Easy and Good diverge on a fresh card.** Easy graduates immediately from any learning step
+    (`learningStep === null`, `intervalDays === 1`), while Good only advances one step. If they did the
+    same thing, the fourth button would be arbitrary and distinguishable only by an ease delta she
+    cannot see for weeks.
+12. **A card graded Again is served again inside the same session once its step is due.** This is the
+    one that catches the whole class of bug where the re-serve decision is made at grade time — where
+    `nextReview > now` is guaranteed, so the check always fails. Assert it in
+    `hooks/use-review-session.test.tsx`; `pickNextCard` in `lib/queue.test.ts` covers the pure part.
 
 ## The 04:00 study day
 
@@ -56,6 +64,23 @@ These are all in `src/features/flashcards/lib/sm2.test.ts`:
 now and the streak logic (Workflow F) will use it. Two copies would disagree eventually, and the
 failure is a streak number that is wrong in a way nobody can reproduce. Test that module directly;
 do not re-derive the boundary anywhere else.
+
+**Day-scale intervals go through `addStudyDays`, never `boundary + n × MS_PER_DAY`.** `studyDayStart`
+is calendar-based on purpose; a fixed 24-hour offset from it breaks across a DST transition and lands
+at 03:00, the previous study day. That bug is invisible in a zone without DST, so it has its own file:
+`src/lib/study-day.dst.test.ts` pins `process.env.TZ = 'Europe/London'` **before** any date is
+constructed (which is why it must be a separate file) and asserts both transitions. The main
+`study-day.test.ts` keeps the assertions that hold in any zone.
+
+**Two behavioural tests in this repo are only worth having if they fail when the bug is reintroduced.**
+Both were written wrong the first time — passing under the fix _and_ under the regression:
+
+- the cram deck-order test needed a card in a deck whose id sorts before `deck-practice-i`, because
+  string-sorting the real deck ids happens to give the right answer;
+- the DST test needed its own file, because setting `TZ` mid-suite changes nothing.
+
+When you add a regression test here, **check it fails against the old behaviour before you trust it.**
+A green test that cannot go red is worse than no test, because it reads as coverage.
 
 ## Parser test cases that must exist (pending Workflow C)
 

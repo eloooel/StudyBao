@@ -29,6 +29,8 @@ export function ReviewCardView({
   startCount,
   gradedCount,
   remaining,
+  waitingToReturn,
+  finished,
   deckName,
   onReveal,
   onGrade,
@@ -51,15 +53,42 @@ export function ReviewCardView({
   }, [revealed, card, onGrade])
 
   if (!card) {
+    // Three genuinely different situations, and conflating them is how she gets told she is
+    // finished while a card she just failed is one minute from coming back.
+    if (startCount === 0) {
+      return (
+        <EmptyState
+          icon={<SparkleIcon className="size-6" />}
+          title="Nothing due right now"
+          message="Nothing here is due yet. That’s the spacing doing its job — come back when a card is ready for you."
+        />
+      )
+    }
+
+    if (!finished) {
+      return (
+        <EmptyState
+          icon={<SparkleIcon className="size-6" />}
+          title={
+            waitingToReturn === 1
+              ? 'One card is coming back'
+              : `${waitingToReturn} cards are coming back`
+          }
+          message={
+            waitingToReturn === 0
+              ? 'Getting your next card ready…'
+              : 'You graded them Again, so they’re back in a minute — that’s the short step that makes them stick. This screen picks them up on its own.'
+          }
+        />
+      )
+    }
+
     return (
       <EmptyState
         icon={<SparkleIcon className="size-6" />}
-        title={startCount === 0 ? 'Nothing due right now' : 'That’s the lot'}
-        message={
-          startCount === 0
-            ? 'Nothing in this deck is due yet. That’s the spacing doing its job — come back when a card is ready.'
-            : `${gradedCount} card${gradedCount === 1 ? '' : 's'} reviewed. They’ll come back when they’re ready for you.`
-        }
+        title="That’s the lot"
+        message={`${gradedCount} card${gradedCount === 1 ? '' : 's'} reviewed. They’ll come back when they’re ready for you.`}
+        action={<Button onClick={onEnd}>Done</Button>}
       />
     )
   }

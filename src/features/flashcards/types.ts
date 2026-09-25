@@ -66,6 +66,14 @@ export interface ReviewCardViewProps {
   gradedCount: number
   /** Cards still waiting, excluding the one on screen. */
   remaining: number
+  /**
+   * Cards already graded that are scheduled to come back inside this session — a learning step
+   * doing its job. While this is non-zero the session is **not** finished, and saying it is would
+   * give her the wrong answer about a card she is about to see again in a minute.
+   */
+  waitingToReturn: number
+  /** True only when everything has been served and nothing is coming back. */
+  finished: boolean
   deckName: string
   /** Called the instant the answer is revealed, so thinking time can be measured. */
   onReveal: () => void

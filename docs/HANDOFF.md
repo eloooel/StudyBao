@@ -6,9 +6,10 @@ decided and why, what is one-way, and what to do next.
 **Read order:** [`CLAUDE.md`](../CLAUDE.md) (constraints and the two AI boundaries) → this file → the
 runbook for whatever you were asked to do in [`docs/ai/`](ai/README.md).
 
-**Last known good commit:** `aa978a5` — "docs: add the agent handoff, and make it the second thing
-anyone reads". Workflow B is written and verified but **not yet committed** — the diff is sitting in
-the working tree for review. Once it is committed, update this line and the Workflow B status below.
+**Last known good commit:** `520290b` — "fix: make the learning steps actually work within a session",
+which sits on top of `3eb1fd2` ("feat: Workflow B"). The review fixes and lint hardening that followed
+`520290b` are verified but **uncommitted**; see
+[`docs/WORKFLOW-B-REMAINING.md`](WORKFLOW-B-REMAINING.md) for what is left, which is the working list.
 
 ---
 
@@ -23,10 +24,14 @@ only, **no backend**, browser-based. Coquette pink-and-white.
 | **Her exam**                              | **Friday, February 26, 2027**                                           |
 | **Her devices**                           | iPad (as a Home Screen Web App) and a Windows laptop (browser tab)      |
 | **Workflow A** (scaffold + design system) | ✅ **Done**                                                             |
-| **Workflow B** (flashcards + SM-2)        | ✅ **Done** — written and verified, awaiting review/commit              |
+| **Workflow B** (flashcards + SM-2)        | ✅ **Done** — reviewed, defects fixed; one uncommitted follow-up        |
 | C, D, E, F, S, G, H                       | ⏸ Not started                                                           |
-| Tests / coverage                          | 227 tests, 83.1% lines, 90.5% branches (floor is in `vitest.config.ts`) |
+| Tests / coverage                          | 261 tests, 83.9% lines, 91.7% branches (floor is in `vitest.config.ts`) |
 | Backend                                   | None, by decision. No server, no secrets.                               |
+
+**Next work is collated in [`docs/WORKFLOW-B-REMAINING.md`](WORKFLOW-B-REMAINING.md)** — read that
+alongside this file. It lists the uncommitted change, the one part of the review feedback still open,
+and the doc/test debt.
 
 The plan of record is [`docs/BUILD_GUIDE.md`](BUILD_GUIDE.md). Its §4 has the workflow DAG with live
 status. Everything in it is deliberate; where you think it is wrong, see §7 before changing it.
@@ -224,9 +229,19 @@ index.
   name says so.
 - **A lapse zeroes `intervalDays`**, and mastery is `learningStep === null && intervalDays >= 21`.
   Keeping a stale 38-day interval would have reported a just-failed card as mature.
-- **Hard repeats the current learning step; Easy graduates immediately** on Good's path. Easy's reward is
-  the ease factor, deliberately not a longer first interval.
-- **Day-scale intervals snap to the 04:00 study day**; learning steps stay rolling minutes.
+- **Hard repeats the current learning step; Good advances one; Easy graduates immediately from any
+  step.** Easy's reward is the ease factor, deliberately not a longer interval. Easy and Good must
+  diverge on a _fresh_ card or the fourth button is arbitrary — that is asserted directly.
+- **A new card is due immediately** (`nextReview = now`), and `resetCardProgress` agrees with it. The
+  learning step decides when a card comes back after a review, not whether she may review it now.
+- **Day-scale intervals snap to the 04:00 study day**, as _calendar_ days from that boundary — not
+  `boundary + n × 86_400_000`, which lands an hour early or late across a DST transition.
+  `src/lib/study-day.dst.test.ts` pins a DST zone; the main study-day test file covers what holds in any
+  zone.
+- **The review session freezes its membership but chooses the next card against the clock.** Deciding
+  "is it due again?" at grade time cannot work, because `schedule` guarantees `nextReview > now` — the
+  check is always false and a 1-minute learning step never arrives. This was a real defect, found in
+  review, and it is now covered by a test that fails without the fix.
 - **The review session is a route**, not mode state, so a mid-session refresh resumes instead of losing
   the session.
 - **One `useDatabaseValue` subscription** drives every data-backed hook, so a write on one screen updates

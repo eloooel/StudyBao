@@ -247,6 +247,8 @@ describe('ReviewCardView', () => {
     startCount: 3,
     gradedCount: 0,
     remaining: 2,
+    waitingToReturn: 0,
+    finished: false,
     deckName: 'Nursing Practice I',
     onGrade: vi.fn(),
     onEnd: vi.fn(),
@@ -325,18 +327,56 @@ describe('ReviewCardView', () => {
     expect(onGrade).not.toHaveBeenCalled()
   })
 
-  it('celebrates finishing without suggesting a failure', () => {
+  it('celebrates finishing only when nothing is coming back', () => {
     render(
       <ReviewCardView
         {...baseProps}
         card={null}
         startCount={3}
         gradedCount={3}
+        waitingToReturn={0}
+        finished
         onReveal={vi.fn()}
       />,
     )
 
     expect(screen.getByText('That’s the lot')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument()
+  })
+
+  it('says a card is coming back instead of claiming the session is over', () => {
+    // The defect this pins: saying "that's the lot" while a card she just graded Again is a minute
+    // from returning gives her the wrong answer about work that is still outstanding.
+    render(
+      <ReviewCardView
+        {...baseProps}
+        card={null}
+        startCount={3}
+        gradedCount={1}
+        waitingToReturn={1}
+        finished={false}
+        onReveal={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('One card is coming back')).toBeInTheDocument()
+    expect(screen.queryByText('That’s the lot')).toBeNull()
+  })
+
+  it('counts the cards coming back when there are several', () => {
+    render(
+      <ReviewCardView
+        {...baseProps}
+        card={null}
+        startCount={5}
+        gradedCount={2}
+        waitingToReturn={3}
+        finished={false}
+        onReveal={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('3 cards are coming back')).toBeInTheDocument()
   })
 
   it('explains an empty queue rather than showing a blank screen', () => {

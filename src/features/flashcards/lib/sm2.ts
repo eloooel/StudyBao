@@ -1,6 +1,6 @@
 import type { Grade } from '@/db/types'
-import { studyDayStart } from '@/lib/study-day'
-import { MS_PER_DAY, MS_PER_MINUTE } from '@/lib/time'
+import { addStudyDays } from '@/lib/study-day'
+import { MS_PER_MINUTE } from '@/lib/time'
 /**
  * SM-2 with sub-day learning steps.
  *
@@ -44,12 +44,14 @@ export const LEARNING_STEPS_MINUTES = [1, 10] as const
  * input to `schedule` — a scheduler whose result depended on how long ago the card was
  * graded would not be a pure function of its state.
  *
- * A consequence worth knowing: a brand-new card is due a minute after it is created rather
- * than the instant it is, so the very first press starts the learning ladder. That is
- * intended — it is how a card seen for the first time behaves like one.
+ * A consequence worth knowing: a brand-new card is due immediately, so the very first press starts
+ * the learning ladder — no waiting before she may touch the card she just wrote.
  *
- * Typed as an index into the array rather than `0 | 1` so that adding a third step is a
- * one-line change with no migration, and so the type says what the number means.
+ * Typed as `number | null` rather than as a union of literal indices, deliberately. The literal
+ * union would not actually constrain the value (it is read back from IndexedDB, which has no types),
+ * so it would buy nothing at runtime while making every `step + 1` arithmetic in this module need a
+ * cast. The real defence is `learningStepMinutes`, which falls back to the longest step rather than
+ * to zero for an out-of-range index.
  */
 export type LearningStep = number | null
 
@@ -185,7 +187,7 @@ function roundTo(value: number, places: number): number {
 
 /** Where a card with a whole-day interval is next due: the start of that study day. */
 export function nextReviewForIntervalDays(intervalDays: number, now: number): number {
-  return studyDayStart(now) + intervalDays * MS_PER_DAY
+  return addStudyDays(now, intervalDays)
 }
 
 interface Outcome {

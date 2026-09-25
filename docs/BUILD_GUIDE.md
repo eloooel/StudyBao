@@ -302,15 +302,19 @@ vitest 4/5's optional browser peers — see the toolchain constraints in `CLAUDE
    `reviewLogs`, `settings`. `Lesson` and `Session` are deliberately not created until Workflows E
    and D exist to fill them.
 2. SM-2 as a **pure function**: `schedule(cardState, grade, now) → newState` in
-   `src/features/flashcards/lib/sm2.ts`, with 25 tests written before any UI.
+   `src/features/flashcards/lib/sm2.ts`, with the tests written before any UI.
 3. Manual CRUD: the five PRC decks are seeded and gated on a `seededAt` marker (so a deck she deletes
    stays deleted), plus add/edit/delete/reset-progress for cards.
 4. Review session UI at `/cards/review` and `/cards/:deckId/review`: due cards (`nextReview <= now`),
-   flip-to-reveal, 4-button grading, and keyboard shortcuts 1–4.
+   flip-to-reveal, 4-button grading, and keyboard shortcuts 1–4. The queue freezes its membership at
+   the start (so a refresh resumes and nothing reshuffles mid-review) but chooses the next card
+   against the clock, so a card graded Again comes back inside the same session when its learning step
+   is due.
 5. Grading → SM-2 → Dexie → `ReviewLog` happens in **one transaction**, so a card write cannot land
    without its history row.
 6. Cram mode behind the exam date, automatic inside a configurable threshold (default 30 days) with a
-   visible badge and a "show due cards instead" override.
+   visible badge and a "show due cards instead" override. It orders by weakness × staleness with
+   never-reviewed cards first, and walks decks in official exam order as its tie-break.
 7. **Output:** working manual flashcard system with real spaced repetition, usable standalone.
 
 **Decisions taken during the build that are not in §6** (each fixes something that was ambiguous):
@@ -318,15 +322,29 @@ vitest 4/5's optional browser peers — see the toolchain constraints in `CLAUDE
 - **`repetitions` counts graduated reviews only.** The sub-day learning steps do not increment it.
   This is what makes "Good four times → 15 days" true; if the steps counted, the fourth Good would
   give 6 days. `docs/BUILD_GUIDE.md` §8 is the disambiguating constraint.
-- **Hard repeats the current step; Easy graduates immediately** on the same path as Good. Easy's
-  reward is the ease-factor increase, deliberately **not** a longer first interval — skipping steps on
-  a card she has seen twice is how intervals run away.
+- **Hard repeats the current step. Good advances one. Easy graduates immediately, from any step.**
+  Easy's reward is the ease-factor increase, deliberately **not** a longer graduating interval —
+  skipping steps on a card she has seen twice is how intervals run away. Easy and Good therefore
+  diverge on a _fresh_ card, which is what makes the fourth button mean something; if Easy merely
+  advanced a step they would be the same action, distinguishable only by an invisible ease delta.
 - **A lapse zeroes `intervalDays`** as well as `repetitions`, and mastery is
   `learningStep === null && intervalDays >= 21`. Without both, a card she just failed at 38 days would
   still report as mature on the dashboard.
-- **Day-scale intervals snap to the 04:00 study-day boundary**; learning steps stay rolling minutes.
-  A card graded at 23:50 is due the next 04:00 — inside her next session — rather than at 23:50 the
-  following night, which would silently push it a day later for an evening studier.
+- **A new card is due immediately** (`nextReview = now`), and `resetCardProgress` agrees with it. The
+  learning step governs when a card comes _back_ after a review, not when it may first be seen:
+  making her wait a minute to review the card she just wrote is a bad first thirty seconds, and two
+  routes to "brand-new state" must not disagree. The ladder is unchanged — press 1 moves the card to
+  the 10-minute step, then 1 day, 6 days, 15 days.
+- **Day-scale intervals snap to the 04:00 study-day boundary, and are computed as calendar day
+  arithmetic**, not as `boundary + n × 86_400_000`. Learning steps stay rolling minutes. A card graded
+  at 23:50 is due the next 04:00 — inside her next session — rather than at 23:50 the following night,
+  which would silently push it a day later for an evening studier. Calendar arithmetic (rather than a
+  fixed 24-hour offset) is what stops a DST transition landing the interval at 03:00, the previous
+  study day; see `src/lib/study-day.ts` and its DST test file.
+- **A card graded Again comes back inside the same session** once its learning step is due. This is
+  only true because the queue decides when the _next card is chosen_, against the clock — not at grade
+  time, where `nextReview > now` is guaranteed and the check would always fail. Session membership stays
+  frozen (so a refresh resumes and nothing reshuffles mid-review) while the timing stays live.
 - **`learningStep` names the step a card is _waiting on_**, not the one it just passed. Together with
   `nextReview` and `lastReviewedAt` the state is unambiguous, which is what keeps `schedule` a pure
   function of its input.
@@ -568,17 +586,28 @@ Why these fields, in one line each:
 - `repetitions = 0` → 1 day. `repetitions = 1` → 6 days. Then `interval = round(previous × EF)`,
   minimum 1 day. Note the **updated** EF is used, which is what keeps Easy > Good > Hard.
 - `learningStep` names the step the card is **waiting on** (0 = 1 minute, 1 = 10 minutes, `null` =
-  graduated). Hard repeats the current step; Good advances one and graduates past the last; Easy
-  graduates immediately on the same path as Good.
+  graduated). Hard repeats the current step; Good advances one and graduates past the last; **Easy
+  graduates immediately from any step**, on the same graduating path as Good — its reward is the ease
+  factor, not a longer interval. This is what makes Easy and Good diverge on a fresh card.
 - **Mastery is `learningStep === null && intervalDays >= 21`.** Not a repetition count, and never true
   mid-learning.
+- A **new card is due immediately** (`nextReview = now`), matching `resetCardProgress`. The learning
+  step decides when the card comes back after a review, not whether it may be reviewed at all.
 - Timezone: store epoch ms; do date arithmetic in the device's local zone. Streak day boundary is
   04:00 local (decision #10). `src/lib/study-day.ts` is the single implementation of that boundary —
   the scheduler and the future streak logic both call it, and no second copy may exist.
-- Day-scale intervals are **anchored to the start of the target study day** (`studyDayStart(now) + n
-days`), not to `now + n days`. Learning steps stay rolling minutes. A card graded at 23:50 with a
-  1-day interval is therefore due at the next 04:00 — inside her next session — rather than at 23:50
-  the following night, which would silently push it a day later for an evening studier.
+- Day-scale intervals are **calendar days from the start of her current study day**
+  (`addStudyDays(now, n)`, i.e. 04:00 on the day `n` study days later), not `now + n × 86_400_000`.
+  Learning steps stay rolling minutes. A card graded at 23:50 with a 1-day interval is therefore due at
+  the next 04:00 — inside her next session — rather than at 23:50 the following night, which would
+  silently push it a day later for an evening studier. Calendar arithmetic also keeps the interval on
+  the 04:00 boundary across a DST transition, where a fixed 24-hour offset lands at 03:00 — the
+  previous study day. `src/lib/study-day.test.ts` covers the zone-independent properties and
+  `src/lib/study-day.dst.test.ts` pins `Europe/London` for the transitions themselves.
+- Within one review session, a card graded Again is **served again when its step is due**. The session
+  freezes its membership when it starts but chooses the next card against the clock, re-reading storage
+  on a timer. Deciding this at grade time cannot work: `schedule` guarantees `nextReview > now`, so the
+  check is always false and a 1-minute step would never arrive.
 
 **Pre-seeded decks (decision #7) — verified against the official PRC program.**
 

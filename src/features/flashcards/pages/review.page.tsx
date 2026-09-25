@@ -98,6 +98,8 @@ export default function ReviewPage() {
           startCount={session.startCount}
           gradedCount={session.gradedCount}
           remaining={session.remaining}
+          waitingToReturn={session.waitingToReturn}
+          finished={session.finished}
           deckName={session.deckName}
           onReveal={() => {
             setRevealed(true)
