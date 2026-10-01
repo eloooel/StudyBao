@@ -37,17 +37,18 @@ async function pasteNotes(text: string): Promise<void> {
 }
 
 describe('IngestPage', () => {
-  it('shows the two unbuilt paths as disabled with a reason rather than hiding them', async () => {
+  it('offers all three ingest paths, with paste selected by default', async () => {
     render(<IngestPage />, { initialPath: '/cards/ingest' })
 
     // The decks load asynchronously, and until they do the page says so rather than showing a
     // picker with nothing in it.
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Paste text' })).toBeInTheDocument())
 
+    // Paste is the default on purpose: it is the highest-fidelity path, and BUILD_GUIDE §3 says
+    // to lead with it and label photo OCR best-effort.
     expect(screen.getByRole('tab', { name: 'Paste text' })).toHaveAttribute('aria-selected', 'true')
-    // Paste and PDF are both live. Photo is not yet, and says so rather than vanishing.
     expect(screen.getByRole('tab', { name: 'Upload PDF' })).toBeEnabled()
-    expect(screen.getByRole('tab', { name: 'Upload photo' })).toBeDisabled()
+    expect(screen.getByRole('tab', { name: 'Upload photo' })).toBeEnabled()
   })
 
   it('says how many lines it can see, so a bad paste is obvious before parsing', async () => {

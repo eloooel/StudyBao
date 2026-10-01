@@ -4,10 +4,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { IngestView } from '../components/ingest-view'
 import { useIngestActions } from '../hooks/use-ingest-draft'
 import { useIngestDecks } from '../hooks/use-ingest-decks'
+import { usePhotoIngest } from '../hooks/use-ingest-photo'
 import { usePdfIngest } from '../hooks/use-ingest-pdf'
 import { DRAFT_SIZE_CEILING_BYTES, keepUnpersistedBatch } from '../lib/draft-storage'
 import { normalize } from '../lib/normalize'
-import type { IngestTab, IngestTabStatus } from '../types'
+import type { IngestTab, IngestTabStatus, PdfStatus, PhotoStatus } from '../types'
 
 /**
  * Layer 1 — where notes come in.
@@ -33,31 +34,27 @@ export default function IngestPage() {
   const [text, setText] = useState('')
   const [note, setNote] = useState<string | undefined>(undefined)
 
-  // Extraction fills the same `text` the paste tab writes to, so the parser has one entry
-  // point and PDF ingest cannot drift from it.
+  // Extraction and OCR both fill the same `text` the paste tab writes to, so the parser has one
+  // entry point and no path can drift from the others.
   const onExtracted = useCallback((extracted: string) => {
     setText(extracted)
     setNote(undefined)
   }, [])
   const pdf = usePdfIngest({ onExtracted })
+  // `enabled` is what triggers the warm-up, and it is true only on the photo tab — the worker is
+  // several megabytes and must not be fetched on app load.
+  const photo = usePhotoIngest({ onExtracted }, tab === 'photo')
 
   const lineCount = useMemo(() => normalize(text).length, [text])
 
-  // Photo OCR arrives in commit 3. It stays visible with a reason rather than hidden — the
-  // pattern the Timer's disabled Start button already set.
   const tabs: IngestTabStatus[] = [
     { id: 'paste', label: 'Paste text', enabled: true },
     { id: 'pdf', label: 'Upload PDF', enabled: true },
-    {
-      id: 'photo',
-      label: 'Upload photo',
-      enabled: false,
-      note: 'Reading photos is coming next. Your phone is better at this than we are: on an iPhone use Live Text, or Google Lens on Android, to copy the words out of a photo and paste them here.',
-    },
+    { id: 'photo', label: 'Upload photo', enabled: true },
   ]
 
   const activeTab = tabs.find((entry) => entry.id === tab)
-  const canSubmit = (tab === 'paste' || tab === 'pdf') && lineCount > 0 && deckId !== ''
+  const canSubmit = lineCount > 0 && deckId !== ''
 
   if (loading) {
     return (
@@ -72,7 +69,6 @@ export default function IngestPage() {
       tab={tab}
       tabs={tabs}
       onSelectTab={(next) => {
-        if (tabs.find((entry) => entry.id === next)?.enabled !== true) return
         setSearchParams(next === 'paste' ? {} : { tab: next })
       }}
       decks={decks}
@@ -89,10 +85,9 @@ export default function IngestPage() {
         const { draft, outcome } = startBatch({
           text,
           deckId,
-          sourceLabel:
-            tab === 'pdf' && pdf.status.state === 'ready'
-              ? pdf.status.fileName
-              : (activeTab?.label ?? 'Pasted text'),
+          // The label records where the lines came from, so the review screen can say so. A file
+          // name is more useful to her than "Upload photo".
+          sourceLabel: sourceLabelFor(tab, pdf.status, photo.status, activeTab?.label),
         })
 
         keepUnpersistedBatch(outcome.persisted ? undefined : draft)
@@ -112,10 +107,29 @@ export default function IngestPage() {
       lineCount={lineCount}
       pdfStatus={pdf.status}
       onPickPdfFile={pdf.pickFile}
+      photoStatus={photo.status}
+      onPickPhotoFile={photo.pickFile}
       {...(note === undefined ? {} : { persistenceNote: note })}
       error={decks.length === 0 ? 'There are no decks to add cards to yet.' : undefined}
     />
   )
+}
+
+/**
+ * What to call the source on the review screen.
+ *
+ * A file name beats "Upload photo" because by the time she is reviewing thirty cards, which file
+ * they came from is the thing she might need to check.
+ */
+function sourceLabelFor(
+  tab: IngestTab,
+  pdfStatus: PdfStatus,
+  photoStatus: PhotoStatus,
+  tabLabel: string | undefined,
+): string {
+  if (tab === 'pdf' && pdfStatus.state === 'ready') return pdfStatus.fileName
+  if (tab === 'photo' && photoStatus.state === 'ready') return photoStatus.fileName
+  return tabLabel ?? 'Pasted text'
 }
 
 /** Bytes as something she can compare against the stated limit. */

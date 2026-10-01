@@ -104,6 +104,21 @@ export type PdfStatus =
   | { state: 'scanned'; fileName: string; pageCount: number }
   | { state: 'failed'; fileName: string; message: string }
 
+/**
+ * What the photo tab is doing.
+ *
+ * OCR takes 20–30 seconds on a phone, so this is the state that has to be visible the whole way
+ * through — a frozen-looking screen is the failure mode `docs/WORKFLOW-C-PROMPT.md` calls out.
+ * `progress` is Tesseract's own 0–1 estimate, and it is only ever a hint.
+ */
+export type PhotoStatus =
+  | { state: 'idle' }
+  | { state: 'preparing'; fileName: string }
+  | { state: 'reading'; fileName: string; stage: string; progress: number }
+  | { state: 'ready'; fileName: string; confidenceNote?: string }
+  | { state: 'empty'; fileName: string }
+  | { state: 'failed'; fileName: string; message: string }
+
 /** Whether a tab can be used yet. A tab that is not built says why rather than hiding. */
 export interface IngestTabStatus {
   id: IngestTab
@@ -128,6 +143,9 @@ export interface IngestViewProps {
   /** The PDF tab's state. Ignored by the paste tab. */
   pdfStatus: PdfStatus
   onPickPdfFile: (file: File | undefined) => void
+  /** The photo tab's state. Ignored by the other tabs. */
+  photoStatus: PhotoStatus
+  onPickPhotoFile: (file: File | undefined) => void
   /** Set when the draft could not be kept across a reload. */
   persistenceNote?: string
   error?: string

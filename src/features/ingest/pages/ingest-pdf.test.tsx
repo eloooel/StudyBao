@@ -46,11 +46,11 @@ async function chooseFile(name: string, type = 'application/pdf'): Promise<void>
 }
 
 describe('the PDF tab', () => {
-  it('is enabled now, unlike the photo tab', async () => {
+  it('is enabled, as is the photo tab now that both are built', async () => {
     await renderPdfTab()
 
     expect(screen.getByRole('tab', { name: 'Upload PDF' })).toBeEnabled()
-    expect(screen.getByRole('tab', { name: 'Upload photo' })).toBeDisabled()
+    expect(screen.getByRole('tab', { name: 'Upload photo' })).toBeEnabled()
   })
 
   it('reads the chosen file and offers to find cards in it', async () => {
@@ -134,7 +134,7 @@ describe('the PDF tab', () => {
     await chooseFile('big.pdf')
 
     await waitFor(() =>
-      expect(screen.getByRole('status', { name: 'PDF progress' })).toHaveTextContent(
+      expect(screen.getByRole('status', { name: 'Reading progress' })).toHaveTextContent(
         'Opening big.pdf…',
       ),
     )
@@ -142,7 +142,7 @@ describe('the PDF tab', () => {
     const { act } = await import('@testing-library/react')
     act(() => report?.(3, 40))
 
-    expect(screen.getByRole('status', { name: 'PDF progress' })).toHaveTextContent(
+    expect(screen.getByRole('status', { name: 'Reading progress' })).toHaveTextContent(
       'Reading big.pdf — page 3 of 40…',
     )
   })

@@ -31,41 +31,76 @@ only, **no backend**, browser-based. Coquette pink-and-white.
 | **Her devices**                           | iPad (as a Home Screen Web App) and a Windows laptop (browser tab)      |
 | **Workflow A** (scaffold + design system) | ✅ **Done**                                                             |
 | **Workflow B** (flashcards + SM-2)        | ✅ **Done** — reviewed, defects fixed, committed                        |
-| **Workflow C** (ingest pipeline)          | 🔄 **In progress** — commits 1–2 of 3 (paste, PDF)                      |
+| **Workflow C** (ingest pipeline)          | ✅ **Done** — all three commits (paste, PDF, photo OCR)                 |
 | D, E, F, S, G, H                          | ⏸ Not started                                                           |
-| Tests / coverage                          | 350 tests, 86.4% lines, 88.6% branches (floor is in `vitest.config.ts`) |
+| Tests / coverage                          | 378 tests, 85.9% lines, 87.0% branches (floor is in `vitest.config.ts`) |
 | Backend                                   | None, by decision. No server, no secrets.                               |
 
-### Workflow C is being delivered in three commits
+### Workflow C shipped in three commits
 
-Decided by the owner, so the valuable part lands first and the risky part cannot block it:
+Decided by the owner, so the valuable part landed first and the risky part could not block it:
 
-1. **Paste + normalize + parse + review screen** — zero new dependencies, ✅ **landed**.
-2. **PDF** (`pdfjs-dist`) — ✅ **landed**.
-3. **Photo OCR** (`tesseract.js`, assets vendored into `public/`) — ⏸ next.
+1. **Paste + normalize + parse + review screen** — zero new dependencies.
+2. **PDF** (`pdfjs-dist`).
+3. **Photo OCR** (`tesseract.js`, assets vendored into `public/`).
 
-The tab that is not built yet is **visible and disabled with a reason**, not hidden — the pattern
-the Timer's disabled Start button already set. Hiding it would make her wonder whether a photo path
-exists at all.
+Ingest is reachable from a primary **"Add from your notes"** action on the Cards screen, at
+`/cards/ingest`, with the review screen at `/cards/ingest/review`. A screen rather than a sixth
+bottom-nav item: the bar is already five, which is the practical ceiling on an iPad.
 
-**The PDF ingest traps, and what was actually done about them** (all three were live problems, not
-theoretical):
+**What the paste path does, and the trap it was built around.** `parse` reports **provenance** — the
+input lines each card was assembled from — because that is what makes its one invariant assertable:
+every normalized line belongs to exactly one card's span or to the leftover queue, never two, never
+none. `assertProvenance` enforces it in code, so a future rule that drops or double-claims a line
+throws rather than quietly returning a plausible array. Four separate defects were found by fixtures
+during that work, each then confirmed to fail against its reintroduced bug; the full list is in
+`docs/ai/write-tests.md`.
+
+**The PDF traps, all of which were live problems rather than theoretical:**
 
 - **PDF.js was being loaded eagerly.** A static `import` put the whole library in the ingest page's
   chunk — **436 KB** fetched by anyone who only wanted to paste text. It is now a dynamic import, and
   that chunk is **10 KB**.
 - **The service worker was precaching the lazy PDF chunk**, which defeats the laziness entirely.
-  `globPatterns` is an allowlist of *extensions*, so the dynamic chunk re-entered the precache by
+  `globPatterns` is an allowlist of _extensions_, so the dynamic chunk re-entered the precache by
   ending in `.js`. It also swept in two `*_nowasm_fallback.js` files (~600 KB) from `public/pdfjs/`.
-  Both are now named in `globIgnores`, with the reasoning inline, and the result is verified by
-  `node scripts/report-precache.mjs`, which reads the generated manifest rather than trusting the
-  config. **Precache: 86 entries / 1133 KiB**, of which zero are PDF or OCR assets.
+  Both are now named in `globIgnores`, with the reasoning inline.
 - **`quickjs-eval.wasm` is deliberately not copied.** PDF.js uses it to execute JavaScript embedded
   in a PDF. Copying it would enable running code from a document she was sent, on the device holding
   her study history. `scripts/copy-pdf-assets.mjs` uses an allowlist so this stays a decision rather
-  than an accident, and `pdfjs-dist`'s layout changing cannot silently reintroduce it.
+  than an accident.
 
-Not copied, and why: `cmaps/` (169 files, ~1.4 MB, CJK-only) and the standard-font data. Text
+**The OCR traps:**
+
+- **The language data is the `tessdata_fast` model, not the default.** The default `tessdata` model
+  that `tessdata.projectnaptha.com` serves is **10,923,060 bytes** gzipped; `tessdata_fast`'s
+  `eng.traineddata` (4,113,088 bytes raw) gzips to **1,962,155 bytes** — a 5.6× saving. §3 labels
+  photo OCR best-effort and points at her phone's Live Text for anything hard, so the trade favours
+  the small model. Swapping is one file; `scripts/vendor-ocr-lang.mjs` records the pinned source and
+  the sha256.
+- **The language data is committed; the rest is not.** `public/pdfjs/` and `public/ocr/worker.min.js`
+  - `public/ocr/core/` are regenerated from `node_modules` by `npm run assets` (run by
+    `predev`/`prebuild`), because ~45 MB of vendored WebAssembly in git is a diff nobody reads. The
+    language file cannot be derived from `node_modules`, so committing it is what keeps the build
+    offline.
+- **`corePath` must be a directory, and the brief's "four files" is stale.** `tesseract.js-core@7`
+  ships **six** capability variants (`tesseract-core`, `-lstm`, `-simd`, `-simd-lstm`,
+  `-relaxedsimd`, `-relaxedsimd-lstm`), each a `*.wasm.js` loader plus the `*.wasm` it fetches.
+  Pointing at one file is the documented way to break SIMD devices.
+  `scripts/copy-ocr-assets.mjs` verifies all twelve files are present.
+- **`Content-Encoding: gzip` on the language file would have broken the photo tab on deploy.**
+  tesseract.js gunzips the language data **itself**, so a host that gzips a `.gz` makes the browser
+  decode it transparently and the library then fails on the inner payload. `vercel.json` sets
+  `Content-Encoding: identity` for `/ocr/lang/*`, the asset script asserts the file is really gzip,
+  and both halves were verified by reading response headers rather than trusting the extension.
+  Local `vite preview` gzips the same way, so this was observable before deploy.
+- **Nothing ingest-related is precached.** Precache is **87 entries / 1154 KiB** with zero PDF or OCR
+  assets in it, verified by `node scripts/report-precache.mjs`, which reads the generated manifest
+  rather than trusting the config. The worker and language data are runtime-cached instead, so the
+  **first** photo import needs the network and every one after it does not — which the tab says in
+  words rather than leaving a spinner to look broken on a train.
+
+Not copied, and why: `cmaps/` (169 files, ~1.4 MB, CJK-only) and PDF.js's standard-font data. Text
 extraction works without the latter — only glyph rendering degrades, and PDF.js logs a
 `standardFontDataUrl` warning. If a PDF ever reads as boxes, copy those directories lazily rather
 than adding them to the precache.

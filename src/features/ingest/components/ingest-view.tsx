@@ -1,24 +1,20 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { EmptyState } from '@/components/ui/empty-state'
-import { CardsIcon } from '@/components/icons'
 import type { Deck } from '@/db/types'
 import { cn } from '@/lib/cn'
-import type { IngestTabStatus, IngestViewProps, PdfStatus } from '../types'
+import type { IngestTabStatus, IngestViewProps, PdfStatus, PhotoStatus } from '../types'
 import { PasteTextArea } from './paste-text-area'
 
 /**
  * Layer 3 — the ingest screen. No hooks, no database.
  *
- * The tabs are the three paths `BUILD_GUIDE.md` §4 names, and the ones that are not built
- * yet are **visible but disabled with a reason**, the way the Timer's Start button is. Hiding
- * them would leave her wondering whether she had missed a way to upload a photo; a disabled
- * control that says "next" answers the question in one line.
+ * The tabs are the three paths `BUILD_GUIDE.md` §4 names, in the order the guide recommends
+ * trying them: paste, then PDF, then photo. Paste is the default because it is the
+ * highest-fidelity path — no recognition step at all — and photo OCR is labelled best-effort
+ * because Tesseract is trained on printed text and is poor at handwriting.
  *
- * Paste is the default tab deliberately. It is the highest-fidelity path — no OCR error at
- * all — and the guide's advice is to lead with it and label photo OCR as best-effort. PDF is
- * the same text with no recognition step, so it shares the parse path; only the source of the
- * lines differs.
+ * PDF and photo are the same text with no recognition step or with one, so all three share the
+ * single parse path; only where the lines come from differs.
  */
 export function IngestView({
   tab,
@@ -33,6 +29,8 @@ export function IngestView({
   lineCount,
   pdfStatus,
   onPickPdfFile,
+  photoStatus,
+  onPickPhotoFile,
   persistenceNote,
   error,
 }: IngestViewProps) {
@@ -43,8 +41,8 @@ export function IngestView({
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl">Add from your notes</h1>
         <p className="text-sm leading-relaxed text-ink-muted">
-          Paste your notes or open a PDF, and StudyBao will pull out the definitions it recognises.
-          You get to check every card before anything is saved.
+          Paste your notes, open a PDF, or photograph a page, and StudyBao will pull out the
+          definitions it recognises. You get to check every card before anything is saved.
         </p>
       </header>
 
@@ -73,21 +71,28 @@ export function IngestView({
               hint="One definition per line works best, either “Term: definition” or “Term - definition”. Anything it can't turn into a card waits for you on the next screen — nothing is thrown away."
             />
           ) : tab === 'pdf' ? (
-            <PdfPanel
+            <FilePanel
+              kind="pdf"
+              label="Choose a PDF"
+              accept="application/pdf,.pdf"
               status={pdfStatus}
               onPickFile={onPickPdfFile}
               foundLines={lineCount}
               text={text}
             />
           ) : (
-            <EmptyState
-              icon={<CardsIcon className="size-6" />}
-              title={active?.label ?? 'Not built yet'}
-              message={active?.note ?? 'This path is not ready yet.'}
+            <FilePanel
+              kind="photo"
+              label="Choose a photo"
+              accept="image/*"
+              status={photoStatus}
+              onPickFile={onPickPhotoFile}
+              foundLines={lineCount}
+              text={text}
             />
           )}
 
-          {tab === 'paste' || tab === 'pdf' ? (
+          {tab !== undefined ? (
             <>
               <label className="flex flex-col gap-1.5">
                 <span className="font-display text-sm font-semibold text-ink">
@@ -113,14 +118,13 @@ export function IngestView({
                 <Button size="lg" disabled={lineCount === 0} onClick={onSubmit}>
                   Find my cards
                 </Button>
-                {/* Two status regions can be on screen at once on the PDF tab — this one and the
-                    panel's own progress line — so each carries a name, for a screen reader and
-                    for the tests. */}
+                {/* A second status region can be on screen at once — the panel's own progress
+                    line — so each carries a name, for a screen reader and for the tests. */}
                 <span className="text-sm text-ink-muted" role="status" aria-label="Lines ready">
                   {lineCount === 0
-                    ? tab === 'pdf'
-                      ? 'No text read yet'
-                      : 'Nothing to read yet'
+                    ? tab === 'paste'
+                      ? 'Nothing to read yet'
+                      : 'No text read yet'
                     : `${lineCount} line${lineCount === 1 ? '' : 's'} ready`}
                 </span>
               </div>
@@ -145,30 +149,42 @@ export function IngestView({
 }
 
 /**
- * The PDF tab's body.
+ * The PDF and photo tabs' shared body.
  *
- * Every state says what is happening and what to do about it — especially the failure states.
- * A scanned PDF is the common real one: it has no text layer at all, so the honest answer is
- * her phone's text recognition, which is free and better at this than we are.
+ * One component for both because the shape is genuinely the same — choose a file, watch it be
+ * read, find out what happened — and two near-identical panels would drift. What differs is the
+ * copy, and that is what the `kind` tag selects.
+ *
+ * The props are a **discriminated union** rather than `kind` plus a union-typed `status`: a PDF's
+ * progress is "page 3 of 40" and a photo's is "recognizing text, 62%", and typing them as one
+ * union means every field access needs a cast and can be wrong. Tagging the pair makes TypeScript
+ * check it instead.
+ *
+ * Every state says what is happening and what to do about it, especially the failure states. The
+ * two common real ones are opposite in cause and identical in answer: a **scanned PDF** has no
+ * text layer at all, and **handwriting** is what Tesseract is worst at — both are better served
+ * by her phone's text recognition, and saying so is better than a vague "couldn't read it".
  */
-function PdfPanel({
-  status,
-  onPickFile,
-  foundLines,
-  text,
-}: {
-  status: PdfStatus
+type FilePanelProps = {
+  label: string
+  accept: string
   onPickFile: (file: File | undefined) => void
   foundLines: number
   text: string
-}) {
+} & ({ kind: 'pdf'; status: PdfStatus } | { kind: 'photo'; status: PhotoStatus })
+
+function FilePanel(props: FilePanelProps) {
+  const { kind, label, accept, onPickFile, foundLines, text } = props
+  const { status } = props
+
   return (
     <div className="flex flex-col gap-3">
       <label className="flex flex-col gap-1.5">
-        <span className="font-display text-sm font-semibold text-ink">Choose a PDF</span>
+        <span className="font-display text-sm font-semibold text-ink">{label}</span>
         <input
           type="file"
-          accept="application/pdf,.pdf"
+          accept={accept}
+          {...(kind === 'photo' ? { capture: 'environment' as const } : {})}
           onChange={(event) => onPickFile(event.target.files?.[0])}
           className={cn(
             'rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2.5 text-base text-ink',
@@ -178,29 +194,48 @@ function PdfPanel({
         />
       </label>
 
-      {status.state === 'reading' ? (
-        <p role="status" aria-label="PDF progress" className="text-sm text-ink-muted">
-          {status.total > 0
-            ? `Reading ${status.fileName} — page ${String(status.done)} of ${String(status.total)}…`
-            : `Opening ${status.fileName}…`}
+      {kind === 'photo' ? <PhotoAdvice /> : null}
+
+      {status.state === 'preparing' ? (
+        <p role="status" aria-label="Reading progress" className="text-sm text-ink-muted">
+          Getting {status.fileName} ready…
         </p>
       ) : null}
+
+      {status.state === 'reading' ? <ReadingLine kind={kind} status={status} /> : null}
 
       {status.state === 'ready' ? (
-        <p role="status" aria-label="PDF progress" className="text-sm text-ink-muted">
-          Read {String(status.pageCount)} page{status.pageCount === 1 ? '' : 's'} from{' '}
-          {status.fileName}. {String(foundLines)} line{foundLines === 1 ? '' : 's'} ready — tap
-          &ldquo;Find my cards&rdquo; to see what it made of them.
+        <p role="status" aria-label="Reading progress" className="text-sm text-ink-muted">
+          {kind === 'pdf' && 'pageCount' in status ? (
+            <>
+              Read {String(status.pageCount)} page{status.pageCount === 1 ? '' : 's'} from{' '}
+              {status.fileName}.
+            </>
+          ) : (
+            <>Read {status.fileName}.</>
+          )}{' '}
+          {String(foundLines)} line{foundLines === 1 ? '' : 's'} ready — tap &ldquo;Find my
+          cards&rdquo; to see what it made of them.
         </p>
       ) : null}
 
-      {status.state === 'scanned' ? (
+      {kind === 'pdf' && status.state === 'scanned' ? (
         <p role="alert" className="text-sm leading-relaxed text-ink-muted">
           {status.fileName} has no text in it — {String(status.pageCount)} page
           {status.pageCount === 1 ? '' : 's'} of images, which usually means it was scanned. We
           can&rsquo;t read a scan reliably, and guessing would give you cards you can&rsquo;t trust.
           Open it on your phone, use Live Text (iPhone) or Google Lens (Android) to copy the words,
           and paste them into the first tab — that works well.
+        </p>
+      ) : null}
+
+      {kind === 'photo' && status.state === 'empty' ? (
+        <p role="alert" className="text-sm leading-relaxed text-ink-muted">
+          We couldn&rsquo;t find any words in {status.fileName}. That is usually handwriting, a
+          blurry photo, or a picture of something that isn&rsquo;t text. Try a flatter, brighter
+          photo taken straight on — or, if it is handwriting, copy it with Live Text on your phone
+          and paste it into the first tab. That reads handwriting far better than we can, and
+          guessing at words would give you cards you can&rsquo;t trust.
         </p>
       ) : null}
 
@@ -221,6 +256,60 @@ function PdfPanel({
         </details>
       ) : null}
     </div>
+  )
+}
+
+/**
+ * The "still working" line.
+ *
+ * OCR takes 20–30 seconds, which is long enough that a static message reads as a frozen screen —
+ * the failure `docs/WORKFLOW-C-PROMPT.md` names. Saying "this takes about half a minute; it is
+ * working" plus Tesseract's own percentage is what stops her closing the tab.
+ */
+function ReadingLine({
+  kind,
+  status,
+}: {
+  kind: 'pdf' | 'photo'
+  status: Extract<PdfStatus, { state: 'reading' }> | Extract<PhotoStatus, { state: 'reading' }>
+}) {
+  if (kind === 'pdf' && 'total' in status) {
+    return (
+      <p role="status" aria-label="Reading progress" className="text-sm text-ink-muted">
+        {status.total > 0
+          ? `Reading ${status.fileName} — page ${String(status.done)} of ${String(status.total)}…`
+          : `Opening ${status.fileName}…`}
+      </p>
+    )
+  }
+
+  if ('progress' in status) {
+    return (
+      <p role="status" aria-label="Reading progress" className="text-sm text-ink-muted">
+        Reading {status.fileName} — {status.stage}, {String(Math.round(status.progress * 100))}%.
+        This takes about half a minute; it is working.
+      </p>
+    )
+  }
+
+  return null
+}
+
+/**
+ * The honest framing for the photo tab, from `docs/BUILD_GUIDE.md` §3 and ADR 0004.
+ *
+ * Tesseract is trained on printed text. Saying so *before* she takes a photo, and naming the free
+ * tool that is better at the hard case, is the difference between a feature that occasionally
+ * disappoints and one that looks broken.
+ */
+function PhotoAdvice() {
+  return (
+    <p className="text-xs leading-relaxed text-ink-faint">
+      Printed text works best — flat, bright, straight on. For handwriting, your phone is better at
+      this than we are: use Live Text (iPhone) or Google Lens (Android) and paste the words into the
+      first tab. The first photo you read downloads a small reading engine, so it needs the network
+      once.
+    </p>
   )
 }
 
