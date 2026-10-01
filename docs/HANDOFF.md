@@ -6,10 +6,16 @@ decided and why, what is one-way, and what to do next.
 **Read order:** [`CLAUDE.md`](../CLAUDE.md) (constraints and the two AI boundaries) → this file → the
 runbook for whatever you were asked to do in [`docs/ai/`](ai/README.md).
 
-**Last known good commit:** `520290b` — "fix: make the learning steps actually work within a session",
-which sits on top of `3eb1fd2` ("feat: Workflow B"). The review fixes and lint hardening that followed
-`520290b` are verified but **uncommitted**; see
-[`docs/WORKFLOW-B-REMAINING.md`](WORKFLOW-B-REMAINING.md) for what is left, which is the working list.
+**State of the tree:** everything through Workflow B is **committed, and the working tree is clean.**
+
+Do not trust a commit hash written in a document — including this one. The first version of this
+paragraph named a checkpoint that went stale within four commits and claimed the work on top of it was
+uncommitted when it had in fact been committed, which sent a reader looking for work that did not exist.
+Run `git log --oneline -6` and `git status` instead. The Workflow B checkpoint is the commit whose
+message begins `feat: Workflow B`.
+
+What Workflow B deliberately left open is in
+[`docs/WORKFLOW-B-REMAINING.md`](WORKFLOW-B-REMAINING.md) — read it alongside this file.
 
 ---
 
@@ -24,14 +30,16 @@ only, **no backend**, browser-based. Coquette pink-and-white.
 | **Her exam**                              | **Friday, February 26, 2027**                                           |
 | **Her devices**                           | iPad (as a Home Screen Web App) and a Windows laptop (browser tab)      |
 | **Workflow A** (scaffold + design system) | ✅ **Done**                                                             |
-| **Workflow B** (flashcards + SM-2)        | ✅ **Done** — reviewed, defects fixed; one uncommitted follow-up        |
+| **Workflow B** (flashcards + SM-2)        | ✅ **Done** — reviewed, defects fixed, committed                        |
 | C, D, E, F, S, G, H                       | ⏸ Not started                                                           |
 | Tests / coverage                          | 261 tests, 83.9% lines, 91.7% branches (floor is in `vitest.config.ts`) |
 | Backend                                   | None, by decision. No server, no secrets.                               |
 
-**Next work is collated in [`docs/WORKFLOW-B-REMAINING.md`](WORKFLOW-B-REMAINING.md)** — read that
-alongside this file. It lists the uncommitted change, the one part of the review feedback still open,
-and the doc/test debt.
+**What Workflow B deliberately left open is in
+[`docs/WORKFLOW-B-REMAINING.md`](WORKFLOW-B-REMAINING.md)** — read it alongside this file. Three items
+are deferred to Workflow S by design: the `recordReview` whole-record write, promoting
+`useDatabaseValue` out of the flashcards feature, and the union-only merge rule for `ReviewLog`. None of
+them blocks the next workflow.
 
 The plan of record is [`docs/BUILD_GUIDE.md`](BUILD_GUIDE.md). Its §4 has the workflow DAG with live
 status. Everything in it is deliberate; where you think it is wrong, see §7 before changing it.
