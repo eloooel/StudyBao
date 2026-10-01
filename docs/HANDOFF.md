@@ -382,7 +382,15 @@ Good four times schedules ~15+ days out; and the existing verification suite sti
 met** — the counterexample is asserted by name in `sm2.test.ts`, and it is what pinned the meaning of
 `repetitions`.
 
-**Do not:** add sync, add the timer, add OCR, or add a backend. Those are separate workflows.
+**On scope discipline:** do not start a workflow because it looks small. The remaining workflows are
+sequential by design and each needs its own go-ahead. The current one is **C**, and its do-not-build
+list — timer, tracker, dashboard, sync, notifications, backend — is in
+[`docs/WORKFLOW-C-PROMPT.md`](WORKFLOW-C-PROMPT.md).
+
+This replaces an earlier line here that read "Do not: add sync, add the timer, add OCR, or add a
+backend." That was the Workflow B brief's constraint list, and once B shipped it became wrong in the
+same section that recommends C — which is OCR. A stale "do not" next to a "do this" is how a reader
+talks themselves out of the correct next step.
 
 ---
 
