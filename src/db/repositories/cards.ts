@@ -81,6 +81,44 @@ export async function createCard(draft: CardDraft, now = Date.now()): Promise<Ca
 }
 
 /**
+ * Create many cards at once — the accept path for the ingest review screen.
+ *
+ * **One transaction, on purpose.** A batch that half-lands is the worst outcome available
+ * here: she would see some cards in the deck, no error, and no way to tell which of her
+ * accepted cards were lost. Dexie rolls the whole `bulkAdd` back on failure, so the answer
+ * is "all of them or none of them" and the review screen can say which.
+ *
+ * `nextReview = now` for every card, matching `createCard`: a card she just accepted is one
+ * she wants to review, and the learning step governs when it comes *back*, not whether it
+ * is available now.
+ *
+ * Returns the created cards so the caller can report the count it actually wrote rather
+ * than the count it intended to.
+ */
+export async function createCards(drafts: readonly CardDraft[], now = Date.now()): Promise<Card[]> {
+  if (drafts.length === 0) return []
+
+  const db = await getDb()
+  const cards: Card[] = drafts.map((draft) => ({
+    id: crypto.randomUUID(),
+    deckId: draft.deckId,
+    front: draft.front.trim(),
+    back: draft.back.trim(),
+    tags: draft.tags ?? [],
+    ...newCardState(),
+    nextReview: now,
+    createdAt: now,
+    updatedAt: now,
+  }))
+
+  await db.transaction('rw', [db.cards], async () => {
+    await db.cards.bulkAdd(cards)
+  })
+
+  return cards
+}
+
+/**
  * Edit a card's text, **preserving its scheduling state**.
  *
  * Deliberately not Anki's reset-on-edit. Cards here will mostly arrive from OCR and a

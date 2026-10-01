@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 
 import { getSettings, updateSettings } from '@/db/repositories/settings'
 import type { AppSettings } from '@/db/types'
-import { notifyDataChanged, useDatabaseValue } from './use-database-value'
+import { notifyDataChanged, useDatabaseValue } from '@/lib/use-database-value'
 
 /**
  * Layer 2 — the settings row.

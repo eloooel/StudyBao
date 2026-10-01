@@ -20,6 +20,7 @@ export default function FlashcardsPage() {
       totalDue={totalDue}
       onOpenDeck={(deckId) => void navigate(`/cards/${deckId}`)}
       onStartReview={() => void navigate('/cards/review')}
+      onAddFromNotes={() => void navigate('/cards/ingest')}
     />
   )
 }

@@ -67,6 +67,7 @@ describe('DeckListView', () => {
         totalDue={3}
         onOpenDeck={vi.fn()}
         onStartReview={onStartReview}
+        onAddFromNotes={vi.fn()}
       />,
     )
 
@@ -82,10 +83,31 @@ describe('DeckListView', () => {
         totalDue={0}
         onOpenDeck={vi.fn()}
         onStartReview={onStartReview}
+        onAddFromNotes={vi.fn()}
       />,
     )
 
     expect(screen.queryByRole('button', { name: 'Review now' })).toBeNull()
+  })
+
+  it('offers the ingest path from the Cards screen', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event')
+    const user = userEvent.setup()
+    const onAddFromNotes = vi.fn()
+
+    render(
+      <DeckListView
+        decks={[summary()]}
+        loading={false}
+        totalDue={0}
+        onOpenDeck={vi.fn()}
+        onStartReview={vi.fn()}
+        onAddFromNotes={onAddFromNotes}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Add from your notes' }))
+    expect(onAddFromNotes).toHaveBeenCalledOnce()
   })
 
   it('prompts her to add a first card when every deck is empty', () => {
@@ -96,6 +118,7 @@ describe('DeckListView', () => {
         totalDue={0}
         onOpenDeck={vi.fn()}
         onStartReview={vi.fn()}
+        onAddFromNotes={vi.fn()}
       />,
     )
 
@@ -110,6 +133,7 @@ describe('DeckListView', () => {
         totalDue={0}
         onOpenDeck={vi.fn()}
         onStartReview={vi.fn()}
+        onAddFromNotes={vi.fn()}
       />,
     )
 
@@ -128,6 +152,7 @@ describe('DeckListView', () => {
         totalDue={0}
         onOpenDeck={onOpenDeck}
         onStartReview={vi.fn()}
+        onAddFromNotes={vi.fn()}
       />,
     )
 

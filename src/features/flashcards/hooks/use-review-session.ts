@@ -10,7 +10,7 @@ import {
   pickNextCard,
   selectDueCards,
 } from '../lib/queue'
-import { notifyDataChanged, useDatabaseValue } from './use-database-value'
+import { notifyDataChanged, useDatabaseValue } from '@/lib/use-database-value'
 
 /**
  * Layer 2 — the review session.

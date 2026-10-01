@@ -2,8 +2,8 @@ import { useCallback, useState } from 'react'
 
 import { createCard, updateCardText } from '@/db/repositories/cards'
 import { INTEGRATED_KNOWLEDGE_AREAS } from '@/db/schema'
+import { notifyDataChanged } from '@/lib/use-database-value'
 import type { CardFormValues } from '../types'
-import { notifyDataChanged } from './use-database-value'
 
 /**
  * Writes for the card form. Layer 2 — the only place these views touch the database.

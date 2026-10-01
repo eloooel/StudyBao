@@ -20,6 +20,7 @@ export function DeckListView({
   totalDue,
   onOpenDeck,
   onStartReview,
+  onAddFromNotes,
 }: DeckListViewProps) {
   const totalCards = decks.reduce((total, summary) => total + summary.totalCards, 0)
 
@@ -31,6 +32,16 @@ export function DeckListView({
           Five decks, one for each Nursing Practice part you&rsquo;ll sit.
         </p>
       </header>
+
+      {/*
+        Primary, and above the fold, because typing every card by hand is the thing that stops
+        her using this at all. Ingest is a screen rather than a sixth bottom-nav item: the bar is
+        already five, which is the practical ceiling on an iPad, and "add cards" is something she
+        looks for where the decks are.
+      */}
+      <Button size="lg" fullWidth onClick={onAddFromNotes}>
+        Add from your notes
+      </Button>
 
       {totalDue > 0 ? (
         <Card elevated>

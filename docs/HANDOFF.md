@@ -31,15 +31,40 @@ only, **no backend**, browser-based. Coquette pink-and-white.
 | **Her devices**                           | iPad (as a Home Screen Web App) and a Windows laptop (browser tab)      |
 | **Workflow A** (scaffold + design system) | ✅ **Done**                                                             |
 | **Workflow B** (flashcards + SM-2)        | ✅ **Done** — reviewed, defects fixed, committed                        |
-| C, D, E, F, S, G, H                       | ⏸ Not started                                                           |
-| Tests / coverage                          | 261 tests, 83.9% lines, 91.7% branches (floor is in `vitest.config.ts`) |
+| **Workflow C** (ingest pipeline)          | 🔄 **In progress** — commit 1 of 3 landed (paste → parse → review)      |
+| D, E, F, S, G, H                          | ⏸ Not started                                                           |
+| Tests / coverage                          | 337 tests, 87.1% lines, 88.2% branches (floor is in `vitest.config.ts`) |
 | Backend                                   | None, by decision. No server, no secrets.                               |
 
+### Workflow C is being delivered in three commits
+
+Decided by the owner, so the valuable part lands first and the risky part cannot block it:
+
+1. **Paste + normalize + parse + review screen** — zero new dependencies, ✅ **landed**.
+2. **PDF** (`pdfjs-dist`) — ⏸ next.
+3. **Photo OCR** (`tesseract.js`, assets vendored into `public/`) — ⏸.
+
+The tabs that are not built yet are **visible and disabled with a reason**, not hidden — the pattern
+the Timer's disabled Start button already set. Hiding them would make her wonder whether a photo path
+exists at all.
+
+**The ingest draft survives a reload via `sessionStorage`**, one versioned key
+(`studybao.ingest.draft.v1`), and deliberately **not** a Dexie table — the unreviewed remainder of a
+batch does not justify a schema change. What it does not survive, and what the code and the screen
+both say: a browser or Home Screen app restart, iOS private browsing, an ITP eviction, or a different
+tab. There is a stated size ceiling (`DRAFT_SIZE_CEILING_BYTES`, measured **before** writing, in
+`features/ingest/lib/draft-storage.ts`); above it nothing is written and the batch is held in memory
+for the tab instead, with a message that says what is actually still safe — everything she already
+accepted is durable in `cards`, so only the unreviewed remainder is at stake.
+
 **What Workflow B deliberately left open is in
-[`docs/WORKFLOW-B-REMAINING.md`](WORKFLOW-B-REMAINING.md)** — read it alongside this file. Three items
-are deferred to Workflow S by design: the `recordReview` whole-record write, promoting
-`useDatabaseValue` out of the flashcards feature, and the union-only merge rule for `ReviewLog`. None of
-them blocks the next workflow.
+[`docs/WORKFLOW-B-REMAINING.md`](WORKFLOW-B-REMAINING.md)** — read it alongside this file. Two items
+remain, both deferred to Workflow S by design: the `recordReview` whole-record write, and the
+union-only merge rule for `ReviewLog`. Neither blocks anything. The third —
+**promoting `useDatabaseValue` out of the flashcards feature — was done in Workflow C**, because
+ingest is the third consumer and the standing instruction was to promote it, not copy it. It now lives
+at [`src/lib/use-database-value.ts`](../src/lib/use-database-value.ts), with `notifyDataChanged` still
+exported alongside it.
 
 The plan of record is [`docs/BUILD_GUIDE.md`](BUILD_GUIDE.md). Its §4 has the workflow DAG with live
 status. Everything in it is deliberate; where you think it is wrong, see §7 before changing it.
@@ -95,11 +120,18 @@ src/
 ├── features/
 │   ├── dashboard/            # page + view, placeholder zeroes
 │   ├── flashcards/           # ★ Workflow B — lib/ hooks/ components/ pages/ types.ts
+│   ├── ingest/               # ★ Workflow C — lib/ hooks/ components/ pages/ types.ts
 │   ├── timer/                # page + view, static clock + the "keep tab open" warning
 │   ├── tracker/              # page + view, empty state
 │   └── settings/             # page + view; theme toggle + exam date + storage notice
 └── test/                     # setup.ts (jsdom shims + DB reset) and render.tsx
 ```
+
+`src/lib/use-database-value.ts` is the shared cross-screen refresh signal, promoted out of
+`flashcards/` in Workflow C when ingest became its third consumer. **Do not copy it** — two copies
+would mean two screens disagreeing about what is current. Note the contract in its doc comment: `load`
+must be stable (wrap it in `useCallback`), or the effect cancels and restarts its own read forever and
+`loading` never becomes `false`. That mistake was made once during Workflow C and cost an afternoon.
 
 Root config: `vite.config.ts`, `vitest.config.ts`, `eslint.config.js`, `prettier.config.mjs`,
 `tsconfig.json`, `vercel.json` (SPA rewrite), `scripts/generate-icons.mjs`, `.github/workflows/ci.yml`.

@@ -12,6 +12,17 @@ import * as React from 'react'
  * one behaviour, and this codebase prefers the smaller thing it already has. Deliberately not a
  * Zustand store either — card and deck data live in Dexie (CLAUDE.md, State management), and
  * mirroring them into a store is exactly the staleness this signal prevents.
+ *
+ * ## Why it lives in `src/lib/` and not in a feature
+ *
+ * It began in `features/flashcards/hooks/`, and both change-data-model notes said to promote
+ * it once a third feature needed it rather than copy it. Workflow C's ingest feature is that
+ * third consumer (settings and flashcards were the first two), so it moved here. `src/lib/`
+ * rather than `src/db/`: `src/db/` holds the schema and the repositories, and a React hook
+ * there would mix layers, whereas `src/lib/theme-store.ts` is already React-facing and sets
+ * the precedent.
+ *
+ * **Do not copy this.** Two copies would mean two screens disagreeing about what is current.
  */
 const listeners = new Set<() => void>()
 

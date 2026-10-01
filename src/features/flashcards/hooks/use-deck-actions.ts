@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 
 import { listCardsByDeck, resetCardProgress, softDeleteCard } from '@/db/repositories/cards'
 import { softDeleteDeck } from '@/db/repositories/decks'
-import { notifyDataChanged } from './use-database-value'
+import { notifyDataChanged } from '@/lib/use-database-value'
 
 /**
  * Destructive and state-changing actions, each with an explicit name.

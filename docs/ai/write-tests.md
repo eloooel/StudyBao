@@ -6,15 +6,16 @@ Add or fix tests. This repo tests _rules_, not rendering.
 
 These are pure functions whose bugs are silent and whose consequences she feels for weeks:
 
-| Module                              | Why it is critical                                                                          |
-| ----------------------------------- | ------------------------------------------------------------------------------------------- |
-| `features/flashcards/lib/sm2.ts`    | A wrong interval is invisible until her exam.                                               |
-| `lib/study-day.ts`                  | The 04:00 boundary. Wrong here means a wrong streak and a wrong interval.                   |
-| `features/flashcards/lib/queue.ts`  | Decides what she sees and in what order, including cram ordering.                           |
-| `features/flashcards/lib/parser.ts` | Silent data loss: a dropped note line is a card she never reviews. **(pending Workflow C)** |
-| `sync/lib/merge.ts`                 | A wrong merge resurrects deleted cards or discards edits. **(pending Workflow S)**          |
-| `features/timer/lib/timer.ts`       | Wall-clock math; a bug means the timer lies about remaining time. **(pending Workflow D)**  |
-| `features/dashboard/lib/stats.ts`   | Streak/mastery math she will act on. **(pending Workflow F)**                               |
+| Module                             | Why it is critical                                                                         |
+| ---------------------------------- | ------------------------------------------------------------------------------------------ |
+| `features/flashcards/lib/sm2.ts`   | A wrong interval is invisible until her exam.                                              |
+| `lib/study-day.ts`                 | The 04:00 boundary. Wrong here means a wrong streak and a wrong interval.                  |
+| `features/flashcards/lib/queue.ts` | Decides what she sees and in what order, including cram ordering.                          |
+| `features/ingest/lib/parse.ts`     | Silent data loss: a dropped note line is a card she never reviews.                         |
+| `features/ingest/lib/normalize.ts` | Every rule downstream depends on the text being clean and the line indices being right.    |
+| `sync/lib/merge.ts`                | A wrong merge resurrects deleted cards or discards edits. **(pending Workflow S)**         |
+| `features/timer/lib/timer.ts`      | Wall-clock math; a bug means the timer lies about remaining time. **(pending Workflow D)** |
+| `features/dashboard/lib/stats.ts`  | Streak/mastery math she will act on. **(pending Workflow F)**                              |
 
 Target: **100% branch coverage on `lib/` pure functions.** A threshold in `vitest.config.ts` enforces
 the floor; the floor is not the goal.
@@ -82,9 +83,27 @@ Both were written wrong the first time — passing under the fix _and_ under the
 When you add a regression test here, **check it fails against the old behaviour before you trust it.**
 A green test that cannot go red is worse than no test, because it reads as coverage.
 
-## Parser test cases that must exist (pending Workflow C)
+**Workflow C confirmed the rule the hard way, three times in one change.** Writing the parser, four
+distinct defects were found only because a fixture existed and went red:
 
-Write these with the parser, before its UI:
+- a fixture asserting `Term:` (empty definition) produced a card found that requiring text after the
+  colon broke **every** wrapped definition — the join had nothing to attach to;
+- a fixture asserting `"1. Vitamin C: ascorbic acid"` produced a card found that reading a bare `1.` as
+  a question marker swallowed numbered definitions entirely;
+- a fixture asserting a lowercase `term: definition` became its **own** card found that bare
+  `term: definition` lines had no detector, so they were glued onto the line above and the term was lost
+  into the previous definition;
+- a fixture asserting `"Note: she reported: pain"` landed in the leftover queue found that rejected
+  separator lines were being appended to the card above them — a card saying something her notes did
+  not say.
+
+Each was then confirmed to fail against its reintroduced bug (the third made **seven** tests red, the
+fourth **seven** as well). None of them would have been visible in a passing suite, because a wrong
+parse still returns a plausible array.
+
+## Parser test cases that must exist
+
+These are all in `src/features/ingest/lib/parse.test.ts`:
 
 1. `Term: Definition` becomes one card with correct front/back.
 2. `self-esteem` and `post-operative` are **not** split as `Term - Definition`.
@@ -108,6 +127,13 @@ Write these with the parser, before its UI:
    Assert it over the fixtures **and** over a few hundred generated line sequences, not just the happy
    ones.
 
+   **What the generated test does not prove.** It showed green under a planted bug that stopped the
+   parser recognising a line as a card, because such a line still falls through to the leftover queue
+   and stays accounted for. That is the invariant working correctly, and it is also why the named
+   fixtures above matter: only a specific case can assert that a particular input produced a particular
+   card. The generated test was confirmed to fail when `assertProvenance`'s missing-line check was
+   disabled.
+
 7. **A wrapped line joins the line above it, conservatively.** OCR and PDF text extraction both break
    mid-sentence, so a definition routinely arrives across two or three lines. Joining them is correct
    and is what makes the feature useful; refusing to join drowns her in fragments and is worse than the
@@ -122,6 +148,17 @@ Write these with the parser, before its UI:
 
    Two tests carry this: a ten-line definition wrapped at an awkward point becomes **one** card, and a
    lowercase line that genuinely begins a `term: definition` still becomes its **own** card.
+
+   **The corollary, which is a test of its own:** a line whose separator the term rules _rejected_ —
+   `"Note: she reported: pain"`, or a long sentence with a colon — is an anchor too, and must not be
+   swept onto the end of the card above it. Without that, a plausible-looking parse produced an answer
+   reading `"ascorbic acid Note: she reported: pain"`. Tested in
+   `parse — case 3`, both for the filler-word and the length rejection.
+
+   **One narrow exception:** a line ending in a hyphen starts the next card even when the line below
+   begins a `term: definition`, because `"self-"` + `"esteem: a sense of worth"` is one word split by a
+   line break. That is the only place a card-start line is joined, and the trailing hyphen is the
+   evidence.
 
 ## How
 

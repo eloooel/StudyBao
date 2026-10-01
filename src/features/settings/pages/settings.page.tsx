@@ -7,7 +7,7 @@ import {
 } from '@/db/repositories/settings'
 import { useSettings } from '@/features/flashcards/hooks/use-settings'
 import { updateSettings } from '@/db/repositories/settings'
-import { notifyDataChanged } from '@/features/flashcards/hooks/use-database-value'
+import { notifyDataChanged } from '@/lib/use-database-value'
 import { useTheme } from '@/lib/theme-store'
 import { SettingsView } from '../components/settings-view'
 

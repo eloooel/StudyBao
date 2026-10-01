@@ -17,6 +17,8 @@ const DashboardPage = lazy(() => import('@/features/dashboard/pages/dashboard.pa
 const FlashcardsPage = lazy(() => import('@/features/flashcards/pages/flashcards.page'))
 const DeckDetailPage = lazy(() => import('@/features/flashcards/pages/deck-detail.page'))
 const ReviewPage = lazy(() => import('@/features/flashcards/pages/review.page'))
+const IngestPage = lazy(() => import('@/features/ingest/pages/ingest.page'))
+const IngestReviewPage = lazy(() => import('@/features/ingest/pages/ingest-review.page'))
 const TimerPage = lazy(() => import('@/features/timer/pages/timer.page'))
 const TrackerPage = lazy(() => import('@/features/tracker/pages/tracker.page'))
 const SettingsPage = lazy(() => import('@/features/settings/pages/settings.page'))
@@ -36,10 +38,15 @@ export function AppRoutes() {
         <Route element={<AppShell />}>
           <Route index element={<DashboardPage />} />
           <Route path="cards" element={<FlashcardsPage />} />
-          {/* Order matters: the two review paths are static and must be matched before the
-              dynamic `:deckId`, or "review" would be read as a deck id. */}
+          {/* Order matters: every static `cards/…` path must be matched before the dynamic
+              `:deckId`, or "review" or "ingest" is read as a deck id. */}
           <Route path="cards/review" element={<ReviewPage />} />
           <Route path="cards/:deckId/review" element={<ReviewPage />} />
+          {/* Ingest is a route rather than a mode because the draft is persisted, and persisted
+              state needs a screen to be restored into. Both paths are static, so both are
+              declared above `cards/:deckId`. */}
+          <Route path="cards/ingest" element={<IngestPage />} />
+          <Route path="cards/ingest/review" element={<IngestReviewPage />} />
           <Route path="cards/:deckId" element={<DeckDetailPage />} />
           <Route path="timer" element={<TimerPage />} />
           <Route path="lessons" element={<TrackerPage />} />

@@ -3,10 +3,10 @@ import { useCallback } from 'react'
 import { listAllCards, listCardsByDeck } from '@/db/repositories/cards'
 import { getDeck, listDecks } from '@/db/repositories/decks'
 import type { Card, Deck } from '@/db/types'
+import { useDatabaseValue } from '@/lib/use-database-value'
 import { selectDueCards } from '../lib/queue'
 import { isMastered } from '../lib/sm2'
 import type { DeckSummary } from '../types'
-import { useDatabaseValue } from './use-database-value'
 
 /**
  * Layer 2 — aggregation for the deck list and a single deck.

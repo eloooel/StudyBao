@@ -22,6 +22,8 @@ export interface DeckListViewProps {
   totalDue: number
   onOpenDeck: (deckId: string) => void
   onStartReview: () => void
+  /** Opens the ingest screen — the input path for the whole product. */
+  onAddFromNotes: () => void
 }
 
 export interface DeckDetailViewProps {

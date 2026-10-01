@@ -54,9 +54,11 @@ Use `git log --oneline -4` for the real hashes — this file is not rewritten on
    inside the same transaction) are documented at the function. **Worth doing as part of Workflow S, not
    before** — with one writer it costs nothing, and narrowing the write now would silently ignore any
    SM-2 field added later.
-3. **`useDatabaseValue` lives under `features/flashcards/hooks/`.** It is the shared refresh mechanism,
-   and the timer and tracker will want it. Promote it to `src/lib/` or `src/db/` when a third feature
-   needs it — **do not copy it**, or two screens will disagree about what is current.
+3. ~~**`useDatabaseValue` lives under `features/flashcards/hooks/`.**~~ **Done in Workflow C.** Ingest
+   is the third consumer, so it was promoted rather than copied, as instructed — to
+   `src/lib/use-database-value.ts` and not to `src/db/`, because `src/db/` holds the schema and the
+   repositories and a React hook there would mix layers. `notifyDataChanged` is still exported
+   alongside it, and all six former importers now point at `@/lib/use-database-value`.
 4. **`ReviewLog` must merge union-only** when Workflow S lands. Named in `CLAUDE.md`,
    `docs/ai/change-data-model.md` and the type's own doc comment, because a last-write-wins merge on an
    append-only table is silent history loss and the rule is easy to forget.
