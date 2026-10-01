@@ -31,9 +31,9 @@ only, **no backend**, browser-based. Coquette pink-and-white.
 | **Her devices**                           | iPad (as a Home Screen Web App) and a Windows laptop (browser tab)      |
 | **Workflow A** (scaffold + design system) | ✅ **Done**                                                             |
 | **Workflow B** (flashcards + SM-2)        | ✅ **Done** — reviewed, defects fixed, committed                        |
-| **Workflow C** (ingest pipeline)          | 🔄 **In progress** — commit 1 of 3 landed (paste → parse → review)      |
+| **Workflow C** (ingest pipeline)          | 🔄 **In progress** — commits 1–2 of 3 (paste, PDF)                      |
 | D, E, F, S, G, H                          | ⏸ Not started                                                           |
-| Tests / coverage                          | 337 tests, 87.1% lines, 88.2% branches (floor is in `vitest.config.ts`) |
+| Tests / coverage                          | 350 tests, 86.4% lines, 88.6% branches (floor is in `vitest.config.ts`) |
 | Backend                                   | None, by decision. No server, no secrets.                               |
 
 ### Workflow C is being delivered in three commits
@@ -41,12 +41,34 @@ only, **no backend**, browser-based. Coquette pink-and-white.
 Decided by the owner, so the valuable part lands first and the risky part cannot block it:
 
 1. **Paste + normalize + parse + review screen** — zero new dependencies, ✅ **landed**.
-2. **PDF** (`pdfjs-dist`) — ⏸ next.
-3. **Photo OCR** (`tesseract.js`, assets vendored into `public/`) — ⏸.
+2. **PDF** (`pdfjs-dist`) — ✅ **landed**.
+3. **Photo OCR** (`tesseract.js`, assets vendored into `public/`) — ⏸ next.
 
-The tabs that are not built yet are **visible and disabled with a reason**, not hidden — the pattern
-the Timer's disabled Start button already set. Hiding them would make her wonder whether a photo path
+The tab that is not built yet is **visible and disabled with a reason**, not hidden — the pattern
+the Timer's disabled Start button already set. Hiding it would make her wonder whether a photo path
 exists at all.
+
+**The PDF ingest traps, and what was actually done about them** (all three were live problems, not
+theoretical):
+
+- **PDF.js was being loaded eagerly.** A static `import` put the whole library in the ingest page's
+  chunk — **436 KB** fetched by anyone who only wanted to paste text. It is now a dynamic import, and
+  that chunk is **10 KB**.
+- **The service worker was precaching the lazy PDF chunk**, which defeats the laziness entirely.
+  `globPatterns` is an allowlist of *extensions*, so the dynamic chunk re-entered the precache by
+  ending in `.js`. It also swept in two `*_nowasm_fallback.js` files (~600 KB) from `public/pdfjs/`.
+  Both are now named in `globIgnores`, with the reasoning inline, and the result is verified by
+  `node scripts/report-precache.mjs`, which reads the generated manifest rather than trusting the
+  config. **Precache: 86 entries / 1133 KiB**, of which zero are PDF or OCR assets.
+- **`quickjs-eval.wasm` is deliberately not copied.** PDF.js uses it to execute JavaScript embedded
+  in a PDF. Copying it would enable running code from a document she was sent, on the device holding
+  her study history. `scripts/copy-pdf-assets.mjs` uses an allowlist so this stays a decision rather
+  than an accident, and `pdfjs-dist`'s layout changing cannot silently reintroduce it.
+
+Not copied, and why: `cmaps/` (169 files, ~1.4 MB, CJK-only) and the standard-font data. Text
+extraction works without the latter — only glyph rendering degrades, and PDF.js logs a
+`standardFontDataUrl` warning. If a PDF ever reads as boxes, copy those directories lazily rather
+than adding them to the precache.
 
 **The ingest draft survives a reload via `sessionStorage`**, one versioned key
 (`studybao.ingest.draft.v1`), and deliberately **not** a Dexie table — the unreviewed remainder of a

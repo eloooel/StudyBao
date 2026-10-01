@@ -45,7 +45,8 @@ describe('IngestPage', () => {
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Paste text' })).toBeInTheDocument())
 
     expect(screen.getByRole('tab', { name: 'Paste text' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('tab', { name: 'Upload PDF' })).toBeDisabled()
+    // Paste and PDF are both live. Photo is not yet, and says so rather than vanishing.
+    expect(screen.getByRole('tab', { name: 'Upload PDF' })).toBeEnabled()
     expect(screen.getByRole('tab', { name: 'Upload photo' })).toBeDisabled()
   })
 
@@ -61,7 +62,7 @@ describe('IngestPage', () => {
       'Vitamin C: ascorbic acid{Enter}Iron: ferrous',
     )
 
-    expect(screen.getByRole('status')).toHaveTextContent('2 lines ready')
+    expect(screen.getByRole('status', { name: 'Lines ready' })).toHaveTextContent('2 lines ready')
   })
 
   it('keeps the batch across the navigation to the review screen', async () => {

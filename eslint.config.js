@@ -10,7 +10,19 @@ import tseslint from 'typescript-eslint'
  */
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'dev-dist/**', 'coverage/**', 'node_modules/**', '.npm-cache/**'],
+    ignores: [
+      'dist/**',
+      'dev-dist/**',
+      'coverage/**',
+      'node_modules/**',
+      '.npm-cache/**',
+      // Vendored third-party runtime assets, written by scripts/copy-pdf-assets.mjs and the OCR
+      // asset script. Minified or transpiled, and not ours to lint — the same reason
+      // public/sw.js is generated rather than hand-written. `public/ocr/` is listed ahead of
+      // Workflow C commit 3 so this cannot bite when the Tesseract assets land.
+      'public/pdfjs/**',
+      'public/ocr/**',
+    ],
   },
 
   tseslint.configs.recommended,

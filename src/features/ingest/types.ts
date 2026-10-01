@@ -90,6 +90,20 @@ export interface ReviewCard {
 /** The tab she is on. Held in the URL so a refresh returns to the same path. */
 export type IngestTab = 'paste' | 'pdf' | 'photo'
 
+/**
+ * What the PDF tab is doing.
+ *
+ * A discriminated union rather than a bag of flags, because the states are genuinely
+ * different situations with different copy: a scanned PDF and a locked one both mean "no text"
+ * and need opposite advice.
+ */
+export type PdfStatus =
+  | { state: 'idle' }
+  | { state: 'reading'; fileName: string; done: number; total: number }
+  | { state: 'ready'; fileName: string; pageCount: number }
+  | { state: 'scanned'; fileName: string; pageCount: number }
+  | { state: 'failed'; fileName: string; message: string }
+
 /** Whether a tab can be used yet. A tab that is not built says why rather than hiding. */
 export interface IngestTabStatus {
   id: IngestTab
@@ -111,6 +125,9 @@ export interface IngestViewProps {
   onSubmit: () => void
   /** How many visible lines the parser will see, so she can sanity-check a paste. */
   lineCount: number
+  /** The PDF tab's state. Ignored by the paste tab. */
+  pdfStatus: PdfStatus
+  onPickPdfFile: (file: File | undefined) => void
   /** Set when the draft could not be kept across a reload. */
   persistenceNote?: string
   error?: string

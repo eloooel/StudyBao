@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { IngestView } from '../components/ingest-view'
 import { useIngestActions } from '../hooks/use-ingest-draft'
 import { useIngestDecks } from '../hooks/use-ingest-decks'
+import { usePdfIngest } from '../hooks/use-ingest-pdf'
 import { DRAFT_SIZE_CEILING_BYTES, keepUnpersistedBatch } from '../lib/draft-storage'
 import { normalize } from '../lib/normalize'
 import type { IngestTab, IngestTabStatus } from '../types'
@@ -32,19 +33,21 @@ export default function IngestPage() {
   const [text, setText] = useState('')
   const [note, setNote] = useState<string | undefined>(undefined)
 
+  // Extraction fills the same `text` the paste tab writes to, so the parser has one entry
+  // point and PDF ingest cannot drift from it.
+  const onExtracted = useCallback((extracted: string) => {
+    setText(extracted)
+    setNote(undefined)
+  }, [])
+  const pdf = usePdfIngest({ onExtracted })
+
   const lineCount = useMemo(() => normalize(text).length, [text])
 
-  // PDF and OCR arrive in commits 2 and 3. Until then they are visible with a reason, which is
-  // the pattern the Timer's disabled Start button already set — hiding them would make her
-  // wonder whether a photo path exists at all.
+  // Photo OCR arrives in commit 3. It stays visible with a reason rather than hidden — the
+  // pattern the Timer's disabled Start button already set.
   const tabs: IngestTabStatus[] = [
     { id: 'paste', label: 'Paste text', enabled: true },
-    {
-      id: 'pdf',
-      label: 'Upload PDF',
-      enabled: false,
-      note: 'Reading PDFs is coming next. For now, open the PDF and copy the text into the paste tab — the parser gets exactly the same text, and often cleaner.',
-    },
+    { id: 'pdf', label: 'Upload PDF', enabled: true },
     {
       id: 'photo',
       label: 'Upload photo',
@@ -54,7 +57,7 @@ export default function IngestPage() {
   ]
 
   const activeTab = tabs.find((entry) => entry.id === tab)
-  const canSubmit = tab === 'paste' && lineCount > 0 && deckId !== ''
+  const canSubmit = (tab === 'paste' || tab === 'pdf') && lineCount > 0 && deckId !== ''
 
   if (loading) {
     return (
@@ -86,7 +89,10 @@ export default function IngestPage() {
         const { draft, outcome } = startBatch({
           text,
           deckId,
-          sourceLabel: activeTab?.label ?? 'Pasted text',
+          sourceLabel:
+            tab === 'pdf' && pdf.status.state === 'ready'
+              ? pdf.status.fileName
+              : (activeTab?.label ?? 'Pasted text'),
         })
 
         keepUnpersistedBatch(outcome.persisted ? undefined : draft)
@@ -104,6 +110,8 @@ export default function IngestPage() {
         void navigate('/cards/ingest/review')
       }}
       lineCount={lineCount}
+      pdfStatus={pdf.status}
+      onPickPdfFile={pdf.pickFile}
       {...(note === undefined ? {} : { persistenceNote: note })}
       error={decks.length === 0 ? 'There are no decks to add cards to yet.' : undefined}
     />

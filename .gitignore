@@ -45,6 +45,17 @@ dev-dist/
 public/sw.js
 public/workbox-*.js
 
+# Vendored third-party runtime assets, written by scripts/copy-pdf-assets.mjs (and the OCR
+# asset script in Workflow C commit 3) from node_modules. Generated, not source: copying
+# 2 MB of PDF.js worker and wasm into git would be a diff nobody reads and a blob everyone
+# downloads. `npm install` plus those scripts reproduce them exactly, and the scripts run
+# automatically from `predev`/`prebuild`.
+public/pdfjs/
+public/ocr/
+
+# Test-only inputs and outputs for the PDF smoke check (scripts/make-test-pdf.mjs).
+.pdf-smoke.pdf
+
 # Firebase / Cloudflare local state
 .firebase/
 firebase-debug.log
