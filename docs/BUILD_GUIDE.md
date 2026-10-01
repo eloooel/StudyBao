@@ -710,10 +710,18 @@ Relative to build start; the dates assume starting immediately.
 | Window      | Dates           | Work                                               | Why here                                                                      |
 | ----------- | --------------- | -------------------------------------------------- | ----------------------------------------------------------------------------- |
 | Weeks 1–3   | Sep 23 – Oct 14 | A (shell), then B and D                            | She can start studying with real cards and a real timer in under a month      |
-| Weeks 4–8   | Oct 14 – Nov 18 | C (ingest), E (tracker)                            | Removes the manual card-entry tax once she is actually using it               |
+| Weeks 4–8   | Oct 14 – Nov 18 | C (ingest), then D, then E (tracker)               | Removes the manual card-entry tax before the reveal                           |
 | Weeks 9–12  | Nov 18 – Dec 16 | F (dashboard), S (sync)                            | Nice-to-have until there is enough data to display or a second device in play |
 | Weeks 13–16 | Dec 16 – Jan 13 | G (nudges), H (polish)                             | Comfort features, once the core is proven in daily use                        |
 | Weeks 17–22 | Jan 13 – Feb 26 | **Buffer. Cram mode. Bug fixes. No new features.** |                                                                               |
+
+**Deviation as actually run, at 2026-10-01 (147 days out):** weeks 1–3 shipped **A and B but not D**,
+and the next workflow is **C, with D immediately after**. The row above originally said "B and D"
+because §9.1 reasoned a timer was needed early — but that was written before B existed, and the
+bottleneck B revealed is _card entry_, not timing. Spaced repetition compounds only over cards that
+already exist, and the exam date does not move, whereas a timer added in December is exactly as useful
+in December as in October. So card creation binds earlier than the timer does. Full reasoning in
+`docs/HANDOFF.md` §8.
 
 **Hard rule: no new feature lands after mid-January.** A feature shipped two weeks before a licensure
 exam is a liability, not a gift — she will not have time to work around a bug in it. Weeks 17–22 exist

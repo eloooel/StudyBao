@@ -2,6 +2,9 @@
 
 Copy everything below the line into a fresh session, in this repository. It is written to stand alone.
 
+This file is spent once Workflow C ships. It was written at the end of Workflow B; do not treat it as
+authoritative afterwards — `docs/HANDOFF.md` is the state of the world.
+
 ---
 
 You are picking up **StudyBao**, a study companion for one person's PNLE (Philippine Nurse Licensure
@@ -11,22 +14,25 @@ Examination) review. Note the date: her exam is **Friday 26 February 2027**.
 
 1. `CLAUDE.md` — constraints and the two AI boundaries
 2. `docs/HANDOFF.md` — current state, every decision, what is one-way
-3. `docs/ai/README.md` — the runbooks and their ground rules
-4. `docs/ai/add-feature.md` — folder layout and the three-layer pattern
-5. `docs/ai/write-tests.md` — **the Workflow C parser test cases are specified here**, in full
-6. `docs/ai/change-data-model.md` — read it even though you should not need a schema change
-7. `docs/BUILD_GUIDE.md` §4 Workflow C and §3 "OCR reality check"
-8. `superpowers/workflow-b-handoff.md` — what was just built, and the traps
+3. `docs/WORKFLOW-B-REMAINING.md` — what Workflow B deliberately left open, **and the sandbox traps**
+   that cost real time
+4. `docs/ai/README.md` — the runbooks and their ground rules
+5. `docs/ai/add-feature.md` — folder layout and the three-layer pattern
+6. `docs/ai/write-tests.md` — **the Workflow C parser test cases are specified here**, in full
+7. `docs/ai/change-data-model.md` — read it even though you should not need a schema change
+8. `docs/BUILD_GUIDE.md` §4 Workflow C and §3 "OCR reality check"
 9. `docs/adr/0004-no-llm-in-runtime.md` — why the parser is deterministic, and must stay that way
 
 `docs/ai/*.md` are the procedure. `CLAUDE.md` is the constraints. Where a doc and the code disagree,
 **the code wins** — then fix the doc.
 
+Do not trust a commit hash written in a document, including this one. Run `git log --oneline -6`.
+
 ## What exists now
 
-Workflow B (flashcards + real SM-2 spaced repetition) is complete, reviewed and verified at commit
-`f5014fe`: 261 tests, ~84% line coverage, all checks green. Deck list, card CRUD, a review session
-with four-button grading, and cram mode all work against real IndexedDB.
+Workflow B (flashcards + real SM-2 spaced repetition) is complete, reviewed, verified and committed:
+261 tests, ~84% line coverage, all checks green. Deck list, card CRUD, a review session with four-button
+grading, and cram mode all work against real IndexedDB. Nothing else is started.
 
 Read `src/features/flashcards/` before writing anything. It is the only complete data-backed feature
 in the repo and it is the shape to copy: `lib/` for pure logic with co-located tests, `hooks/` for
@@ -48,9 +54,9 @@ sync, notifications, or any backend. Each is a separate workflow and needs its o
 
 ### The parser is the highest-value part, and the riskiest
 
-Write `src/features/flashcards/lib/parser.ts` (or a new `src/features/ingest/lib/parser.ts` if you
-judge the ingest feature deserves its own folder — say which and why in your plan) as a **pure
-function**, with the six test cases in `docs/ai/write-tests.md` written **first**.
+Write `src/features/ingest/lib/parser.ts` (or `src/features/flashcards/lib/parser.ts` if you judge it
+belongs with the cards — say which and why in your plan) as a **pure function**, with the six test cases
+in `docs/ai/write-tests.md` written **first**.
 
 The invariant that matters most is test case 6: **for any input, `cards.length + leftoverLines.length`
 accounts for every non-empty input line.** A dropped line is a card she never reviews, and she has no
@@ -59,6 +65,24 @@ way to notice it is missing. Silent data loss is the failure mode here, not an u
 The edge cases are enumerated in `BUILD_GUIDE.md` §3 and each one is a real bug in a naive
 implementation: colons inside ordinary prose, hyphens inside words (`self-esteem` must not split),
 the left-hand term must be short and not end in a period, OCR noise must be stripped first.
+
+### The review screen must survive a reload — this is decided, not open
+
+An earlier draft of this brief said the leftover queue was "transient UI state". That was wrong, and it
+contradicted this repo's own precedent: the cards review session is a **route with a
+database-derived queue** specifically because a hard refresh mid-session is realistic on an iPad — a tab
+restore, an accidental swipe, ITP eviction.
+
+Ingest has the same exposure and more invested: a 30-second OCR pass, and then _minutes_ of curation as
+she accepts some cards, edits others, and converts leftover lines by hand. Anything she has already
+**accepted is already durable** in `cards`, so the exposure is the unreviewed remainder plus her
+position in the batch. That is worth protecting, and it is not worth a schema change.
+
+**Decision: persist the draft so it survives a reload, using the cheapest mechanism that does
+(`sessionStorage` or equivalent). Do NOT add a table for it in Workflow C.** A Dexie version bump and a
+migration is not justified for the unreviewed remainder of a batch, and this project has a standing
+bias against speculative schema. State in your plan which mechanism you chose and what it does _not_
+survive, so the limit is honest rather than implied.
 
 ## Non-negotiables — these break real data or the offline guarantee if missed
 
@@ -70,9 +94,9 @@ the left-hand term must be short and not end in a period, OCR noise must be stri
   the fonts are self-hosted.
 - **All timestamps in the database are epoch milliseconds.** Not dates, not date strings. Any new
   record needs `updatedAt`; anything deletable needs `deletedAt` and is **never hard-deleted**.
-- **Any Dexie schema change needs a version bump AND a tested migration.** You probably do not need
-  one — the leftover queue is transient UI state, not a table. If you disagree, read
-  `docs/ai/change-data-model.md` first and come back rather than deciding quietly.
+- **Any Dexie schema change needs a version bump AND a tested migration.** You should not need one —
+  see the reload decision above. If you disagree, read `docs/ai/change-data-model.md` first and come
+  back rather than deciding quietly.
 - **All IndexedDB access goes through `src/db/repositories/`.** ESLint enforces this; do not disable
   the rule.
 - **Never weaken a check to get green.** No skipped tests, no `@ts-ignore`, no lowered coverage
@@ -102,8 +126,8 @@ the left-hand term must be short and not end in a period, OCR noise must be stri
 
 **Ask before adding dependencies.** `tesseract.js` and `pdfjs-dist` are both named in
 `BUILD_GUIDE.md` §3 as the intended tools and are free with no API key, so they are very likely fine
-— but every dependency needs an explicit yes first. If the install fails, note the traps in
-`docs/WORKFLOW-B-REMAINING.md` §Sandbox notes; they cost real time.
+— but every dependency needs an explicit yes first. If the install fails, read the sandbox notes in
+`docs/WORKFLOW-B-REMAINING.md`; they cost real time.
 
 ## How to verify your work
 
@@ -139,7 +163,7 @@ find while implementing, especially anything where a plausible-looking parse is 
 
 Reply with: **(1)** your implementation plan in a short numbered list, **(2)** anything in the parser
 contract, the data model, or the ingest flow you think is ambiguous or wrong, and **(3)** any question
-you need answered — including the dependency list.
+you need answered — including the dependency list and the reload mechanism you chose.
 
 Then **stop and wait for a go-ahead.** Do not start implementing.
 

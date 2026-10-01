@@ -314,16 +314,45 @@ else is refactoring, and there were 22 weeks of runway as of Sept 2026.
 ## 8. What to do next
 
 **Workflow B is done.** The flashcards work end to end: seeded decks, manual CRUD, real SM-2, a review
-session, and cram mode. Nothing else has been started, and each of C, D, E, F, S, G needs its own
+session, and cram mode. Nothing else has started, and each remaining workflow still needs its own
 go-ahead.
 
-**The natural next step is C (ingest → flashcards)** — it is what removes the manual card-entry tax now
-that she is actually using the app, and the `Card` model it writes into already exists. **D (Pomodoro)**
-is the other one that could land at any time; `BUILD_GUIDE.md` §9.1 argues those two are the only things
-that needed to exist early. **S (sync) is the one with a hard constraint**: `ReviewLog` must merge
-union-only, and `docs/ai/change-data-model.md` names it.
+### The order is decided: **C now, D immediately after**
 
-**Read first for any of them:** [`docs/ai/README.md`](ai/README.md) → the matching runbook →
+**C (ingest → flashcards) is next.** The reasoning, because this deviates from `BUILD_GUIDE.md` §9.2,
+which schedules D alongside B in weeks 1–3:
+
+- **C is the input path for the whole product.** B shipped manual entry, so without C every card has to
+  be typed by hand from her notes. That is not an enhancement to the core loop; it is the only way her
+  material reaches it.
+- **Spaced repetition compounds, and only over cards that exist.** A card created in December gets less
+  spacing than one created in October, and the exam date does not move. A Pomodoro timer added in
+  December is exactly as useful in December as it would have been in October. Card creation binds
+  earlier than the timer does.
+- **C carries the most technical risk left** — OCR, web workers, and a precache-size hazard that would
+  slow the first load of the app forever. Risk is cheaper to retire with 21 weeks of runway than with 8.
+  If C is going to be hard, that is worth knowing in October.
+- **Delaying D costs nothing structurally**, because D is independent of the data model and of C.
+
+The one argument for D first is that it is small, self-contained, and unblocks `SessionLog` for F and
+the session state for G. It is a reasonable call, and C is the better one: the exam is failed by missing
+cards, not by a missing timer.
+
+**The deviation is recorded in `BUILD_GUIDE.md` §9.2** rather than quietly re-planned.
+
+**A correction to how this section used to read:** it said C removes the card-entry tax "now that she is
+actually using the app". She is not — she does not know the app exists (D6: it is a surprise). No
+card-entry tax is being paid today, and no adoption clock is running. What C buys is that the app is
+ready for the reveal, because a reveal that asks her to type every card from her notes will fail.
+
+**[`docs/WORKFLOW-C-PROMPT.md`](WORKFLOW-C-PROMPT.md) is the self-contained brief to hand the next
+agent.** It carries the three OCR traps, the decided reload behaviour, and the test-can't-go-red rule.
+It is spent once C ships.
+
+**S (sync) is the one with a hard constraint:** `ReviewLog` must merge union-only, and
+`docs/ai/change-data-model.md` names it.
+
+**Read first for any workflow:** [`docs/ai/README.md`](ai/README.md) → the matching runbook →
 [`docs/BUILD_GUIDE.md`](BUILD_GUIDE.md) §4 for that workflow and §6 for the model and contracts.
 
 **What Workflow B leaves you, concretely:**

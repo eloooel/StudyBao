@@ -112,6 +112,16 @@ Path alias: `@` → `./src`.
 - **esbuild must be able to spawn its transform service.** In a restricted sandbox that blocks piped
   child processes, `vitest` and `vite build` fail with `spawn EPERM`. That is the sandbox, not the
   project — the same commands succeed normally.
+- **`git` write commands need wider access than read commands**, for two separate reasons: Husky runs a
+  child process on commit, and the credential helper needs a pipe on push. `git log`, `git status` and
+  `git diff` work without. Expect `index.lock: Permission denied` from `git add`/`git mv`/`git rm` in a
+  confined sandbox.
+- **If workspace writes start failing with EPERM or a missing-owner error**, the directory's ACL may be
+  missing `writeOwner`. A previous session hit exactly that on this repository and repaired it; the
+  `diagnose-windows-sandbox-acl` skill inspects the path and its ancestors and fixes what it proves.
+- **`npm ci --ignore-scripts` resolves every package but strips esbuild's binary**, after which the
+  build dies with `Cannot find module` until a full `npm install` runs. Do not use it as a stand-in for
+  `npm ci`.
 
 ---
 
