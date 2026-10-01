@@ -6,16 +6,18 @@ Add or fix tests. This repo tests _rules_, not rendering.
 
 These are pure functions whose bugs are silent and whose consequences she feels for weeks:
 
-| Module                             | Why it is critical                                                                         |
-| ---------------------------------- | ------------------------------------------------------------------------------------------ |
-| `features/flashcards/lib/sm2.ts`   | A wrong interval is invisible until her exam.                                              |
-| `lib/study-day.ts`                 | The 04:00 boundary. Wrong here means a wrong streak and a wrong interval.                  |
-| `features/flashcards/lib/queue.ts` | Decides what she sees and in what order, including cram ordering.                          |
-| `features/ingest/lib/parse.ts`     | Silent data loss: a dropped note line is a card she never reviews.                         |
-| `features/ingest/lib/normalize.ts` | Every rule downstream depends on the text being clean and the line indices being right.    |
-| `sync/lib/merge.ts`                | A wrong merge resurrects deleted cards or discards edits. **(pending Workflow S)**         |
-| `features/timer/lib/timer.ts`      | Wall-clock math; a bug means the timer lies about remaining time. **(pending Workflow D)** |
-| `features/dashboard/lib/stats.ts`  | Streak/mastery math she will act on. **(pending Workflow F)**                              |
+| Module                              | Why it is critical                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------------ |
+| `features/flashcards/lib/sm2.ts`    | A wrong interval is invisible until her exam.                                              |
+| `lib/study-day.ts`                  | The 04:00 boundary. Wrong here means a wrong streak and a wrong interval.                  |
+| `features/flashcards/lib/queue.ts`  | Decides what she sees and in what order, including cram ordering.                          |
+| `features/ingest/lib/parse.ts`      | Silent data loss: a dropped note line is a card she never reviews.                         |
+| `features/ingest/lib/normalize.ts`  | Every rule downstream depends on the text being clean and the line indices being right.    |
+| `features/ingest/lib/image-prep.ts` | OCR preprocessing. A wrong scale or a zeroed alpha channel is a page of gibberish.         |
+| `features/ingest/lib/pdf-lines.ts`  | Where PDF line breaks land: one card per page, or thirty cards.                            |
+| `sync/lib/merge.ts`                 | A wrong merge resurrects deleted cards or discards edits. **(pending Workflow S)**         |
+| `features/timer/lib/timer.ts`       | Wall-clock math; a bug means the timer lies about remaining time. **(pending Workflow D)** |
+| `features/dashboard/lib/stats.ts`   | Streak/mastery math she will act on. **(pending Workflow F)**                              |
 
 Target: **100% branch coverage on `lib/` pure functions.** A threshold in `vitest.config.ts` enforces
 the floor; the floor is not the goal.

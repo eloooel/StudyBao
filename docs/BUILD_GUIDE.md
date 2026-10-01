@@ -233,6 +233,23 @@ API, `beforeinstallprompt`, `display: standalone` polish, maskable icons, and iO
 - The default build fetches the WASM core and `eng.traineddata` from a CDN — 20–30 MB, and it breaks
   offline use. Self-host the core and the language data, and pre-warm the worker on the ingest screen
   rather than on app load.
+- **Corrected after Workflow C shipped, because the code disagreed with this section:**
+  - `corePath` must point at a **directory**, and `tesseract.js-core@7` ships **six** capability
+    variants — `tesseract-core`, `-lstm`, `-simd`, `-simd-lstm`, `-relaxedsimd`, `-relaxedsimd-lstm`
+    — each a `*.wasm.js` loader plus the `*.wasm` it fetches. This paragraph previously said four,
+    which was true of core v5. Tesseract picks between them by device capability, so naming one file
+    is the documented way to break SIMD devices or lose an order of magnitude of performance.
+  - The language data shipped is the **`tessdata_fast`** model: 4,113,088 bytes raw, **1,962,155**
+    gzipped, against **10,923,060** for the default `tessdata` model's `.gz`. Since this section
+    already calls photo OCR best-effort, the 5.6× saving is the better trade.
+  - The language file is **committed to the repository**, because it cannot be derived from
+    `node_modules` and a build that needs the network is not a build for an offline app. The core is
+    copied from `node_modules` by `npm run assets` instead, on the grounds that ~45 MB of vendored
+    WebAssembly in git is a diff nobody reads.
+  - Serving a `.gz` with `Content-Encoding: gzip` makes the browser decode it transparently, and
+    tesseract.js gunzips the language data **itself** — so the photo tab fails on deploy with an
+    inner-payload error that no local unit test can see. `vercel.json` pins
+    `Content-Encoding: identity` for `/ocr/lang/*`.
 - Preprocess before OCR: downscale to ~1600px on the long edge, grayscale, and increase contrast.
   This matters more than tinkering with Tesseract's own parameters.
 - Parser edge cases to handle explicitly, or the "Needs Review" queue will drown her:
@@ -254,7 +271,7 @@ Corrected DAG — ✅ done, ⏸ not started:
 A0 (decisions)                            ✅
  └─ A (scaffold + design system)          ✅
      ├─ B (flashcards + SM-2)             ✅
-     │   └─ C (ingest → flashcards)       ⏸
+     │   └─ C (ingest → flashcards)       ✅
      ├─ D (Pomodoro)                      ⏸
      └─ E (tracker)                       ⏸
           └─ F (dashboard)                ⏸  ← needs B, D, E data
