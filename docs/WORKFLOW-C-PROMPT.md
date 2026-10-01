@@ -58,11 +58,19 @@ Write `src/features/ingest/lib/parser.ts` (or `src/features/flashcards/lib/parse
 belongs with the cards — say which and why in your plan) as a **pure function**, with the six test cases
 in `docs/ai/write-tests.md` written **first**.
 
-The invariant that matters most is test case 6: **for any input, `cards.length + leftoverLines.length`
-accounts for every non-empty input line.** A dropped line is a card she never reviews, and she has no
-way to notice it is missing. Silent data loss is the failure mode here, not an ugly parse.
+The invariant that matters most is test case 6, and it is about **content, not line breaks**: every
+normalized input line must belong to exactly one card's provenance span or to the leftover queue —
+never two, never none. A dropped line is a card she never reviews and has no way to notice is missing,
+and silent data loss is the failure mode here, not an ugly parse. Provenance is required to assert
+this, so the parser must report which input lines each card came from.
 
-The edge cases are enumerated in `BUILD_GUIDE.md` §3 and each one is a real bug in a naive
+That also settles the wrapped-line question in test case 7: **join continuation lines.** A definition
+that wraps across two lines is still one definition, and refusing to join drowns her in fragments.
+Pattern-match first, then consider joining — a line that matches a card-start pattern is never joined,
+even if it begins lowercase. An earlier draft of this brief stated the invariant as a literal line
+count, which forbade joining; that was wrong and `docs/ai/write-tests.md` now carries the form above.
+
+The other edge cases are enumerated in `BUILD_GUIDE.md` §3 and each one is a real bug in a naive
 implementation: colons inside ordinary prose, hyphens inside words (`self-esteem` must not split),
 the left-hand term must be short and not end in a period, OCR noise must be stripped first.
 
@@ -83,6 +91,19 @@ position in the batch. That is worth protecting, and it is not worth a schema ch
 migration is not justified for the unreviewed remainder of a batch, and this project has a standing
 bias against speculative schema. State in your plan which mechanism you chose and what it does _not_
 survive, so the limit is honest rather than implied.
+
+**Also decided, because the persistence decision forces them:**
+
+- **A stated size ceiling, checked before writing.** Persist nothing above it rather than a truncated
+  draft, and show an honest message instead. A half-restored batch is worse than a stated limit. Name
+  the ceiling as one exported constant that both the check and the message read; do not let a magic
+  number appear twice.
+- **The message is reassuring and true**: everything she has _accepted_ is already saved, so the only
+  loss is the unreviewed remainder. Say that rather than apologising.
+- **The review screen is therefore a route** — `cards/ingest`. If it lived only in component state, a
+  reload would land her on `/cards` with an orphaned draft and nothing to restore it into. Declare it
+  **before** `cards/:deckId` in `src/router.tsx`, exactly as `cards/review` already is, or `ingest` is
+  parsed as a deck id.
 
 ## Non-negotiables — these break real data or the offline guarantee if missed
 

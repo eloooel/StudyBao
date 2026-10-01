@@ -91,8 +91,37 @@ Write these with the parser, before its UI:
 3. A prose sentence containing a colon is not turned into a card.
 4. Numbered `Q1./A1.` blocks pair correctly, in order.
 5. Bulleted definitions become cards.
-6. **Everything not matched appears in the leftover queue.** Assert the invariant explicitly: for any
-   input, `cards.length + leftoverLines.length` accounts for every non-empty input line.
+6. **No content is lost, and no line is claimed twice.** The invariant is about _content_, not line
+   breaks. An earlier version of this file said `cards.length + leftoverLines.length` must account for
+   every non-empty input line, which is the wrong shape twice over: it forbids joining a wrapped line
+   (see 7), and it cannot detect a line being counted twice.
+
+   The parser must therefore report **provenance**: for each produced card, the indices of the input
+   lines it was assembled from. Then assert, for any normalized input:
+
+   - every non-empty input line index belongs to **exactly one** of — the source-line span of exactly
+     one card, or the leftover queue;
+   - no line index is claimed by two cards;
+   - no line index is claimed by none.
+
+   That is exact, it tolerates one card owning three lines, and it catches duplication as well as loss.
+   Assert it over the fixtures **and** over a few hundred generated line sequences, not just the happy
+   ones.
+
+7. **A wrapped line joins the line above it, conservatively.** OCR and PDF text extraction both break
+   mid-sentence, so a definition routinely arrives across two or three lines. Joining them is correct
+   and is what makes the feature useful; refusing to join drowns her in fragments and is worse than the
+   bug it avoids.
+
+   The rule runs **after** the card patterns, never before:
+
+   - if a line matches a card-start pattern it starts a card — **never** join it, even when it begins
+     lowercase;
+   - otherwise join it to the previous line when it looks like a continuation: it begins lowercase, or
+     begins with a closing bracket or punctuation, or the previous line does not end a sentence.
+
+   Two tests carry this: a ten-line definition wrapped at an awkward point becomes **one** card, and a
+   lowercase line that genuinely begins a `term: definition` still becomes its **own** card.
 
 ## How
 
