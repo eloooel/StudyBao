@@ -34,7 +34,7 @@ only, **no backend**, browser-based. Coquette pink-and-white.
 | **Workflow C** (ingest pipeline)          | ✅ **Done** — all three commits (paste, PDF, photo OCR)                 |
 | **Workflow D** (Pomodoro + sessions)      | ✅ **Done** — the first schema migration in the project's history       |
 | E, F, S, G, H                             | ⏸ Not started                                                           |
-| Tests / coverage                          | 455 tests, 86.1% lines, 87.7% branches (floor is in `vitest.config.ts`) |
+| Tests / coverage                          | 460 tests, 86.3% lines, 87.9% branches (floor is in `vitest.config.ts`) |
 | Backend                                   | None, by decision. No server, no secrets.                               |
 
 ### Workflow D shipped — and bumped Dexie to version 2

@@ -1,12 +1,11 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback } from 'react'
 
 import { listSessionsSince, completedWorkBlocks } from '@/db/repositories/sessions'
 import type { Session } from '@/db/types'
-import { useSettings } from '@/features/flashcards/hooks/use-settings'
 import { useDatabaseValue } from '@/lib/use-database-value'
 import { studyDayStart } from '@/lib/study-day'
-import type { TimerDurations } from '../lib/timer'
 import { useTimer, type TimerController } from './use-timer'
+import { useTimerSettings } from './use-timer-settings'
 
 /**
  * Layer 2 — everything the timer screen needs: the running timer, the configured lengths, and the
@@ -37,19 +36,9 @@ async function loadFocusBlocksToday(now: number): Promise<Session[]> {
 }
 
 export function useTimerPage(): TimerPageData {
-  const { settings, loading: settingsLoading } = useSettings()
-
-  // `useTimer` sanitizes these as well; passing them through unchanged keeps one source of truth
-  // for the defaults, and an absent field stays absent so the settings default applies.
-  const durations: Partial<TimerDurations> = useMemo(
-    () => ({
-      workMin: settings.workMin,
-      breakMin: settings.breakMin,
-      longBreakMin: settings.longBreakMin,
-      cyclesBeforeLongBreak: settings.cyclesBeforeLongBreak,
-    }),
-    [settings.workMin, settings.breakMin, settings.longBreakMin, settings.cyclesBeforeLongBreak],
-  )
+  // The lengths come from the timer's own settings hook, so this screen reads exactly what the
+  // Settings screen writes, sanitized the same way.
+  const { durations, loading: settingsLoading } = useTimerSettings()
 
   const load = useCallback(() => loadFocusBlocksToday(Date.now()), [])
   // Re-read on the shared data signal, so finishing a block updates the count on this screen

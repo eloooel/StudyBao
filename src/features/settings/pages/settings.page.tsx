@@ -7,6 +7,7 @@ import {
 } from '@/db/repositories/settings'
 import { useSettings } from '@/features/flashcards/hooks/use-settings'
 import { updateSettings } from '@/db/repositories/settings'
+import { useTimerSettings } from '@/features/timer/hooks/use-timer-settings'
 import { notifyDataChanged } from '@/lib/use-database-value'
 import { useTheme } from '@/lib/theme-store'
 import { SettingsView } from '../components/settings-view'
@@ -22,6 +23,9 @@ import { SettingsView } from '../components/settings-view'
 export default function SettingsPage() {
   const { theme, toggle } = useTheme()
   const { settings, setExamDate } = useSettings()
+  // Reading and writing the timer lengths goes through the timer's own hook, so this screen and
+  // the timer can never disagree about which values are in force or how they are guarded.
+  const timer = useTimerSettings()
   const [storageNoticeDismissed, setStorageNoticeDismissed] = useState(false)
   const [draftDate, setDraftDate] = useState<string | undefined>(undefined)
 
@@ -51,6 +55,8 @@ export default function SettingsPage() {
           notifyDataChanged()
         })()
       }}
+      timerDurations={timer.durations}
+      onTimerDurationsChange={(patch) => void timer.updateDurations(patch)}
     />
   )
 }
