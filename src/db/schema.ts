@@ -1,34 +1,41 @@
 import Dexie, { type Table } from 'dexie'
 
 import { INTEGRATED_KNOWLEDGE_AREAS, PRC_PARTS, deckIdForPart } from './seed-data'
-import type { AppSettings, Card, Deck, ReviewLog } from './types'
+import type { AppSettings, Card, Deck, ReviewLog, Session } from './types'
 
 /**
  * The Dexie schema, and the only module that opens the database.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * Schema version 1. There is no version 0 in the wild — Workflow A shipped no
- * `src/db/` at all — so version 1 needs no upgrade function. **Any later change to
- * these stores is a version bump plus a tested migration**
- * (docs/ai/change-data-model.md). There is no undo on her device.
+ * **Version 2** (Workflow D) adds the `sessions` table. Version 1 was Workflows A–C:
+ * `decks`, `cards`, `reviewLogs`, `settings`.
  *
- * Only three tables are here. `Lesson` (Workflow E) and `Session` (Workflow D) appear
- * in docs/BUILD_GUIDE.md §6 as the eventual model; creating them now would be two empty
- * tables, two speculative migrations, and no data. They arrive with the workflows that
- * fill them.
+ * Version 1's store definitions are **repeated verbatim** in the version 2 block rather
+ * than omitted. Dexie merges version blocks so omitting them would work, but this repo's
+ * rule is that a released `version(n)` block is never edited, and restating them makes
+ * this file readable as a history instead of requiring the reader to know Dexie's merge
+ * semantics. See docs/ai/change-data-model.md.
+ *
+ * The version 2 upgrade is a **no-op on purpose**: it adds a table and touches no existing
+ * row, so there is nothing to transform, and an idempotent function that does nothing is
+ * the correct, retry-safe thing. New *optional* fields on `settings` (`workMin` and
+ * friends) need no migration at all — readers treat `undefined` as the default.
  * ─────────────────────────────────────────────────────────────────────────────
  *
  * Indexes are exactly the ones there is a query for — `deletedAt` and `updatedAt`
  * because Workflow S will need tombstones and "changed since last push" respectively,
  * `nextReview` because the due query is the core of the app, and the two foreign keys
- * because every list is filtered by them. No compound indexes: at her scale a compound
- * index costs write time and buys nothing.
+ * because every list is filtered by them. `sessions` is indexed on `startedAt` because
+ * every screen that reads it wants the most recent blocks first, plus the same two sync
+ * fields. No compound indexes: at her scale a compound index costs write time and buys
+ * nothing.
  */
 export class StudyBaoDb extends Dexie {
   decks!: Table<Deck, string>
   cards!: Table<Card, string>
   reviewLogs!: Table<ReviewLog, string>
   settings!: Table<AppSettings, string>
+  sessions!: Table<Session, string>
 
   constructor(name = 'studybao') {
     super(name)
@@ -39,6 +46,23 @@ export class StudyBaoDb extends Dexie {
       reviewLogs: 'id, cardId, deckId, reviewedAt',
       settings: 'id',
     })
+
+    // Workflow D. Adds one table and transforms nothing.
+    this.version(2)
+      .stores({
+        decks: 'id, subject, updatedAt, deletedAt',
+        cards: 'id, deckId, nextReview, updatedAt, deletedAt',
+        reviewLogs: 'id, cardId, deckId, reviewedAt',
+        settings: 'id',
+        sessions: 'id, startedAt, type, updatedAt, deletedAt',
+      })
+      .upgrade(() => {
+        // Intentionally empty, and idempotent by construction: running it twice does what running
+        // it once does. The new table starts empty, and no existing row needs a default written
+        // into it because every new `settings` field is optional and read through
+        // `sanitizeDurations`. A retried migration therefore cannot corrupt anything, which is
+        // the property docs/ai/change-data-model.md asks for.
+      })
 
     // A brand-new install seeds the five PRC decks. This is a `populate` (create-only)
     // hook rather than a `version(1).upgrade()`, because an upgrade function would also
@@ -117,15 +141,22 @@ export async function deleteDatabaseForTests(name = DATABASE_NAME): Promise<void
 /** Wipe every row but keep the database open. **Tests only.** */
 export async function clearDatabaseForTests(): Promise<void> {
   const db = await getDb()
-  // Enumerated rather than `db.tables` so a future table cannot be silently missed.
-  await db.transaction('rw', [db.decks, db.cards, db.reviewLogs, db.settings], async () => {
-    await Promise.all([
-      db.decks.clear(),
-      db.cards.clear(),
-      db.reviewLogs.clear(),
-      db.settings.clear(),
-    ])
-  })
+  // Enumerated rather than `db.tables` so a future table cannot be silently missed — which is
+  // exactly what happened when `sessions` arrived: `db.tables` would have compiled and passed
+  // while leaking a session row between tests.
+  await db.transaction(
+    'rw',
+    [db.decks, db.cards, db.reviewLogs, db.settings, db.sessions],
+    async () => {
+      await Promise.all([
+        db.decks.clear(),
+        db.cards.clear(),
+        db.reviewLogs.clear(),
+        db.settings.clear(),
+        db.sessions.clear(),
+      ])
+    },
+  )
 }
 
 /**

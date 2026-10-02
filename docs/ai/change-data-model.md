@@ -20,9 +20,15 @@ Every new field is a migration, a sync field, a test, and a permanent maintenanc
 
 If any of the three is missing the change, you have a latent bug.
 
-**Current version: 1.** `decks`, `cards`, `reviewLogs`, `settings` — that is all four tables that
-exist. `Lesson` (Workflow E) and `Session` (Workflow D) are in `BUILD_GUIDE.md` §6 as the eventual
-model; they are deliberately not created until the workflows that fill them are built.
+**Current version: 2.** `decks`, `cards`, `reviewLogs`, `settings` and `sessions` — every table that
+exists. Version 2 added `sessions` (Workflow D) with an **intentionally empty** upgrade, because it
+introduced a table and transformed nothing; a retried migration therefore cannot corrupt anything.
+`Lesson` (Workflow E) is in `BUILD_GUIDE.md` §6 as the eventual model; it is deliberately not created
+until the workflow that fills it is built.
+
+`src/db/migrations.test.ts` carries the v1 → v2 test to copy for version 3. Note the pattern: it
+builds the v(N−1) database from a **bare `Dexie`**, not from `StudyBaoDb`, because the class now
+declares the newer version and opening it would run the very migration under test.
 
 ## 3. Non-negotiable field rules
 

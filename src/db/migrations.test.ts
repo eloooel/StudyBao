@@ -143,22 +143,183 @@ describe('schema version 1', () => {
     reopened.close()
   })
 
-  it('reopens without an upgrade function and reports the current version', async () => {
+  it('reopens at the current version and reports every table', async () => {
     const name = uniqueName()
     const db = new StudyBaoDb(name)
     await db.open()
 
-    expect(db.verno).toBe(1)
-    // Nothing to migrate from, so there is deliberately no `upgrade` registered. This asserts
-    // the absence rather than trusting it: adding one is how a "seed if empty" bug gets in.
+    expect(db.verno).toBe(2)
     expect(db.tables.map((table) => table.name).sort()).toEqual([
       'cards',
       'decks',
       'reviewLogs',
+      'sessions',
       'settings',
     ])
 
     db.close()
+  })
+})
+
+/**
+ * Version 1 → version 2, the Workflow D migration.
+ *
+ * This is the first migration in the project's history, and the runbook is explicit about the
+ * shape: open a v(N−1) database, write representative rows, reopen at v(N), and assert nothing was
+ * lost. The specific danger is that a store definition mistake silently drops a table's contents.
+ *
+ * The upgrade function is deliberately empty — it adds a table and transforms nothing — so what
+ * these tests defend is not the function but the **store definitions**: restating them wrongly is
+ * how a migration loses months of SM-2 history.
+ */
+describe('schema version 1 → 2', () => {
+  /**
+   * A version 1 database, written the way Workflow B/C would have written it.
+   *
+   * Built from a bare `Dexie` rather than `StudyBaoDb`, because `StudyBaoDb` now declares version
+   * 2 — opening it would run the very upgrade being tested. This is the honest way to simulate "a
+   * database that exists in the world today".
+   */
+  async function openLegacyV1(name: string): Promise<Dexie> {
+    const legacy = new Dexie(name)
+    legacy.version(1).stores({
+      decks: 'id, subject, updatedAt, deletedAt',
+      cards: 'id, deckId, nextReview, updatedAt, deletedAt',
+      reviewLogs: 'id, cardId, deckId, reviewedAt',
+      settings: 'id',
+    })
+    await legacy.open()
+    return legacy
+  }
+
+  it('keeps every row and every field, and adds an empty sessions table', async () => {
+    const name = uniqueName()
+    const now = 1_800_000_000_000
+    const deckId = deckIdForPart('practice-i')
+
+    const card: Card = {
+      id: 'card-1',
+      deckId,
+      front: 'Front',
+      back: 'Back',
+      tags: ['Pharmacology'],
+      easeFactor: 2.36,
+      intervalDays: 15,
+      repetitions: 3,
+      lapses: 1,
+      learningStep: null,
+      nextReview: now + 15 * DAY,
+      lastReviewedAt: now - DAY,
+      createdAt: now - 60 * DAY,
+      updatedAt: now - DAY,
+    }
+
+    const legacy = await openLegacyV1(name)
+    await legacy.table('decks').put({
+      id: deckId,
+      subject: 'practice-i',
+      name: 'Nursing Practice I',
+      scope: 'Community Health Nursing',
+      updatedAt: now,
+    })
+    await legacy
+      .table('cards')
+      .bulkAdd([card, { ...card, id: 'card-deleted', deletedAt: now - DAY }])
+    await legacy.table('reviewLogs').add({
+      id: 'log-1',
+      cardId: 'card-1',
+      deckId,
+      reviewedAt: now,
+      grade: 4,
+      msSpent: 4200,
+    })
+    await legacy.table('settings').put({
+      id: SETTINGS_ID,
+      cramThresholdDays: DEFAULT_CRAM_THRESHOLD_DAYS,
+      cloudSync: true,
+      seededAt: now,
+      updatedAt: now,
+    })
+    legacy.close()
+
+    // Reopen through the real class, which runs the upgrade.
+    const upgraded = new StudyBaoDb(name)
+    await upgraded.open()
+
+    expect(upgraded.verno).toBe(2)
+    // The new table exists and is empty — not populated with invented rows.
+    expect(await upgraded.sessions.count()).toBe(0)
+
+    // No card lost, and the SM-2 history is byte-for-byte intact. This is the assertion that
+    // matters: `intervalDays` and `lapses` cannot be reconstructed.
+    expect(await upgraded.cards.get('card-1')).toEqual(card)
+    expect(await upgraded.cards.get('card-deleted')).toMatchObject({ deletedAt: now - DAY })
+    expect(await upgraded.reviewLogs.count()).toBe(1)
+
+    // The settings row survives with its Workflow B fields and no invented timer values: absence
+    // means "use the default", and writing 25 here would freeze today's default into her row.
+    const settings = await upgraded.settings.get(SETTINGS_ID)
+    expect(settings).toMatchObject({
+      cramThresholdDays: DEFAULT_CRAM_THRESHOLD_DAYS,
+      cloudSync: true,
+      seededAt: now,
+    })
+    expect(settings?.workMin).toBeUndefined()
+
+    upgraded.close()
+  })
+
+  it('does not resurrect a deck she had deleted before the upgrade', async () => {
+    // The seeding path runs on every `getDb()`, so a migration is exactly where a "seed if empty"
+    // bug would show up. Gating on `seededAt` is what prevents it.
+    const name = uniqueName()
+    const now = 1_800_000_000_000
+    const target = deckIdForPart('practice-v')
+
+    const legacy = await openLegacyV1(name)
+    await legacy.table('settings').put({
+      id: SETTINGS_ID,
+      cramThresholdDays: DEFAULT_CRAM_THRESHOLD_DAYS,
+      cloudSync: true,
+      seededAt: now,
+      updatedAt: now,
+    })
+    for (const part of ['practice-i', 'practice-ii', 'practice-iii', 'practice-iv', 'practice-v']) {
+      await legacy.table('decks').put({
+        id: deckIdForPart(part as 'practice-i'),
+        subject: part,
+        name: part,
+        scope: '',
+        updatedAt: now,
+      })
+    }
+    await legacy.table('decks').update(target, { deletedAt: now - DAY })
+    legacy.close()
+
+    const upgraded = new StudyBaoDb(name)
+    await upgraded.open()
+    await seedInitialData(upgraded, now + DAY)
+
+    expect((await upgraded.decks.get(target))?.deletedAt).toBe(now - DAY)
+    upgraded.close()
+  })
+
+  it('is safe to open twice, because a failed migration can be retried', async () => {
+    // The runbook requires upgrade functions to be idempotent. This one does nothing, so the test
+    // is really asserting that a no-op is safe: reopening must not clear `sessions` or re-run
+    // seeding in a way that changes rows.
+    const name = uniqueName()
+    const first = new StudyBaoDb(name)
+    await first.open()
+    const deckCount = await first.decks.count()
+    first.close()
+
+    const second = new StudyBaoDb(name)
+    await second.open()
+
+    expect(second.verno).toBe(2)
+    expect(await second.decks.count()).toBe(deckCount)
+    second.close()
   })
 })
 

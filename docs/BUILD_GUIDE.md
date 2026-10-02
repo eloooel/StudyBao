@@ -272,7 +272,7 @@ A0 (decisions)                            ✅
  └─ A (scaffold + design system)          ✅
      ├─ B (flashcards + SM-2)             ✅
      │   └─ C (ingest → flashcards)       ✅
-     ├─ D (Pomodoro)                      ⏸
+     ├─ D (Pomodoro)                      ✅
      └─ E (tracker)                       ⏸
           └─ F (dashboard)                ⏸  ← needs B, D, E data
           └─ S (cloud sync)               ⏸  ← needs B/E data model + decisions #1/#6
@@ -316,8 +316,8 @@ vitest 4/5's optional browser peers — see the toolchain constraints in `CLAUDE
 
 1. Data model — §6, with the fields the original model was missing (`updatedAt`, `deletedAt`,
    `lapses`, `learningStep`, and a separate `ReviewLog`). Dexie **version 1**: `decks`, `cards`,
-   `reviewLogs`, `settings`. `Lesson` and `Session` are deliberately not created until Workflows E
-   and D exist to fill them.
+   `reviewLogs`, `settings`. `Lesson` and `Session` were deliberately not created at the time;
+   `Session` arrived with Workflow D as version 2, and `Lesson` still waits for Workflow E.
 2. SM-2 as a **pure function**: `schedule(cardState, grade, now) → newState` in
    `src/features/flashcards/lib/sm2.ts`, with the tests written before any UI.
 3. Manual CRUD: the five PRC decks are seeded and gated on a `seededAt` marker (so a deck she deletes
@@ -566,16 +566,34 @@ Card      { id, deckId, front, back, tags[],
             updatedAt, deletedAt? }
 ReviewLog { id, cardId, deckId, reviewedAt, grade /*0|3|4|5*/, msSpent }
           // APPEND-ONLY: no updatedAt, no deletedAt. Workflow S merges it union-only.
-Settings  { id: 'app', examDate?, cramThresholdDays, seededAt?, cloudSync, updatedAt }
+Settings  { id: 'app', examDate?, cramThresholdDays, seededAt?, cloudSync,
+            // Added by Workflow D. All optional, so a Workflow B settings row reads back
+            // unchanged — absent means "use the default", never "zero minutes".
+            workMin?, breakMin?, longBreakMin?, cyclesBeforeLongBreak?,
+            updatedAt }
 
-// Not created yet — these arrive with the workflows that fill them:
+// Shipped in Dexie version 2 (Workflow D):
+Session   { id, type /* working | break | longBreak */, startedAt, endedAt, plannedMs,
+            actualMs, completed, tabHiddenCount, updatedAt, deletedAt? }
+
+// Not created yet — arrives with the workflow that fills it:
 Lesson    { id, subject, topic, deadline, status, notes, updatedAt, deletedAt? }   // Workflow E
-Session   { id, startedAt, endedAt, plannedMs, actualMs, type, completed, tabHiddenCount } // D
 ```
 
-Settings will grow the timer fields (`workMin`, `breakMin`, …) when Workflow D needs them; they are
-omitted rather than invented. `seededAt` is what stops the five PRC decks being re-seeded after she
-deletes one — the gate is that marker, never "are there any decks".
+**`Session` is written twice per block, and that is deliberate.** A row is created when she presses
+Start — so a block interrupted by a closed tab is still a row rather than nothing, which matters
+because on an iPad closing the tab is normal and there is no server to notice (ADR 0006) — and
+updated when it ends. Two consequences worth knowing before reading the row:
+
+- `endedAt` means two things. Until `completed` is true it is the **planned** end
+  (`startedAt + plannedMs`), which is what makes an abandoned row recognisable.
+- `completed` is false for a block she skipped or walked away from. Workflow F must count only
+  completed **work** blocks; a skipped block does not earn a long break and must not inflate a
+  streak.
+
+It is a **mutable** record, so unlike `ReviewLog` it carries `updatedAt` and `deletedAt`. It is not
+the append-only exception, and adding those fields later — after sync exists — would have been a
+migration on a device with no undo.
 
 Why these fields, in one line each:
 

@@ -32,9 +32,46 @@ only, **no backend**, browser-based. Coquette pink-and-white.
 | **Workflow A** (scaffold + design system) | ✅ **Done**                                                             |
 | **Workflow B** (flashcards + SM-2)        | ✅ **Done** — reviewed, defects fixed, committed                        |
 | **Workflow C** (ingest pipeline)          | ✅ **Done** — all three commits (paste, PDF, photo OCR)                 |
-| D, E, F, S, G, H                          | ⏸ Not started                                                           |
-| Tests / coverage                          | 378 tests, 85.9% lines, 87.0% branches (floor is in `vitest.config.ts`) |
+| **Workflow D** (Pomodoro + sessions)      | ✅ **Done** — the first schema migration in the project's history       |
+| E, F, S, G, H                             | ⏸ Not started                                                           |
+| Tests / coverage                          | 455 tests, 86.1% lines, 87.7% branches (floor is in `vitest.config.ts`) |
 | Backend                                   | None, by decision. No server, no secrets.                               |
+
+### Workflow D shipped — and bumped Dexie to version 2
+
+The timer is real: 25/5/15 with a long break after four work blocks, configurable from Settings,
+with a sound cue on every transition and each block logged. Five things about it are load-bearing:
+
+- **A session row is written twice per block.** It is created when she presses Start and completed
+  when the block ends. Write-once-at-the-end would mean a block interrupted by a closed tab leaves
+  _nothing_, and on an iPad closing the tab is normal with no server to notice (ADR 0006). So an
+  abandoned row stays, `completed: false` — which is the honest record and is what stops a skipped
+  block from earning a long break or inflating a streak.
+- **`endedAt` means two things.** Until `completed` is true it is the _planned_ end
+  (`startedAt + plannedMs`), which is how an abandoned row is recognised.
+- **Remaining time is a subtraction, never a countdown.** A one-second interval only triggers a
+  repaint; the arithmetic reads `endsAt`. iOS suspends timers in a backgrounded tab, so a
+  decrementing counter would be wrong by exactly the time she was away — the situation she is
+  actually in. Tested by jumping the clock in large irregular steps, which a counter fails.
+- **The audio context is created inside the first press.** A context created at load starts
+  `suspended`, so the first cue would be silent — the failure §4 warns about. `lib/cue.ts` creates it
+  lazily on a cue, and every `playCue` call happens inside a press handler.
+- **`cyclesCompleted` counts completed work blocks only.** Four presses of Start are not four blocks
+  of focus; this is the off-by-one that decides when the long break arrives.
+
+**The migration.** Version 2 adds `sessions` with an **intentionally empty** upgrade — it introduces
+a table and transforms no row, so a retried migration cannot corrupt anything. The new `settings`
+timer fields are all optional, so a Workflow B settings row reads back unchanged: absent means "use
+the default", never "zero minutes". `src/db/migrations.test.ts` now carries a v1 → v2 test that
+builds the old database from a bare `Dexie` (opening `StudyBaoDb` would run the migration under
+test), seeds a tombstone and a legacy row, reopens, and asserts every field survived — including
+that `intervalDays` and `lapses` are byte-for-byte intact.
+
+**One test was loosened deliberately, and it is recorded rather than hidden.** `src/router.test.tsx`
+now passes an explicit timeout on its lazy-route waits. It failed once in three coverage runs: the
+index route rendered in **1404ms** against `findByRole`'s 1s default. That is contention, not a
+break, and the comment in the file says that raising it again should be treated as a finding about
+route speed rather than as tuning.
 
 ### Workflow C shipped in three commits
 

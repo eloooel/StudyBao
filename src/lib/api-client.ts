@@ -125,6 +125,10 @@ export async function requestJson<T>(url: string, options: RequestOptions = {}):
     // A 200 with an unparseable body is still a failure, and treating it as an empty success is
     // how a partial sync looks like a complete one.
     logger.warn('api-client: response body was not JSON', { url, status: response.status })
-    throw new HttpError('The server sent something we could not read.', 'malformed', response.status)
+    throw new HttpError(
+      'The server sent something we could not read.',
+      'malformed',
+      response.status,
+    )
   }
 }

@@ -108,6 +108,61 @@ export interface ReviewLog {
 }
 
 /**
+ * Which kind of block a timer session was.
+ *
+ * Deliberately the same words as `TimerPhase` in `features/timer/lib/timer.ts` — `'working'`, not
+ * `'work'`. Two vocabularies for one concept is how a filter silently matches nothing, and the
+ * mismatch showed up immediately as a type error at the one place a phase becomes a row.
+ */
+export type SessionType = 'working' | 'break' | 'longBreak'
+
+/**
+ * One Pomodoro block, recorded from Workflow D.
+ *
+ * Why `updatedAt` **and** `deletedAt` are both here, unlike `ReviewLog`: this record is
+ * written twice by design. A row is created the moment she presses Start — so a session
+ * interrupted by a closed tab is still a row rather than nothing — and updated when it
+ * actually ends. That makes it a **mutable** record, so it follows the normal rule:
+ * `updatedAt` on every write, `deletedAt` for a tombstone rather than a hard delete.
+ *
+ * `endedAt` therefore means two things depending on `completed`: at creation it is
+ * `startedAt + plannedMs`, the expected end, and it is corrected to the real end when the
+ * block finishes. A row whose expected end has passed while `completed` is still false is a
+ * block she abandoned — which is a fact worth keeping, not an error to clean up, and is
+ * exactly what Workflow F's streak must not count as a completed session.
+ */
+export interface Session {
+  id: string
+  type: SessionType
+  /** Epoch ms the block began. */
+  startedAt: number
+  /**
+   * Epoch ms the block ended. Before completion this is the **planned** end
+   * (`startedAt + plannedMs`), which is what lets an abandoned row be recognised.
+   */
+  endedAt: number
+  /** The configured length when the block started. Stored, not derived: settings can change. */
+  plannedMs: number
+  /** The real elapsed time. Set at completion; until then it is the planned length. */
+  actualMs: number
+  /**
+   * False until the block finishes properly. A row can sit false forever — the tab was
+   * closed, the device slept, she walked away — and Workflow F counts only completed work.
+   */
+  completed: boolean
+  /**
+   * How many times the page went hidden during the block.
+   *
+   * Recorded because it is the only signal distinguishing "she focused for 25 minutes" from
+   * "the tab was in the background for 25 minutes", and that difference is the point of a
+   * focus timer. Cheap to record, impossible to reconstruct afterwards.
+   */
+  tabHiddenCount: number
+  updatedAt: number
+  deletedAt?: number
+}
+
+/**
  * App settings. A single row, id `'app'`.
  *
  * `updatedAt` is here for the same reason it is on Card: this record will sync.
@@ -129,5 +184,18 @@ export interface AppSettings {
   seededAt?: number
   /** Decision D12: sync is on by default. Unused until Workflow S lands. */
   cloudSync: boolean
+  /**
+   * Timer lengths in minutes, added by Workflow D.
+   *
+   * Optional, so a settings row written by Workflow B reads back unchanged. An absent field
+   * means "use the default", never "zero minutes" — `sanitizeDurations` in
+   * `features/timer/lib/timer.ts` is what guards the value at every entry point, including a
+   * stale or hand-edited row.
+   */
+  workMin?: number
+  breakMin?: number
+  longBreakMin?: number
+  /** Work blocks before a long break instead of a short one. */
+  cyclesBeforeLongBreak?: number
   updatedAt: number
 }
