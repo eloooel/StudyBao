@@ -368,7 +368,7 @@ vitest 4/5's optional browser peers — see the toolchain constraints in `CLAUDE
 - **The review session is a route, not mode state.** She will hard-refresh mid-session one day — a tab
   restore, a swipe, ITP — and a route resumes cleanly from the database where React state would be lost.
 
-### Workflow C — Ingest Pipeline (paste / PDF / OCR → flashcards)
+### Workflow C — Ingest Pipeline (paste / PDF / OCR → flashcards) — ✅ **DONE**
 
 1. Ingest UI with three tabs: Paste text · Upload PDF · Upload photo.
 2. Normalize → parse (layered patterns) → produce `proposed` cards + a `leftover` queue.
@@ -376,7 +376,7 @@ vitest 4/5's optional browser peers — see the toolchain constraints in `CLAUDE
 4. On accept, write into the Deck/Card model with fresh SM-2 state.
 5. **Output:** notes → editable flashcard batch, with honest handling of what failed to parse.
 
-### Workflow D — Pomodoro Timer + Session Logging
+### Workflow D — Pomodoro Timer + Session Logging — ✅ **DONE**
 
 1. State machine: Idle → Working → Break → (loop) → LongBreak after N cycles.
 2. Configurable durations (defaults 25/5/15).
@@ -750,13 +750,33 @@ Relative to build start; the dates assume starting immediately.
 | Weeks 13–16 | Dec 16 – Jan 13 | G (nudges), H (polish)                             | Comfort features, once the core is proven in daily use                        |
 | Weeks 17–22 | Jan 13 – Feb 26 | **Buffer. Cram mode. Bug fixes. No new features.** |                                                                               |
 
-**Deviation as actually run, at 2026-10-01 (147 days out):** weeks 1–3 shipped **A and B but not D**,
-and the next workflow is **C, with D immediately after**. The row above originally said "B and D"
-because §9.1 reasoned a timer was needed early — but that was written before B existed, and the
-bottleneck B revealed is _card entry_, not timing. Spaced repetition compounds only over cards that
-already exist, and the exam date does not move, whereas a timer added in December is exactly as useful
-in December as in October. So card creation binds earlier than the timer does. Full reasoning in
-`docs/HANDOFF.md` §8.
+**Deviation as actually run, at 2026-10-07 (142 days out):** weeks 1–3 shipped **A and B but not D**,
+then C (in three commits) and D followed, so **A, B, C and D are all done** and the weeks 4–8 window is
+complete except for **E**. The row above originally said "B and D" because §9.1 reasoned a timer was
+needed early — but that was written before B existed, and the bottleneck B revealed is _card entry_, not
+timing. Spaced repetition compounds only over cards that already exist and the exam date does not move,
+whereas a timer added in December is exactly as useful in December as in October. So card creation binds
+earlier than the timer does. Full reasoning in `docs/HANDOFF.md` §8.
+
+**A recommended change to the order below, awaiting a go-ahead.** The budget puts F and S at weeks 9–12
+and H at 13–16, which means the reveal could not happen until mid-January. But §9.1's own argument is
+that the app must be usable long before it is complete, and §9.5 calls the reveal a deliverable in its
+own right. The recommendation is therefore: **E → export/import → H's reveal-scoped items → reveal**,
+with **F, S and G landing afterwards, while she is already using it.** Two reasons:
+
+- **F wants data that does not exist yet.** `ReviewLog` accumulates only from real reviews and the
+  `sessions` table has never recorded a block on her device, because she does not know the app exists
+  (D6). A dashboard built first renders a streak of 1 and empty bars, and a correct-but-empty screen is
+  indistinguishable from a broken one.
+- **Export is her only backup that does not depend on Google, the network, or a sync bug**
+  ([ADR 0007](adr/0007-browser-only-no-install.md)), and S cannot be _finished_ in one session — its
+  definition of done includes leaving the Home Screen app unopened for 8+ days, which is calendar-time
+  acceptance that cannot be simulated. Bundling export into S would delay her only safety net behind the
+  slowest workflow in the plan.
+
+Revealing earlier is roughly six more weeks of spaced repetition. **But the timing of a gift is not
+purely an engineering question** — whether December is a good moment to hand it to her is a human call,
+which is why this is a recommendation rather than a decision.
 
 **Hard rule: no new feature lands after mid-January.** A feature shipped two weeks before a licensure
 exam is a liability, not a gift — she will not have time to work around a bug in it. Weeks 17–22 exist

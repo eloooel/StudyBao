@@ -553,11 +553,43 @@ correct-but-empty screen from a broken one. F wants data to look at.
 - **The reveal** (`BUILD_GUIDE.md` §9.5) is a deliverable in its own right: she does not know this exists
   (D6), so the first thirty seconds carry most of the adoption risk. Do not leave it to the end.
 
-### An open question that needs a decision, not a default
+### A decision this section used to leave open: export/import is its own step
 
-**Backup / export (decision #9) has no home workflow.** It is specified as a first-class screen, and it is
-the only backup that does not depend on Google, the network, or a sync bug. The recommendation is to land
-it inside **S**, but that is a decision rather than an inference, and it is currently unassigned.
+**Resolved: export/import is its own small step immediately after E, and explicitly not inside S.**
+
+It was previously unassigned and the recommendation was to fold it into S. That is wrong for two
+reasons:
+
+- **It is the only backup that does not depend on Google, the network, or a sync bug**
+  ([ADR 0007](adr/0007-browser-only-no-install.md)). S's own definition of done includes leaving the
+  Home Screen app unopened for 8+ days — calendar-time acceptance that cannot be simulated — so S
+  cannot be _finished_ in one session. Bundling her only safety net into the slowest workflow in the
+  plan delays it for no reason.
+- **It is also the interim multi-device story.** She uses an iPad and a Windows laptop. Until S lands,
+  export/import is how cards move between them, which makes it load-bearing rather than a nice extra.
+
+The Settings screen already carries disabled Export and Import buttons waiting for it.
+
+### A recommended change to the order, which needs your go-ahead
+
+The recommended order above is E → F → S, following §9.2's budget. **Consider E → export/import → H
+(reveal-scoped) → reveal, with F, S and G afterwards, while she is already using the app.**
+
+- **F wants data that does not exist yet.** It reads `ReviewLog` and `Session`, and both are near-empty
+  in the world: `ReviewLog` only accumulates from real reviews, and `sessions` has never recorded a
+  block on her device because she does not know the app exists (D6). A dashboard built first renders a
+  streak of 1 and empty bars, and a correct-but-empty screen cannot be told from a broken one. This
+  section already says so — the conclusion is just that F belongs _after_ she starts using it, not
+  before.
+- **The reveal is a deliverable, and this section already warns against leaving it to the end.** Under
+  the current budget it cannot happen until mid-January, which costs roughly six weeks of spaced
+  repetition. §9.1's own argument is that the app must be usable long before it is complete.
+- Revealing earlier is safe on data: export covers loss without an account, and H's install prompt is
+  what exempts her local database from WebKit's 7-day deletion ([ADR 0008](adr/0008-add-to-home-screen-on-ipad.md)).
+
+**This is a recommendation rather than a decision because the timing of a gift is not purely an
+engineering question** — whether December is a good moment to hand it to her is yours. Either way **E is
+next**, so this does not block the next step; `BUILD_GUIDE.md` §9.2 carries the same note.
 
 ### Read first for any workflow
 
