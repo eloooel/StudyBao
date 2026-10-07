@@ -191,7 +191,7 @@ correction. Check the linked ADR before "improving" it.
 src/
 ├── main.tsx                  # entry; applies the theme before first paint
 ├── App.tsx                   # providers: Toast → BrowserRouter → routes
-├── router.tsx                # 7 lazy routes + a real not-found state
+├── router.tsx                # 9 lazy routes + a real not-found state
 ├── pwa.config.ts             # manifest + Workbox config (imported by vite.config.ts)
 ├── styles/theme.css          # ★ ALL design tokens. The only place colours exist.
 ├── lib/
@@ -215,11 +215,14 @@ src/
 │   ├── dashboard/            # page + view, placeholder zeroes
 │   ├── flashcards/           # ★ Workflow B — lib/ hooks/ components/ pages/ types.ts
 │   ├── ingest/               # ★ Workflow C — lib/ hooks/ components/ pages/ types.ts
-│   ├── timer/                # page + view, static clock + the "keep tab open" warning
-│   ├── tracker/              # page + view, empty state
-│   └── settings/             # page + view; theme toggle + exam date + storage notice
+│   ├── timer/                # ★ Workflow D — lib/ (timer, cue, format) hooks/ components/ pages/
+│   ├── tracker/              # page + view, empty state — this is Workflow E's home
+│   └── settings/             # page + view; theme, exam date, cram threshold, timer lengths
 └── test/                     # setup.ts (jsdom shims + DB reset) and render.tsx
 ```
+
+`src/db/` is at **Dexie version 2** with five tables (`decks`, `cards`, `reviewLogs`, `settings`,
+`sessions`) and five repositories: `decks`, `cards`, `review-logs`, `settings`, `sessions`.
 
 `src/lib/use-database-value.ts` is the shared cross-screen refresh signal, promoted out of
 `flashcards/` in Workflow C when ingest became its third consumer. **Do not copy it** — two copies
@@ -227,12 +230,19 @@ would mean two screens disagreeing about what is current. Note the contract in i
 must be stable (wrap it in `useCallback`), or the effect cancels and restarts its own read forever and
 `loading` never becomes `false`. That mistake was made once during Workflow C and cost an afternoon.
 
-Root config: `vite.config.ts`, `vitest.config.ts`, `eslint.config.js`, `prettier.config.mjs`,
-`tsconfig.json`, `vercel.json` (SPA rewrite), `scripts/generate-icons.mjs`, `.github/workflows/ci.yml`.
+`src/lib/api-client.ts` is the only place the app may call `fetch` directly, because `eslint.config.js`
+bans a bare `fetch` outside `src/lib/` and that message used to name a file that **did not exist**.
+Nothing calls it yet — Workflow S is the intended consumer. Note what it deliberately is not: Firestore
+goes through the Firebase SDK, not through this.
 
-**Flashcards are wired to real data.** The five PRC decks are seeded on first launch and cards can be
-created, edited, deleted and reviewed with real SM-2 scheduling. The Timer and Lessons screens are still
-deliberate empty states; the dashboard still shows placeholder zeroes.
+Root config: `vite.config.ts`, `vitest.config.ts`, `eslint.config.js`, `prettier.config.mjs`,
+`tsconfig.json`, `vercel.json`, `.github/workflows/ci.yml`. `scripts/` holds the icon generator, the two
+vendored-asset copiers, the OCR language vendorer, and three PDF/precache checks.
+
+**Everything except the dashboard and the tracker is wired to real data.** Five seeded PRC decks with
+real SM-2 review and cram mode; a three-path ingest pipeline (paste, PDF, photo OCR); and a working
+Pomodoro timer that logs every block. Flashcards, the timer and ingest are usable today. The tracker
+and dashboard screens are still deliberate empty states — they are Workflows E and F.
 
 ### Architecture rules that are enforced, not just written down
 
@@ -386,6 +396,48 @@ index.
   `change-data-model.md` were corrected to say "every _mutable_ synced record" with this as the named
   exception.
 
+### Decisions made during Workflow C (full reasoning in `BUILD_GUIDE.md` §4)
+
+- **The parser reports provenance**, which is what makes its one invariant assertable: every normalized
+  input line belongs to exactly one card's span or to the leftover queue, never two, never none.
+  `assertProvenance` enforces it at runtime, so a future rule that drops or double-claims a line throws
+  instead of returning a plausible array. The original brief stated this as a line **count**, which was
+  wrong twice: it forbade joining a wrapped line, and it passed when one line was dropped and another
+  counted twice.
+- **Joining runs after the card patterns, never before** — a line matching a card-start pattern starts a
+  card and is never joined, even when lowercase. The single exception is a word hyphenated across a line
+  break, where the trailing hyphen is the evidence.
+- **"Does this line start a card?" is answered in exactly one function.** It was answered in two places
+  at first, and the second one ran after the join check — so bare `term: definition` lines had no anchor
+  and were glued onto the line above, losing the term into the previous definition. A fixture caught it.
+- **A rejected separator line is an anchor, not a continuation.** `"Note: she reported: pain"` was being
+  appended to the card above it, producing an answer that read `"ascorbic acid Note: she reported:
+pain"` — a card saying something her notes do not say.
+- **The ingest draft lives in sessionStorage, not Dexie.** The unreviewed remainder of a batch does not
+  justify a schema change, and its limits are stated on screen rather than implied.
+- **`useDatabaseValue` was promoted to `src/lib/`**, as the runbook instructed once a third feature
+  needed it — a move, not a copy, and not into `src/db/`, which holds the schema and repositories.
+
+### Decisions made during Workflow D
+
+- **A session row is written twice per block**, at Start and at the end. Write-once-at-the-end would mean
+  a block interrupted by a closed tab leaves nothing, and on an iPad closing the tab is normal with no
+  server to notice (ADR 0006). `endedAt` therefore means the _planned_ end until `completed` is true,
+  which is how an abandoned row is recognised.
+- **`Session` is a mutable record**, so unlike `ReviewLog` it carries `updatedAt` and `deletedAt`. It is
+  not the append-only exception, and adding those fields after sync exists would have been a migration on
+  a device with no undo.
+- **Remaining time is a subtraction, never a countdown.** The 1-second interval only triggers a repaint.
+  iOS suspends timers in a backgrounded tab, so a counter would be wrong by exactly the time she was away
+  — the situation she is actually in.
+- **`cyclesCompleted` counts completed work blocks only.** Four presses of Start are not four blocks of
+  focus, and a skipped block must not earn a long break.
+- **The audio context is created inside the first press**, because a context created at load starts
+  `suspended` and the first cue would be silent.
+- **The Dexie v2 upgrade is intentionally empty.** It adds a table and transforms no row, so a retried
+  migration cannot corrupt anything. The new `settings` timer fields are all optional, so a Workflow B
+  row reads back unchanged — absent means "use the default", never "zero minutes".
+
 ### Open, with working defaults
 
 D8 notification cadence and quiet hours · D9 night mode: keep or cut · D10 font (Quicksand chosen) ·
@@ -407,9 +459,20 @@ These are the sharp edges. Each has cost time or would have.
 - **Her data can vanish at any time.** Design every screen to survive the local database being deleted:
   empty IndexedDB plus remote data means restore **silently**, never with empty-state onboarding that
   reads as data loss.
-- **`ReviewLog`, `lapses`, `updatedAt`, `deletedAt` and epoch-ms timestamps are non-backfillable.** You
-  cannot reconstruct _when_ something happened after the fact. This is the one-way class of decision —
-  see §7.
+- **`ReviewLog`, `lapses`, `updatedAt`, `deletedAt`, `Session.tabHiddenCount` and epoch-ms timestamps
+  are non-backfillable.** You cannot reconstruct _when_ something happened, or whether the tab was
+  hidden, after the fact. This is the one-way class of decision — see §7.
+- **A `.gz` must not be served with `Content-Encoding: gzip`.** The browser decodes it transparently and
+  the library — tesseract.js, here — then fails on the inner payload. `vercel.json` pins
+  `Content-Encoding: identity` for `/ocr/lang/*`. Found by reading response headers, not by assuming.
+- **`globPatterns` in `src/pwa.config.ts` is an allowlist of _extensions_**, so an asset is excluded only
+  by accident of its suffix. That is how a lazy PDF chunk and 600 KB of `*_nowasm_fallback.js` files
+  re-entered the precache. Anything heavy and on-demand belongs in `globIgnores` by name, and the result
+  is checked with `node scripts/report-precache.mjs`, which reads the generated manifest rather than the
+  config.
+- **`useDatabaseValue`'s `load` must be stable.** An inline arrow is a new function every render, so the
+  effect cancels and restarts its own read forever and `loading` never becomes `false`. Wrap it in
+  `useCallback`. This was made once in Workflow C and cost an afternoon.
 - **PRC publishes no item weights.** Do not build any "this topic is worth X%" UI. Her own review data
   is the only honest signal, and a fabricated percentage would misallocate her study time.
 - **The PRC program should be re-verified around December 2026.** The Feb 2026 program was approved
@@ -439,84 +502,104 @@ else is refactoring, and there were 22 weeks of runway as of Sept 2026.
 
 ## 8. What to do next
 
-**Workflow B is done.** The flashcards work end to end: seeded decks, manual CRUD, real SM-2, a review
-session, and cram mode. Nothing else has started, and each remaining workflow still needs its own
-go-ahead.
+**Workflows A, B, C and D are done.** The app is usable today for its core loop: notes become cards
+(ingest), cards are reviewed with real SM-2 scheduling (flashcards), and study blocks are timed and
+logged (timer). What is missing is the _plan_ — what she is supposed to be studying next.
 
-### The order is decided: **C now, D immediately after**
+**As of 2026-10-07 the exam is 142 days away (~20 weeks).** `BUILD_GUIDE.md` §9.2's weeks 4–8 window was
+"C (ingest), then D, then E (tracker)". C and D are done, so **E is the remainder of that window.** The
+project is on schedule.
 
-**C (ingest → flashcards) is next.** The reasoning, because this deviates from `BUILD_GUIDE.md` §9.2,
-which schedules D alongside B in weeks 1–3:
+### Recommended order: **E → F → S**
 
-- **C is the input path for the whole product.** B shipped manual entry, so without C every card has to
-  be typed by hand from her notes. That is not an enhancement to the core loop; it is the only way her
-  material reaches it.
-- **Spaced repetition compounds, and only over cards that exist.** A card created in December gets less
-  spacing than one created in October, and the exam date does not move. A Pomodoro timer added in
-  December is exactly as useful in December as it would have been in October. Card creation binds
-  earlier than the timer does.
-- **C carries the most technical risk left** — OCR, web workers, and a precache-size hazard that would
-  slow the first load of the app forever. Risk is cheaper to retire with 21 weeks of runway than with 8.
-  If C is going to be hard, that is worth knowing in October.
-- **Delaying D costs nothing structurally**, because D is independent of the data model and of C.
+Each workflow still needs its own go-ahead. This is the recommendation, with the reasoning, because the
+ordering has one dependency that is easy to get wrong.
 
-The one argument for D first is that it is small, self-contained, and unblocks `SessionLog` for F and
-the session state for G. It is a reasonable call, and C is the better one: the exam is failed by missing
-cards, not by a missing timer.
+#### 1. E (lesson tracker) — next
 
-**The deviation is recorded in `BUILD_GUIDE.md` §9.2** rather than quietly re-planned.
+- **It is the last piece of the study loop rather than an addition to it.** The app represents _cards_
+  and _time_; it has no representation of _what she is supposed to be doing next_. Her syllabus still
+  lives outside the app.
+- **It is the last input path.** C handles her notes; E handles her plan. Everything after it is
+  presentation or plumbing.
+- It is the only remaining workflow with real product surface, and §9.2 already scheduled it here.
 
-**A correction to how this section used to read:** it said C removes the card-entry tax "now that she is
-actually using the app". She is not — she does not know the app exists (D6: it is a surprise). No
-card-entry tax is being paid today, and no adoption clock is running. What C buys is that the app is
-ready for the reveal, because a reveal that asks her to type every card from her notes will fail.
+#### 2. F (dashboard) — after E, and specifically not before
 
-**[`docs/WORKFLOW-C-PROMPT.md`](WORKFLOW-C-PROMPT.md) is the self-contained brief to hand the next
-agent.** It carries the three OCR traps, the decided reload behaviour, and the test-can't-go-red rule.
-It is spent once C ships.
+**Because there is almost no history to aggregate yet.** F reads `ReviewLog` and `Session`, and both are
+close to empty in the world: `ReviewLog` only accumulates from real reviews, and `Session` — added in
+Workflow D — has never recorded a block on her device, because **she does not know the app exists** (D6).
+A dashboard built now renders a streak of 1 and empty progress bars, and there is no way to tell a
+correct-but-empty screen from a broken one. F wants data to look at.
 
-**S (sync) is the one with a hard constraint:** `ReviewLog` must merge union-only, and
-`docs/ai/change-data-model.md` names it.
+#### 3. S (cloud sync) — third, with two constraints to plan around
 
-**Read first for any workflow:** [`docs/ai/README.md`](ai/README.md) → the matching runbook →
-[`docs/BUILD_GUIDE.md`](BUILD_GUIDE.md) §4 for that workflow and §6 for the model and contracts.
+- **`ReviewLog` must merge union-only.** A last-write-wins merge on an append-only table is silent
+  history loss. Named in `CLAUDE.md`, `docs/ai/change-data-model.md` and the type's own doc comment.
+- **S cannot be _finished_ in one session.** Its definition of done includes "the Home Screen app is
+  confirmed exempt by leaving it unopened for 8+ days" — a calendar-time acceptance test that needs her
+  real device and cannot be simulated. Schedule it with that gap in mind rather than discovering it at
+  the end.
+- S is where the deferred `recordReview` whole-record write gets fixed (see
+  [`docs/WORKFLOW-B-REMAINING.md`](WORKFLOW-B-REMAINING.md)), and where `src/lib/api-client.ts` either
+  finds a use or should be reconsidered.
 
-**What Workflow B leaves you, concretely:**
+#### Not yet
 
-- `src/db/` — Dexie version 1 with `decks`, `cards`, `reviewLogs`, `settings`, four repositories, and a
-  seeding path gated on a `seededAt` marker. **Any change here needs a version bump and a tested
-  migration**; `src/db/migrations.test.ts` is the pattern to extend.
-- `src/features/flashcards/lib/sm2.ts` — the scheduler, with 25 tests. Do not edit it without reading
-  the contract at the top of the file and re-running them.
-- `src/lib/study-day.ts` — the single 04:00 boundary. The streak logic in Workflow F must call it, not
-  reimplement it.
-- `src/db/repositories/cards.ts` → `recordReview` — grading and its `ReviewLog` row in one transaction.
-  Nothing may write a card's SM-2 state outside it.
+- **G (nudges)** is _possible_ now — it needed D's session state, which exists — but §9.2 schedules it
+  weeks 13–16, and it is a comfort feature. Nothing depends on it.
+- **H (polish)** is last by definition, and its definition of done is a full click-through on real
+  devices.
+- **The reveal** (`BUILD_GUIDE.md` §9.5) is a deliverable in its own right: she does not know this exists
+  (D6), so the first thirty seconds carry most of the adoption risk. Do not leave it to the end.
 
-**The SM-2 contract — do not improvise this.** Grades map Again=0, Hard=3, Good=4, Easy=5. Ease factor
-is updated on _every_ grade **and floored at 1.3**. `q < 3` resets repetitions, zeroes the interval,
-records a lapse, and re-enters sub-day learning steps (1 min → 10 min) — it does **not** jump to one day.
-Mastery is `learningStep === null && intervalDays >= 21`, not a repetition count. Full statement in
+### An open question that needs a decision, not a default
+
+**Backup / export (decision #9) has no home workflow.** It is specified as a first-class screen, and it is
+the only backup that does not depend on Google, the network, or a sync bug. The recommendation is to land
+it inside **S**, but that is a decision rather than an inference, and it is currently unassigned.
+
+### Read first for any workflow
+
+[`docs/ai/README.md`](ai/README.md) → the matching runbook → [`docs/BUILD_GUIDE.md`](BUILD_GUIDE.md) §4
+for that workflow and §6 for the model and contracts. **E's data model is already specified in §6**, along
+with the `Lesson` table that Workflow D deliberately did not create.
+
+### What D leaves you, concretely
+
+- `src/db/` — **Dexie version 2**, five tables, five repositories. **Any further change needs a version
+  bump and a tested migration**; `src/db/migrations.test.ts` now carries a v1 → v2 test to copy, including
+  the trick of building the old database from a **bare `Dexie`** so opening it does not run the migration
+  under test.
+- `src/features/timer/lib/timer.ts` — the state machine, pure and clock-injected. The rules are here, not
+  in the hook; keep it that way.
+- `src/db/repositories/sessions.ts` — the two-phase session write. `completedWorkBlocks` is what excludes
+  a skipped block, and **F must use it** rather than counting rows.
+- `src/lib/study-day.ts` — the single 04:00 boundary. F's streak must call it, never reimplement it.
+
+### The contracts that must not be improvised
+
+**SM-2.** Grades map Again=0, Hard=3, Good=4, Easy=5. Ease factor updates on _every_ grade **and is
+floored at 1.3**. `q < 3` resets repetitions, zeroes the interval, records a lapse, and re-enters sub-day
+learning steps (1 min → 10 min) — it does **not** jump to one day. Mastery is
+`learningStep === null && intervalDays >= 21`, not a repetition count. Full statement in
 `BUILD_GUIDE.md` §6 and [ADR 0003](adr/0003-sm2-scheduler-and-learning-steps.md).
 
 **Deck seeds:** the five PRC Nursing Practice parts, verbatim from
 [`reference/pnle-scope.md`](reference/pnle-scope.md). The integrated knowledge areas (pharmacology,
 pathophysiology, A&P, nutrition, parasitology/microbiology) are **tags, not decks**.
 
-**Definition of done for B:** SM-2 unit tests cover graduations, lapses and the EF floor; a card graded
-Good four times schedules ~15+ days out; and the existing verification suite still passes. **All three
-met** — the counterexample is asserted by name in `sm2.test.ts`, and it is what pinned the meaning of
-`repetitions`.
+**The parser's invariant.** Every normalized input line belongs to exactly one card's span or to the
+leftover queue. `assertProvenance` enforces it at runtime — do not weaken it to accommodate a new
+pattern; that is the mechanism that stops a dropped line becoming a card she never reviews.
 
 **On scope discipline:** do not start a workflow because it looks small. The remaining workflows are
-sequential by design and each needs its own go-ahead. The current one is **C**, and its do-not-build
-list — timer, tracker, dashboard, sync, notifications, backend — is in
-[`docs/WORKFLOW-C-PROMPT.md`](WORKFLOW-C-PROMPT.md).
+sequential by design and each needs its own go-ahead.
 
-This replaces an earlier line here that read "Do not: add sync, add the timer, add OCR, or add a
-backend." That was the Workflow B brief's constraint list, and once B shipped it became wrong in the
-same section that recommends C — which is OCR. A stale "do not" next to a "do this" is how a reader
-talks themselves out of the correct next step.
+**A note on why this section keeps going stale:** it has now twice argued for a workflow that has since
+shipped — first C, then D — because the recommendation was written as "the current one is X" rather than
+as a standing order. Update the _state_ line in §1 and the DAG in `BUILD_GUIDE.md` §4 when a workflow
+lands, and rewrite the paragraph above rather than adding a correction below it.
 
 ---
 

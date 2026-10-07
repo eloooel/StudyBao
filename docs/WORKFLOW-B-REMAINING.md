@@ -1,5 +1,16 @@
 # Workflow B — status and what is left
 
+> **Mostly spent.** The state of the world is [`HANDOFF.md`](HANDOFF.md) — read that first.
+>
+> Done since this file was last accurate: item 3 (`useDatabaseValue` promoted to `src/lib/`, during
+> Workflow C), and the whole of Workflows C and D.
+>
+> Still open: item 2, the `recordReview` whole-record write, and item 4, the union-only merge rule for
+> `ReviewLog`. Both belong to Workflow S, and both are repeated in `HANDOFF.md` §8.
+>
+> **The hashes and test counts in the table below are historical and were stale within days of being
+> written.** Run `git log --oneline` instead — the file's own warning applies to it.
+
 This file was a working list while Workflow B was being finished. Most of it is done; what remains is
 small, and none of it blocks the next workflow.
 

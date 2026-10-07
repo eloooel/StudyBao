@@ -1,5 +1,27 @@
 # Prompt for the next agent — Workflow C (ingest pipeline)
 
+> ## ⛔ SPENT — do not follow this document
+>
+> **Workflow C shipped.** Every item below was delivered across commits `185be29`, `b0fb2cf` and
+> `f7b661b`, and the file's own terms say it stops being authoritative once that happened:
+> _"This file is spent once Workflow C ships."_
+>
+> It is kept for **historical reasons only** — it is the clearest record of the OCR traps that cost
+> real time (the CDN defaults, the precache-size hazard, the worker path that only resolves in dev).
+> Those are now also written down in [`HANDOFF.md`](HANDOFF.md) §1 and, for the Tesseract corrections,
+> in `BUILD_GUIDE.md` §3.
+>
+> **The state of the world is [`docs/HANDOFF.md`](HANDOFF.md).** If you are looking for what to do
+> next, read that — not this.
+>
+> Two things below are now **known to be wrong** and are left uncorrected on purpose, because this is a
+> frozen historical document:
+>
+> - it says `corePath` must point at a directory containing **four** core files. `tesseract.js-core@7`
+>   ships **six** capability variants; see `BUILD_GUIDE.md` §3 and `scripts/copy-ocr-assets.mjs`.
+> - it states the parser invariant as a **line count** (`cards.length + leftoverLines.length`). That was
+>   wrong twice over and was replaced with a provenance invariant. See `docs/ai/write-tests.md` case 6.
+
 Copy everything below the line into a fresh session, in this repository. It is written to stand alone.
 
 This file is spent once Workflow C ships. It was written at the end of Workflow B; do not treat it as
