@@ -389,7 +389,9 @@ vitest 4/5's optional browser peers — see the toolchain constraints in `CLAUDE
 
 ### Workflow E — Lesson Tracker + Schedule Import
 
-1. Data model: `Lesson { id, subject, topic, deadline, status, notes, updatedAt, deletedAt }`.
+1. Data model: `Lesson { id, subject, topic, deadline?, status, notes?, updatedAt, deletedAt? }`.
+   `deadline` is optional — see §6 for why a required date would be a fabricated number. `subject` is
+   the stable `PrcPart` key; its label resolves from `seed-data.ts`, never from the `decks` table.
 2. Manual CRUD + calendar/list view, filterable by status.
 3. Reuse the ingest pipeline for schedule photos; keep parsing minimal and route straight to a
    confirm/edit form. Reuse the `Lesson` form component — do not build a second one.
@@ -576,9 +578,18 @@ Settings  { id: 'app', examDate?, cramThresholdDays, seededAt?, cloudSync,
 Session   { id, type /* working | break | longBreak */, startedAt, endedAt, plannedMs,
             actualMs, completed, tabHiddenCount, updatedAt, deletedAt? }
 
-// Not created yet — arrives with the workflow that fills it:
-Lesson    { id, subject, topic, deadline, status, notes, updatedAt, deletedAt? }   // Workflow E
+// Created by Workflow E (version 3):
+Lesson    { id, subject, topic, deadline?, status, notes?, updatedAt, deletedAt? }   // Workflow E
 ```
+
+**`deadline` is optional, amended 2026-10-07.** It was written bare above, which made it required.
+Making it required forces her to invent a date at the moment of entry for every topic she has not
+planned yet — and an invented date is a _wrong_ number, which this project treats as worse than a
+missing one. It then sorts into "overdue" and shows in red for a deadline she never meant. So a lesson
+may carry no deadline, and those gather in an explicit **"No date yet"** section rather than a fake one.
+`subject` is the stable `PrcPart` key, exactly as on `Deck`, and its display label resolves from
+`PRC_PARTS` in `src/db/seed-data.ts` — **not** from the `decks` table, which is soft-deletable and would
+leave a lesson's subject unreadable the moment she deletes a deck.
 
 **`Session` is written twice per block, and that is deliberate.** A row is created when she presses
 Start — so a block interrupted by a closed tab is still a row rather than nothing, which matters
