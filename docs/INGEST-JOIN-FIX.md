@@ -148,8 +148,9 @@ readable, say so and ask rather than substituting a file of your own.
 | Provenance invariant                     | 3,215/3,215 claimed, 0 double, 0 unclaimed | must be identical in kind |
 
 Two of those files behave differently and you must report both: one has a text layer and yields 3,215
-lines; **the other has no text layer and yields 0 lines, which is correct and not your concern** (the
-PDF is rasterized; a separate task will add an OCR fallback for it).
+lines; **the other has no text layer and yields 0 lines, which is correct and not your concern** — the
+PDF is rasterized, and the in-app OCR fallback for it is **deferred** (D14), because the reader's own
+Live Text already handles it. See `docs/DECISIONS.md` D14.
 
 ## Non-negotiables
 
