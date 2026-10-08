@@ -697,18 +697,25 @@ content enters the repository.
 
 The same test surfaced one thing that is **not** a bug and is now **decided** (D14 in
 [`docs/DECISIONS.md`](DECISIONS.md)): **one of the two sample documents is a rasterized PDF**, so the
-PDF tab yields nothing for it at all. **The OCR fallback is being built** — when `looksScanned` is true,
-render pages to canvas with pdfjs and run them through the OCR pipeline that already exists. It is
-plumbing, not a new pipeline. **Sequence it after the join fix**, because OCR text would feed the same
-parser and multiply the mangling.
+PDF tab yields nothing for it. **The in-app OCR fallback is DEFERRED** — because that same file, put
+through Select All → Copy, returned the whole 19 pages as text, and the output proves the reader was
+running **Live Text OCR**, not reading a text layer: the same watermark reads `Marbie Jade` on one line
+and `Marble Jade` on another, and the body carries recognition errors (`four` → `tour`, `feet` → `teet`).
+A text layer cannot render one watermark a dozen ways.
 
-Two facts from that decision that change the design, not just the scope:
+So the app's existing copy — "use Live Text and paste into the first tab" — is **already the correct
+instruction, costs nothing, and uses a better OCR than Tesseract**. Building ours would redo it worse and
+more slowly. **Gated on one test:** whether the file is copyable on the **Windows laptop**, where Live
+Text does not exist and neither Edge nor Chrome OCRs a PDF. That is the only place the fallback still
+earns its keep.
+
+Two facts survive that reversal:
 
 - **Her material is digital PDFs and screenshots and never handwriting**, which invalidates the guide's
   framing of photo OCR as a _last resort_ — §3's warning is about handwriting, and Tesseract is trained
   on printed text. The copy is to be recalibrated, including the line that sends her to "your phone".
-- **Her iPad is 9th generation: A13, 3 GB of RAM.** A 50-page OCR run is minutes long, and Safari on a
-  3 GB device kills tabs. So the fallback must **persist each page as it completes** and **show partial
+- **Her iPad is 9th generation: A13, 3 GB of RAM.** _If_ it is ever built, a 50-page run is minutes long
+  and Safari on 3 GB kills tabs, so it must **persist each page as it completes** and **show partial
   results** — otherwise a killed tab loses the whole run. Measured context: 424 MB peak for an 82 MB
   133-page PDF in Node.
 
@@ -758,7 +765,8 @@ Critical path, and nothing else starts before it:
 2. **Export/import** — her only backup that does not depend on Google, the network, or a sync bug.
 3. **H, reveal-scoped** — the install prompt (which is what exempts her local data from ITP) and a first
    run with **no sign-in**, because S is unbuilt. `CLAUDE.md`'s UX rules describe the post-S flow.
-4. **The PDF→OCR fallback** (D14), conditional on how much of her library is rasterized.
+4. **The Windows-laptop copy test** (D14) — if a rasterized PDF is unreadable there, the in-app OCR
+   fallback is un-deferred for that device. If it reads, nothing is built.
 5. **The reveal.**
 
 **The honest costs, which are accepted rather than hidden:** no laptop sync and no dashboard until S and
