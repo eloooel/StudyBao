@@ -28,18 +28,24 @@ A study companion for one person's **PNLE** (Philippine Nurse Licensure Examinat
 with SM-2 spaced repetition, a Pomodoro timer, a lesson tracker, and in-app attention nudges. Free tools
 only, **no backend**, browser-based. Coquette pink-and-white.
 
-|                                           |                                                                                  |
-| ----------------------------------------- | -------------------------------------------------------------------------------- |
-| **Her exam**                              | **Friday, February 26, 2027**                                                    |
-| **Her devices**                           | iPad (as a Home Screen Web App) and a Windows laptop (browser tab)               |
-| **Workflow A** (scaffold + design system) | ✅ **Done**                                                                      |
-| **Workflow B** (flashcards + SM-2)        | ✅ **Done** — reviewed, defects fixed, committed                                 |
-| **Workflow C** (ingest pipeline)          | ✅ **Done** — all three commits (paste, PDF, photo OCR)                          |
-| **Workflow D** (Pomodoro + sessions)      | ✅ **Done** — the first schema migration in the project's history                |
-| **Workflow E** (lesson tracker)           | ✅ **Done, verified** — Dexie version 3; calendar grid and photo import deferred |
-| F, S, G, H                                | ⏸ Not started                                                                    |
-| Tests / coverage                          | 684 tests, 88.94% lines, 89.27% branches (floor is in `vitest.config.ts`)        |
-| Backend                                   | None, by decision. No server, no secrets.                                        |
+|                                                                              |                                                                                  |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **Her exam**                                                                 | **Friday, February 26, 2027**                                                    |
+| **Her devices**                                                              | iPad (as a Home Screen Web App) and a Windows laptop (browser tab)               |
+| **Workflow A** (scaffold + design system)                                    | ✅ **Done**                                                                      |
+| **Workflow B** (flashcards + SM-2)                                           | ✅ **Done** — reviewed, defects fixed, committed                                 |
+| **Workflow C** (ingest pipeline)                                             | ✅ **Done** — all three commits (paste, PDF, photo OCR)                          |
+| **Workflow D** (Pomodoro + sessions)                                         | ✅ **Done** — the first schema migration in the project's history                |
+| **Workflow E** (lesson tracker)                                              | ✅ **Done, verified** — Dexie version 3; calendar grid and photo import deferred |
+| **Reveal-scoped H** (first run + Home Screen prompt, and the Today dead end) | ✅ **Done** on `wip/pre-reveal-two-changes` — **not yet on `main`**              |
+| **Export/import** (JSON save + restore)                                      | ✅ **Done** on the same branch. Import **replaces**; merge is S's.               |
+| F, S, G                                                                      | ⏸ Not started                                                                    |
+| Tests / coverage                                                             | 684 tests, 88.94% lines, 89.27% branches (floor is in `vitest.config.ts`)        |
+
+**The two rows above are committed on a branch, not on `main`.** They were built concurrently, so they
+share one branch and will land together. Anything reading this file as "what `main` contains" should
+check `git log` first — `main` is two changes behind until that pull request merges.
+| Backend | None, by decision. No server, no secrets. |
 
 ### Export/import shipped — her only backup that is not Google
 
@@ -462,11 +468,16 @@ the tree, not about this paragraph.
   writable. It is gitignored.
 - **jsdom does not implement `HTMLDialogElement.showModal`.** `src/test/setup.ts` shims it, and the
   Modal tests dispatch `cancel` directly. Do not "fix" this by replacing native `<dialog>` with a div —
-  the platform behaviour is the reason it was chosen. **The consequence for tests:** `Modal` keeps its
-  children _and its `footer`_ mounted while closed, and jsdom has no visibility model for a closed
-  dialog, so a query for a dialog's button or title succeeds whether or not the dialog is open. Assert
-  the _effect_ instead — "nothing was deleted until the confirm was pressed" — because a query for the
-  dialog's copy would pass either way and is a test that cannot go red.
+  the platform behaviour is the reason it was chosen. **The consequence for tests, measured rather than
+  assumed:** `Modal` keeps its children _and its `footer`_ mounted while closed, and **role queries and
+  text queries disagree about it.** `getByRole` respects accessibility and the `display: none` a closed
+  dialog carries, so it finds **nothing** inside a closed dialog; `getByText` and `findByText` **do**
+  find the nodes. That asymmetry caused a real flake: a synchronous role query landing in the frame
+  between "counts rendered" and `showModal()` fails, and it passes a millisecond later. So **wait for the
+  `open` attribute before any role query inside the dialog**, and prefer asserting the _effect_ —
+  "nothing was written until the confirm was pressed" — because a query for the dialog's copy, by text,
+  passes whether or not it is open. Measured on jsdom 30 with Testing Library; see
+  `src/features/settings/components/backup-card.tsx`.
 - **`window.localStorage` hands back a _new_ `Storage` instance on every access in jsdom**, so
   `window.localStorage.getItem = fn` does not affect the code under test. Patch
   `Storage.prototype.getItem` with `vi.spyOn` instead. The old form made `theme.test.ts` pass or fail

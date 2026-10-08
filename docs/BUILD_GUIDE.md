@@ -858,19 +858,27 @@ Relative to build start; the dates assume starting immediately.
 | Weeks 13–16 | Dec 16 – Jan 13 | G (nudges), H (polish)                             | Comfort features, once the core is proven in daily use                        |
 | Weeks 17–22 | Jan 13 – Feb 26 | **Buffer. Cram mode. Bug fixes. No new features.** |                                                                               |
 
-**Deviation as actually run, at 2026-10-07 (142 days out):** weeks 1–3 shipped **A and B but not D**,
-then C (in three commits), D, and **E** followed, so **A, B, C, D and E are all done** and the weeks 4–8
-window is complete. The row above originally said "B and D" because §9.1 reasoned a timer was
-needed early — but that was written before B existed, and the bottleneck B revealed is _card entry_, not
-timing. Spaced repetition compounds only over cards that already exist and the exam date does not move,
-whereas a timer added in December is exactly as useful in December as in October. So card creation binds
-earlier than the timer does. Full reasoning in `docs/HANDOFF.md` §8.
+**Deviation as actually run, at 2026-10-08:** weeks 1–3 shipped **A and B but not D**, then C (in
+three commits), D, and **E** followed, so **A, B, C, D and E are all done** and the weeks 4–8 window is
+complete. The row above originally said "B and D" because §9.1 reasoned a timer was needed early — but
+that was written before B existed, and the bottleneck B revealed is _card entry_, not timing. Spaced
+repetition compounds only over cards that already exist and the exam date does not move, whereas a timer
+added in December is exactly as useful in December as in October. So card creation binds earlier than
+the timer does. Full reasoning in `docs/HANDOFF.md` §8.
 
-**A recommended change to the order below, awaiting a go-ahead.** The budget puts F and S at weeks 9–12
-and H at 13–16, which means the reveal could not happen until mid-January. But §9.1's own argument is
-that the app must be usable long before it is complete, and §9.5 calls the reveal a deliverable in its
-own right. The recommendation is therefore: **E (done) → export/import → H's reveal-scoped items →
-reveal**, with **F, S and G landing afterwards, while she is already using it.** Two reasons:
+**The reorder was taken, and it is done.** The budget puts F and S at weeks 9–12 and H at 13–16, which
+would have put the reveal in mid-January. Instead: **the parser join fix → H's reveal-scoped items and
+export/import → the dress rehearsal → the reveal**, with **F, S and G landing afterwards, while she is
+already using it.** Two orderings worth recording, because the second was not in the original
+recommendation:
+
+- **The join fix went first.** The ingest parser was mangling her real notes, and OCR text fed into it
+  would have multiplied the damage. A defect in shipped code outranks new work.
+- **H's reveal-scoped items went before export/import in practice**, not after — because the rehearsal
+  cannot happen without the first-run flow; the rehearsal _is_ that walkthrough. Export/import ran in
+  parallel and landed second.
+
+The two reasons the reorder was right are unchanged:
 
 - **F wants data that does not exist yet.** `ReviewLog` accumulates only from real reviews and the
   `sessions` table has never recorded a block on her device, because she does not know the app exists
