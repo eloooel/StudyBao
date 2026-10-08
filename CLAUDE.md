@@ -126,12 +126,15 @@ Path alias: `@` → `./src`.
   before using anything modern: `-AsByteStream` does not exist (use `-Encoding Byte`), the ternary and
   null-coalescing operators are absent, and `Get-ChildItem -File` behaves differently in places. Two
   commands failed on this during Workflow E's review before it was noticed.
-- **Never edit a Markdown file with `(Get-Content -Raw).Replace(...)` + `Set-Content`.** Prettier
-  rewraps prose at ~100 columns, so a literal copied from a chat message or from memory will not match,
-  `Replace` returns the string unchanged, `Set-Content` rewrites the file identically, and **the command
-  reports success while doing nothing**. This silently produced one inaccurate commit message during the
-  ingest work before it was caught by inspecting the file rather than trusting the exit code. Use the
-  edit tool, and confirm the change landed by grepping for it.
+- **Never edit a file with `(Get-Content -Raw).Replace(...)` + `Set-Content`.** It fails silently in two
+  different ways. Prettier rewraps prose at ~100 columns, so a literal copied from a chat message or from
+  memory will not match; `Replace` returns the string unchanged, `Set-Content` rewrites the file
+  identically, and **the command reports success while doing nothing** — that produced one inaccurate
+  commit message during the ingest work. And **PowerShell has no three-argument `String.Replace`**:
+  `.Replace('a', 'b', 1)` is a method-binding error, so a probe that plants a value _and_ the line that
+  "restores it byte-identical" can both become no-ops that report success. Use the edit tool, or
+  `-replace` for regex, and **confirm the change landed by reading the file**, never by the exit code.
+  This class has now cost three attempts.
 - **`$env:TEMP` is not the same directory under the confined and elevated sandboxes.** Each command is a
   fresh process and the session temp path differs, so a file written to `$env:TEMP` in one command is
   **not found** by the next — and the failure looks like the file was never created. This silently
