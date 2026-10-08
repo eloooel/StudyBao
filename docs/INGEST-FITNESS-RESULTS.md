@@ -148,6 +148,12 @@ a green test that cannot legitimately go red is worse than none.
 
 ## 5. Proposed order
 
+> **Superseded in part — see [`DECISIONS.md`](DECISIONS.md) D14.** Item 1 below was answered after this
+> was written: the reader's own Live Text already returns the whole document, so the in-app OCR fallback
+> is **deferred** rather than built, and item 4 is not on the critical path. Item 2 remains the next task
+> and is [briefed separately](INGEST-JOIN-FIX.md). Kept as written because it is the record of what the
+> evidence supported at the time, and the reversal is worth being able to read.
+
 Not a rewrite. Ranked, cheapest and highest-effect first:
 
 1. **Decide what her scanned material should do.** BoardPal cannot use the PDF path at all, and it is
