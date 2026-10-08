@@ -163,6 +163,49 @@ export interface Session {
 }
 
 /**
+ * The three states a lesson can be in (docs/BUILD_GUIDE.md §4 Workflow E).
+ *
+ * **Stored as these stable keys, never as the display labels.** That is the whole reason the
+ * filter cannot silently match nothing: comparing a stored `'reviewing'` to a typed `'reviewing'`
+ * is exact, whereas comparing labels breaks the day either side's wording or letter case drifts —
+ * and a copy change ("Reviewing" → "In review") would then need a migration on a device with no
+ * undo. Labels live in `features/tracker/lib/status.ts`; this union is what the database holds.
+ */
+export type LessonStatus = 'not-started' | 'reviewing' | 'mastered'
+
+/**
+ * One topic from her study plan — the app's first representation of *what she is supposed to be
+ * studying next*. Added by Workflow E as Dexie version 3.
+ *
+ * `deadline` is **optional**, amended in docs/BUILD_GUIDE.md §6 on 2026-10-07. A required date
+ * forces her to invent one for every topic she has not planned yet, and an invented deadline is a
+ * *wrong* number: it sorts into "overdue" and shows for a date she never meant. Undated lessons
+ * gather in an explicit "No date yet" section instead. When it is present it is the **04:00
+ * study-day start** of the day she means, exactly like `examDate`, so a lesson due "today" cannot
+ * flip to overdue at midnight while she is still studying.
+ *
+ * `subject` is the stable `PrcPart` key, exactly as on `Deck`, so the tracker, the dashboard and
+ * her own mental model line up. Its label resolves from `PRC_PARTS` in `src/db/seed-data.ts` and
+ * **never** from the `decks` table: decks are soft-deletable, so resolving through them would make
+ * a lesson's subject unreadable because of an unrelated action on another screen, with no way for
+ * her to fix it.
+ */
+export interface Lesson {
+  id: string
+  /** The PRC part this topic belongs to. Ordering across the app comes from `prcPartOrder`. */
+  subject: PrcPart
+  /** What she is studying, in her words. */
+  topic: string
+  /** Epoch ms at the 04:00 study-day start of the day she means, or absent for "no date yet". */
+  deadline?: number
+  status: LessonStatus
+  /** Anything she wants to remember about this one. Absent means none, never an empty string. */
+  notes?: string
+  updatedAt: number
+  deletedAt?: number
+}
+
+/**
  * App settings. A single row, id `'app'`.
  *
  * `updatedAt` is here for the same reason it is on Card: this record will sync.

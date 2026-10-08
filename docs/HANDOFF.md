@@ -6,7 +6,10 @@ decided and why, what is one-way, and what to do next.
 **Read order:** [`CLAUDE.md`](../CLAUDE.md) (constraints and the two AI boundaries) → this file → the
 runbook for whatever you were asked to do in [`docs/ai/`](ai/README.md).
 
-**State of the tree:** everything through Workflow B is **committed, and the working tree is clean.**
+**State of the tree:** everything through Workflow D is **committed. Workflow E (the lesson tracker) is
+implemented in the working tree and is not committed yet** — it is awaiting review, so `git status`
+showing it is expected rather than half-finished work. Everything in §1 below was measured on that
+working tree.
 
 Do not trust a commit hash written in a document — including this one. The first version of this
 paragraph named a checkpoint that went stale within four commits and claimed the work on top of it was
@@ -25,17 +28,114 @@ A study companion for one person's **PNLE** (Philippine Nurse Licensure Examinat
 with SM-2 spaced repetition, a Pomodoro timer, a lesson tracker, and in-app attention nudges. Free tools
 only, **no backend**, browser-based. Coquette pink-and-white.
 
-|                                           |                                                                         |
-| ----------------------------------------- | ----------------------------------------------------------------------- |
-| **Her exam**                              | **Friday, February 26, 2027**                                           |
-| **Her devices**                           | iPad (as a Home Screen Web App) and a Windows laptop (browser tab)      |
-| **Workflow A** (scaffold + design system) | ✅ **Done**                                                             |
-| **Workflow B** (flashcards + SM-2)        | ✅ **Done** — reviewed, defects fixed, committed                        |
-| **Workflow C** (ingest pipeline)          | ✅ **Done** — all three commits (paste, PDF, photo OCR)                 |
-| **Workflow D** (Pomodoro + sessions)      | ✅ **Done** — the first schema migration in the project's history       |
-| E, F, S, G, H                             | ⏸ Not started                                                           |
-| Tests / coverage                          | 460 tests, 86.3% lines, 87.9% branches (floor is in `vitest.config.ts`) |
-| Backend                                   | None, by decision. No server, no secrets.                               |
+|                                           |                                                                                  |
+| ----------------------------------------- | -------------------------------------------------------------------------------- |
+| **Her exam**                              | **Friday, February 26, 2027**                                                    |
+| **Her devices**                           | iPad (as a Home Screen Web App) and a Windows laptop (browser tab)               |
+| **Workflow A** (scaffold + design system) | ✅ **Done**                                                                      |
+| **Workflow B** (flashcards + SM-2)        | ✅ **Done** — reviewed, defects fixed, committed                                 |
+| **Workflow C** (ingest pipeline)          | ✅ **Done** — all three commits (paste, PDF, photo OCR)                          |
+| **Workflow D** (Pomodoro + sessions)      | ✅ **Done** — the first schema migration in the project's history                |
+| **Workflow E** (lesson tracker)           | ✅ **Done, verified** — Dexie version 3; calendar grid and photo import deferred |
+| F, S, G, H                                | ⏸ Not started                                                                    |
+| Tests / coverage                          | 552 tests, 87.4% lines, 88.5% branches (floor is in `vitest.config.ts`)          |
+| Backend                                   | None, by decision. No server, no secrets.                                        |
+
+### Workflow E shipped — and bumped Dexie to version 3
+
+**Her plan finally has a home.** The app represented _cards_ and _time_; it now represents _what she is
+supposed to be studying next_, which was the last piece of the loop. `/lessons` is a real screen: add,
+edit, filter, mark mastered. Five things about it are load-bearing:
+
+- **`deadline` is optional, and undated lessons are a first-class state** ("No date yet", last). A
+  required date forces her to invent one at entry for every topic she has not planned, and an invented
+  date is a _wrong_ number — it sorts into "overdue" and shows for a deadline she never meant.
+  `BUILD_GUIDE.md` §6 was amended rather than implementing the original required field.
+- **Mastered is out of the default view entirely.** The default chip is "To do" (everything not
+  mastered); Mastered has its own chip one tap away, and its own flat section rather than date groups.
+  A finished topic must never render as outstanding — that is the guilt framing the voice rules forbid,
+  and the fastest way to make her stop opening the tracker. `isOverdue` also refuses to call a mastered
+  lesson late regardless of its date.
+- **Overdue is a study-day question, not a clock question.** A deadline is stored as the **04:00
+  study-day start** of the day she means (the same rule as `examDate`), and overdue-ness is
+  `studyDaysBetween(deadline, now) < 0`. Comparing `deadline < Date.now()` would mark every lesson late
+  from 04:00 on the day it is due. `daysUntilExam` is deliberately the _other_ kind of count and is not
+  reusable — both now carry doc comments saying which is which.
+- **Statuses are stored as stable keys**, never the labels she reads, so "a filter that ignores a case"
+  is not a bug that is tested for but one that cannot be expressed. Both the chip and the row read the
+  same literal union.
+- **Every chip and every section has its own empty state.** A filter that matches nothing is the normal
+  case on a good week, and a blank region under a row of chips is indistinguishable from a bug.
+
+**The migration.** Version 3 adds `lessons` with an **intentionally empty** upgrade, for the same
+reason as version 2: it introduces a table and transforms no row, so a retried migration cannot corrupt
+anything. `deadline` and `notes` are optional on every row, so no row needs a default written into it.
+`src/db/migrations.test.ts` now carries a **v2 → v3** test alongside the v1 test (which now walks
+v1 → v3), both built from a bare `Dexie`; the v2 test seeds sessions, including a tombstone and an
+abandoned block, because restating "the v1 stores" in the v3 block instead of the v2 ones is exactly
+how the `sessions` table would be emptied. `lessons` was also added to `clearDatabaseForTests`'
+enumerated table list, which is the list that exists because `sessions` was once missed.
+
+**Two things were deliberately not built, and both are recorded rather than dropped.** The **calendar
+grid** is deferred: its cells are calendar days, which fights the 04:00 rule head-on (a grid says
+"yesterday" from midnight; the app does not), so the list carries the date _and_ a relative label
+instead. The **schedule-photo import** is deferred too: tabular and handwritten input is Tesseract's
+weakest case, and the field it would fill is the one that decides which section a lesson lands in — a
+wrongly parsed date is invisible because the lesson sorts confidently into the wrong bucket. §8's
+definition of done for E ("created, filtered, and completed without touching OCR") is what shipped.
+
+**How E was verified, and how to re-verify it.** All six checks in §4 were run on this working tree and
+passed:
+
+- `typecheck`, `lint:check` and `prettier --check .` — green, and they run under the default file sandbox.
+- `test:coverage` — **41 files, 552 tests, 0 failures**, 87.4% lines / 88.5% branches / 83.6% functions.
+  That is 92 tests and about a point of line coverage more than Workflow D left; the whole feature carries
+  its own tests rather than leaning on the floor.
+- `build` — green, 155 modules. Precache is **88 entries with zero PDF or OCR entries**, and
+  `/lessons` is emitted as its own lazy chunk. `dist/sw.js` and `dist/manifest.webmanifest` exist.
+  **E adds no asset, no route and no network call**, so none of that changed shape. The precache byte
+  count is deliberately **not** restated here: an earlier version of this line carried a figure that had
+  already gone stale by the time it was read. `node scripts/report-precache.mjs` reports it from the
+  generated manifest, which is the only place it should come from.
+- `preview` — the built app was served and checked over HTTP: `/`, `/lessons` and `/cards` return the
+  shell (the SPA fallback works for the deep link), the service worker is served and contains **no**
+  `push` or `notificationclick` handler, and the manifest is `application/manifest+json`. The server was
+  stopped afterwards.
+
+**The red/green record, which is the part worth keeping.** Eight probes were run, each reintroducing one
+specific defect and each expected to turn a test red; all eight did, and every touched file was restored
+byte-for-byte (SHA-256 compared before and after):
+
+| Probe (the bug put back)                            | Result   |
+| --------------------------------------------------- | -------- |
+| `deadline < Date.now()` instead of the study day    | 3 failed |
+| A mastered lesson allowed to be overdue             | 1 failed |
+| The 7-day "this week" edge moving to `<`            | 1 failed |
+| Mastered lessons back in the default view           | 1 failed |
+| An unrecognised `?status=` value surviving          | 1 failed |
+| The v3 store block omitting `lessons`               | 4 failed |
+| Clearing a deadline leaving the stale date          | 2 failed |
+| A status write without the data-change notification | 1 failed |
+
+The last one is the one worth noticing: it fails in the **page** test, not a pure one, which is what makes
+that file worth its length — it is the only test here that can see Layer 1, Layer 2, Layer 3 and Dexie
+disagreeing with each other.
+
+**Two defects were found in that new page test by running it, and both are recorded because the lesson
+generalises.** Its first version asserted chip counts _synchronously_, before the asynchronous read had
+landed, so it read the pre-load zeroes; and it hard-coded "today" as 2026-09-21 while the app correctly
+used the real clock, so a lesson it expected to be three days away was already overdue. It now builds
+deadlines relative to `Date.now()` through `addStudyDays`, and its waits carry an explicit timeout with
+the same reasoning `src/router.test.tsx` records: a failure there is a finding about speed, not tuning.
+
+**What was not verified, and cannot be from here.** There is no browser and no iPad in this environment,
+so: iPad-width layout, touch targets, the offline cold start, the service worker's runtime behaviour and
+WebKit's storage behaviour are all untested. `preview` proves bytes are served, not that a screen renders.
+The v2 → v3 migration is tested against `fake-indexeddb` only; no database that exists in the world has
+been upgraded by hand — and since C, D and E all shipped before she has the app, version 2 may never exist
+on her device at all, with version 3 as the first version it sees. The date-input validation branch is
+covered as a pure rule rather than through a DOM interaction, because a browser's date input cannot
+produce an invalid value.
 
 ### Workflow D shipped — and bumped Dexie to version 2
 
@@ -131,11 +231,12 @@ during that work, each then confirmed to fail against its reintroduced bug; the 
   `Content-Encoding: identity` for `/ocr/lang/*`, the asset script asserts the file is really gzip,
   and both halves were verified by reading response headers rather than trusting the extension.
   Local `vite preview` gzips the same way, so this was observable before deploy.
-- **Nothing ingest-related is precached.** Precache is **87 entries / 1154 KiB** with zero PDF or OCR
-  assets in it, verified by `node scripts/report-precache.mjs`, which reads the generated manifest
-  rather than trusting the config. The worker and language data are runtime-cached instead, so the
+- **Nothing ingest-related is precached.** Zero PDF or OCR assets are in the precache, verified by
+  `node scripts/report-precache.mjs`, which reads the generated manifest rather than trusting the
+  config. The worker and language data are runtime-cached instead, so the
   **first** photo import needs the network and every one after it does not — which the tab says in
-  words rather than leaving a spinner to look broken on a train.
+  words rather than leaving a spinner to look broken on a train. (The entry count is deliberately not
+  restated here either: see §1 for why a count in prose is not worth keeping.)
 
 Not copied, and why: `cmaps/` (169 files, ~1.4 MB, CJK-only) and PDF.js's standard-font data. Text
 extraction works without the latter — only glyph rendering degrades, and PDF.js logs a
@@ -216,13 +317,14 @@ src/
 │   ├── flashcards/           # ★ Workflow B — lib/ hooks/ components/ pages/ types.ts
 │   ├── ingest/               # ★ Workflow C — lib/ hooks/ components/ pages/ types.ts
 │   ├── timer/                # ★ Workflow D — lib/ (timer, cue, format) hooks/ components/ pages/
-│   ├── tracker/              # page + view, empty state — this is Workflow E's home
+│   ├── tracker/              # ★ Workflow E — lib/ hooks/ components/ pages/ + types.ts
 │   └── settings/             # page + view; theme, exam date, cram threshold, timer lengths
 └── test/                     # setup.ts (jsdom shims + DB reset) and render.tsx
 ```
 
-`src/db/` is at **Dexie version 2** with five tables (`decks`, `cards`, `reviewLogs`, `settings`,
-`sessions`) and five repositories: `decks`, `cards`, `review-logs`, `settings`, `sessions`.
+`src/db/` is at **Dexie version 3** with six tables (`decks`, `cards`, `reviewLogs`, `settings`,
+`sessions`, `lessons`) and six repositories: `decks`, `cards`, `review-logs`, `settings`, `sessions`,
+`lessons`.
 
 `src/lib/use-database-value.ts` is the shared cross-screen refresh signal, promoted out of
 `flashcards/` in Workflow C when ingest became its third consumer. **Do not copy it** — two copies
@@ -239,10 +341,10 @@ Root config: `vite.config.ts`, `vitest.config.ts`, `eslint.config.js`, `prettier
 `tsconfig.json`, `vercel.json`, `.github/workflows/ci.yml`. `scripts/` holds the icon generator, the two
 vendored-asset copiers, the OCR language vendorer, and three PDF/precache checks.
 
-**Everything except the dashboard and the tracker is wired to real data.** Five seeded PRC decks with
-real SM-2 review and cram mode; a three-path ingest pipeline (paste, PDF, photo OCR); and a working
-Pomodoro timer that logs every block. Flashcards, the timer and ingest are usable today. The tracker
-and dashboard screens are still deliberate empty states — they are Workflows E and F.
+**Everything except the dashboard is wired to real data.** Five seeded PRC decks with real SM-2 review
+and cram mode; a three-path ingest pipeline (paste, PDF, photo OCR); a working Pomodoro timer that logs
+every block; and a lesson tracker with her real study plan in it. Flashcards, the timer, ingest and the
+tracker are usable today. The dashboard screen is still a deliberate empty state — that is Workflow F.
 
 ### Architecture rules that are enforced, not just written down
 
@@ -279,6 +381,10 @@ All six must be green before you hand anything back. `.github/workflows/ci.yml` 
 an assertion that `dist/sw.js` and `dist/manifest.webmanifest` exist — because a missing service worker
 silently stops the app being installable, which on her iPad means it can lose data.
 
+**Standing state as of the Workflow E working tree (uncommitted):** all six were run and passed, with the
+numbers and the per-check detail in §1. If you re-run them and something differs, that is a finding about
+the tree, not about this paragraph.
+
 ### Environment gotchas that cost real time
 
 - **Vitest is pinned to v3 deliberately.** Vitest 4/5 declare `@vitest/browser-playwright` and
@@ -290,11 +396,23 @@ silently stops the app being installable, which on her iPad means it can lose da
 - **ESLint is 10**; the 9.x line is past its support window.
 - **esbuild needs to spawn its transform service.** In a sandbox that blocks piped child processes,
   `vitest` and `vite build` fail with `spawn EPERM`. That is the sandbox, not the project.
+- **In a confined sandbox a child process cannot write _any_ workspace file, even though the agent's own
+  file tools can.** Workflow E hit this as `prettier --write` failing with `EPERM` on exactly the files it
+  wanted to change, while `typecheck` and `lint:check` were fine. It is worth naming because it looks like
+  a per-file permissions problem and is not: a one-line probe (`node -e "require('fs').writeFileSync(...)"`)
+  reproduced it for a file that did not exist, and the file attributes were ordinary. The repair is to run
+  the write with wider access, or to apply the formatter's own output through the file tools — not to
+  touch permissions. The `diagnose-windows-sandbox-acl` skill is for the other case, where a specific
+  object's ACL really is wrong; it does not apply to this one.
 - The npm cache may need to be workspace-local (`--cache ./.npm-cache`) where the global cache is not
   writable. It is gitignored.
 - **jsdom does not implement `HTMLDialogElement.showModal`.** `src/test/setup.ts` shims it, and the
   Modal tests dispatch `cancel` directly. Do not "fix" this by replacing native `<dialog>` with a div —
-  the platform behaviour is the reason it was chosen.
+  the platform behaviour is the reason it was chosen. **The consequence for tests:** `Modal` keeps its
+  children _and its `footer`_ mounted while closed, and jsdom has no visibility model for a closed
+  dialog, so a query for a dialog's button or title succeeds whether or not the dialog is open. Assert
+  the _effect_ instead — "nothing was deleted until the confirm was pressed" — because a query for the
+  dialog's copy would pass either way and is a test that cannot go red.
 - **`window.localStorage` hands back a _new_ `Storage` instance on every access in jsdom**, so
   `window.localStorage.getItem = fn` does not affect the code under test. Patch
   `Storage.prototype.getItem` with `vi.spyOn` instead. The old form made `theme.test.ts` pass or fail
@@ -438,6 +556,36 @@ pain"` — a card saying something her notes do not say.
   migration cannot corrupt anything. The new `settings` timer fields are all optional, so a Workflow B
   row reads back unchanged — absent means "use the default", never "zero minutes".
 
+### Decisions made during Workflow E
+
+- **`Lesson.deadline` is optional** (`BUILD_GUIDE.md` §6 amended before implementation, not after). A
+  required date makes her invent one for every unplanned topic, and an invented date is a wrong number:
+  it sorts into "overdue" and shows for a deadline she never meant. Undated lessons gather in "No date
+  yet", placed last.
+- **Statuses are stored as stable keys**, with the labels in `features/tracker/lib/status.ts`. That
+  designs the "filter that ignores a case" bug class out rather than testing for it, and a copy change
+  costs no migration.
+- **Mastered is excluded from the default view entirely**, and `isOverdue` refuses to call a mastered
+  lesson late. A finished topic rendering as outstanding is the guilt framing the voice rules forbid.
+- **Overdue goes through `studyDaysBetween`, never `deadline < Date.now()`** — the deadline is anchored
+  at 04:00, so the naive comparison marks every lesson late from 04:00 on the day it is due.
+- **A lesson's subject label resolves from `PRC_PARTS`, never the `decks` table.** Decks are
+  soft-deletable; a label resolved through them would become unreadable because of an unrelated
+  deletion, on a screen with no way to fix it. `schema.ts` re-exports `PRC_PARTS`, `prcPartOrder` and
+  `prcPartName`, matching how `INTEGRATED_KNOWLEDGE_AREAS` is already shared.
+- **The date helpers moved to `src/lib/study-day.ts`** as `studyDayMsFromDateInput` /
+  `dateInputFromStudyDayMs`, with their tests, because the tracker and Settings must not hold two ideas
+  of which day "the 3rd" is. A move, not a copy, like `useDatabaseValue` in Workflow C.
+- **Every chip and every section has its own empty state**, and the list always renders all four date
+  sections. A blank region where a section used to be is indistinguishable from a broken screen.
+- **The filter lives in `?status=`** (written with `replace`), matching the ingest tab, so a refresh or
+  an iPad tab restore does not move her.
+- **The calendar grid and the schedule-photo import were not built**, both deliberately and with the
+  reasoning recorded in `BUILD_GUIDE.md` §1 and §4. The grid's cells are calendar days, which fights the
+  04:00 rule; a parsed schedule feeds the highest-consequence field with the least reliable input.
+- **`lessons` carries only the `updatedAt`/`deletedAt` sync indexes.** No `status` or `deadline` index:
+  there is no query behind either, and the list is tens of rows loaded whole and grouped in memory.
+
 ### Open, with working defaults
 
 D8 notification cadence and quiet hours · D9 night mode: keep or cut · D10 font (Quicksand chosen) ·
@@ -465,6 +613,10 @@ These are the sharp edges. Each has cost time or would have.
 - **A `.gz` must not be served with `Content-Encoding: gzip`.** The browser decodes it transparently and
   the library — tesseract.js, here — then fails on the inner payload. `vercel.json` pins
   `Content-Encoding: identity` for `/ocr/lang/*`. Found by reading response headers, not by assuming.
+  **Re-confirmed while verifying Workflow E:** local `vite preview` still serves
+  `/ocr/lang/eng.traineddata.gz` with `Content-Encoding: gzip` (the 4.1 MB of raw data arriving decoded),
+  which is the expected local behaviour and is exactly why the deploy header exists — the fix lives in
+  `vercel.json`, not in the build. Re-read that file before concluding the photo tab is broken locally.
 - **`globPatterns` in `src/pwa.config.ts` is an allowlist of _extensions_**, so an asset is excluded only
   by accident of its suffix. That is how a lazy PDF chunk and 600 KB of `*_nowasm_fallback.js` files
   re-entered the precache. Anything heavy and on-demand belongs in `globIgnores` by name, and the result
@@ -473,6 +625,18 @@ These are the sharp edges. Each has cost time or would have.
 - **`useDatabaseValue`'s `load` must be stable.** An inline arrow is a new function every render, so the
   effect cancels and restarts its own read forever and `loading` never becomes `false`. Wrap it in
   `useCallback`. This was made once in Workflow C and cost an afternoon.
+- **There are two "days until" notions and they are not interchangeable.** `daysUntilExam`
+  (`src/db/repositories/settings.ts`) is a whole-24-hour `ceil` against a date fixed in the world, which
+  is what makes the day before the exam read 1. A lesson deadline, a streak and every day-scale interval
+  go through `studyDaysBetween` in `src/lib/study-day.ts`, which rolls at 04:00. Substituting one for the
+  other is silent in both directions: the exam countdown would move at 04:00, and every lesson would be
+  marked late from 04:00 on the day it is due. Both functions carry a doc comment saying which is which.
+- **A deadline is anchored at the 04:00 study-day start, and `deadline` is optional.** A lesson with no
+  date is a normal lesson in the "No date yet" section, not a late one — and a mastered lesson is never
+  overdue whatever its date says.
+- **A lesson's subject is a `PrcPart` key whose label comes from `PRC_PARTS`.** Never resolve it through
+  the `decks` table: decks are soft-deletable, so deleting one would make a lesson's subject unreadable
+  on another screen, with nothing she could do about it.
 - **PRC publishes no item weights.** Do not build any "this topic is worth X%" UI. Her own review data
   is the only honest signal, and a fabricated percentage would misallocate her study time.
 - **The PRC program should be re-verified around December 2026.** The Feb 2026 program was approved
@@ -502,29 +666,60 @@ else is refactoring, and there were 22 weeks of runway as of Sept 2026.
 
 ## 8. What to do next
 
-**Workflows A, B, C and D are done.** The app is usable today for its core loop: notes become cards
-(ingest), cards are reviewed with real SM-2 scheduling (flashcards), and study blocks are timed and
-logged (timer). What is missing is the _plan_ — what she is supposed to be studying next.
+**Workflows A, B, C, D and E are done.** The app is usable today for its whole core loop: notes become
+cards (ingest), cards are reviewed with real SM-2 scheduling (flashcards), study blocks are timed and
+logged (timer), and her plan for what to study next lives in the tracker. What is missing is the
+_presentation_ of that history (F), the second device (S), the nudges (G) — and **her only backup that
+does not depend on Google, the network, or a sync bug**, which is next.
 
 **As of 2026-10-07 the exam is 142 days away (~20 weeks).** `BUILD_GUIDE.md` §9.2's weeks 4–8 window was
-"C (ingest), then D, then E (tracker)". C and D are done, so **E is the remainder of that window.** The
-project is on schedule.
+"C (ingest), then D, then E (tracker)", and all three are done, so **the weeks 4–8 window is complete.**
+The project is on schedule.
 
-### Recommended order: **E → F → S**
+### First, and not from the plan: the ingest parser mangles real notes
+
+The parser was fitness-tested against two real board-review PDFs — the first time it has seen her
+actual material. **It over-joins badly.** `docs/ai/write-tests.md` case 7 permitted a join on the
+_absence_ of a signal ("or the previous line does not end a sentence"), and 91% of her lines lack
+terminal punctuation because they are note fragments rather than prose, so the clause was effectively
+always on. It fired 1,483 times, 60% of all joins, and merged unrelated sections into single cards:
+523 cards with only **402 distinct fronts**, 88 carrying a mid-text ALL-CAPS heading, 27 becoming the
+running page header, and one spanning **109 source lines**.
+
+**That is a defect in shipped code, so it outranks everything below.** The spec is corrected; the join
+rule is not. Measurements, the seven ranked findings, what could not be tested, and the proposed order
+are in [`docs/INGEST-FITNESS-RESULTS.md`](INGEST-FITNESS-RESULTS.md).
+
+The same test surfaced one thing that is **not** a bug and needs a human decision: **one of the two
+sample documents is a scan**, so the PDF tab yields nothing for it at all. Half her material may be in
+that category. Either the iOS Live Text → paste route is the documented answer — free, and §3 of the
+guide already argues it is the best path for scans — or the PDF tab should render pages to canvas and
+OCR them with the Tesseract worker the app already ships. That is a scope decision, not a fix.
+
+**Sequence the join fix before any OCR extension**, because OCR text would feed the same parser and
+multiply the mangling.
+
+### After that, the planned order: **export/import → F → S**
 
 Each workflow still needs its own go-ahead. This is the recommendation, with the reasoning, because the
 ordering has one dependency that is easy to get wrong.
 
-#### 1. E (lesson tracker) — next
+#### 1. ~~E (lesson tracker)~~ — **done**
 
-- **It is the last piece of the study loop rather than an addition to it.** The app represents _cards_
-  and _time_; it has no representation of _what she is supposed to be doing next_. Her syllabus still
-  lives outside the app.
-- **It is the last input path.** C handles her notes; E handles her plan. Everything after it is
-  presentation or plumbing.
-- It is the only remaining workflow with real product surface, and §9.2 already scheduled it here.
+Shipped as Dexie version 3. It was the last piece of the study loop rather than an addition to it — the
+app represented _cards_ and _time_ and had no representation of what she is supposed to be doing next —
+and it is the last input path: C handled her notes, E handles her plan. Everything after it is
+presentation or plumbing.
 
-#### 2. F (dashboard) — after E, and specifically not before
+#### 2. **Export/import — next**
+
+Her only backup that does not depend on Google, the network, or a sync bug
+([ADR 0007](adr/0007-browser-only-no-install.md)), and the interim way to move cards between the iPad
+and the laptop until S lands. It is deliberately its own small step rather than part of S, whose
+definition of done includes calendar-time acceptance that cannot be simulated. The Settings screen
+already carries disabled Export and Import buttons waiting for it.
+
+#### 3. F (dashboard) — after she is using it, and specifically not before
 
 **Because there is almost no history to aggregate yet.** F reads `ReviewLog` and `Session`, and both are
 close to empty in the world: `ReviewLog` only accumulates from real reviews, and `Session` — added in
@@ -532,7 +727,7 @@ Workflow D — has never recorded a block on her device, because **she does not 
 A dashboard built now renders a streak of 1 and empty progress bars, and there is no way to tell a
 correct-but-empty screen from a broken one. F wants data to look at.
 
-#### 3. S (cloud sync) — third, with two constraints to plan around
+#### 4. S (cloud sync) — after export/import, with two constraints to plan around
 
 - **`ReviewLog` must merge union-only.** A last-write-wins merge on an append-only table is silent
   history loss. Named in `CLAUDE.md`, `docs/ai/change-data-model.md` and the type's own doc comment.
@@ -572,8 +767,9 @@ The Settings screen already carries disabled Export and Import buttons waiting f
 
 ### A recommended change to the order, which needs your go-ahead
 
-The recommended order above is E → F → S, following §9.2's budget. **Consider E → export/import → H
-(reveal-scoped) → reveal, with F, S and G afterwards, while she is already using the app.**
+The recommended order above is export/import → F → S, following §9.2's budget. **Consider
+export/import → H (reveal-scoped) → reveal, with F, S and G afterwards, while she is already using the
+app.**
 
 - **F wants data that does not exist yet.** It reads `ReviewLog` and `Session`, and both are near-empty
   in the world: `ReviewLog` only accumulates from real reviews, and `sessions` has never recorded a
@@ -588,26 +784,31 @@ The recommended order above is E → F → S, following §9.2's budget. **Consid
   what exempts her local database from WebKit's 7-day deletion ([ADR 0008](adr/0008-add-to-home-screen-on-ipad.md)).
 
 **This is a recommendation rather than a decision because the timing of a gift is not purely an
-engineering question** — whether December is a good moment to hand it to her is yours. Either way **E is
-next**, so this does not block the next step; `BUILD_GUIDE.md` §9.2 carries the same note.
+engineering question** — whether December is a good moment to hand it to her is yours. Either way
+**export/import is next**, so this does not block the next step; `BUILD_GUIDE.md` §9.2 carries the same
+note.
 
 ### Read first for any workflow
 
 [`docs/ai/README.md`](ai/README.md) → the matching runbook → [`docs/BUILD_GUIDE.md`](BUILD_GUIDE.md) §4
-for that workflow and §6 for the model and contracts. **E's data model is already specified in §6**, along
-with the `Lesson` table that Workflow D deliberately did not create.
+for that workflow and §6 for the model and contracts.
 
-### What D leaves you, concretely
+### What E leaves you, concretely
 
-- `src/db/` — **Dexie version 2**, five tables, five repositories. **Any further change needs a version
-  bump and a tested migration**; `src/db/migrations.test.ts` now carries a v1 → v2 test to copy, including
-  the trick of building the old database from a **bare `Dexie`** so opening it does not run the migration
-  under test.
-- `src/features/timer/lib/timer.ts` — the state machine, pure and clock-injected. The rules are here, not
-  in the hook; keep it that way.
-- `src/db/repositories/sessions.ts` — the two-phase session write. `completedWorkBlocks` is what excludes
-  a skipped block, and **F must use it** rather than counting rows.
-- `src/lib/study-day.ts` — the single 04:00 boundary. F's streak must call it, never reimplement it.
+- `src/db/` — **Dexie version 3**, six tables, six repositories. **Any further change needs a version
+  bump and a tested migration**; `src/db/migrations.test.ts` carries two tests to copy — a v1 → current
+  walk and a v2 → v3 test — including the trick of building the old database from a **bare `Dexie`** so
+  opening it does not run the migration under test. **Add every new table to the enumerated list in
+  `clearDatabaseForTests`**, which exists because `sessions` was missed there once.
+- `src/features/tracker/lib/deadline.ts` — the deadline rules, pure and clock-injected: overdue-ness,
+  the four sections, the sort order and the date labels. The rules are here, not in the hook or the
+  view; keep it that way.
+- `src/features/tracker/lib/status.ts` — the status vocabulary and the chips, with the stored keys and
+  the labels deliberately in different places.
+- `src/lib/study-day.ts` — the single 04:00 boundary **and** the date-input ↔ epoch-ms conversion that
+  Settings and the tracker both use. F's streak must call it, never reimplement it.
+- `src/db/repositories/lessons.ts` — the tombstone rules for her plan, and the two optional fields that
+  are _removed_ rather than blanked when she clears them.
 
 ### The contracts that must not be improvised
 
@@ -625,13 +826,18 @@ pathophysiology, A&P, nutrition, parasitology/microbiology) are **tags, not deck
 leftover queue. `assertProvenance` enforces it at runtime — do not weaken it to accommodate a new
 pattern; that is the mechanism that stops a dropped line becoming a card she never reviews.
 
+**Lesson deadlines and statuses.** A deadline is the 04:00 study-day start of the day she means, and
+overdue-ness is `studyDaysBetween(deadline, now) < 0` — never `deadline < Date.now()`, which marks every
+lesson late from 04:00 on the day it is due. A mastered lesson is never overdue and is out of the default
+view entirely. Statuses are compared as the stored keys, never as the labels she reads.
+
 **On scope discipline:** do not start a workflow because it looks small. The remaining workflows are
 sequential by design and each needs its own go-ahead.
 
-**A note on why this section keeps going stale:** it has now twice argued for a workflow that has since
-shipped — first C, then D — because the recommendation was written as "the current one is X" rather than
-as a standing order. Update the _state_ line in §1 and the DAG in `BUILD_GUIDE.md` §4 when a workflow
-lands, and rewrite the paragraph above rather than adding a correction below it.
+**A note on why this section keeps going stale:** it has now three times argued for a workflow that has
+since shipped — first C, then D, then E — because the recommendation was written as "the current one is
+X" rather than as a standing order. Update the _state_ line in §1 and the DAG in `BUILD_GUIDE.md` §4 when
+a workflow lands, and rewrite the paragraph above rather than adding a correction below it.
 
 ---
 

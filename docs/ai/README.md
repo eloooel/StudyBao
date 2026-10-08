@@ -13,15 +13,17 @@ any AI assistant, or follow them by hand.
 | [cleanup.md](cleanup.md)                     | Delete dead code, speculative abstraction, and leftovers           |
 | [pre-pr.md](pre-pr.md)                       | Get a branch ready to hand over                                    |
 
-> **Status.** Workflow A (scaffold + design system) and **Workflow B (flashcards + SM-2) are
-> complete**: the app shell builds, installs and runs offline, and cards can be created, edited,
-> graded and scheduled. Workflows C (ingest), D (timer), E (tracker), F (dashboard), S (sync) and
-> G (nudges) are not started.
+> **Status.** Workflows **A (scaffold + design system), B (flashcards + SM-2), C (ingest) and
+> D (timer) and E (lesson tracker) are complete** — the app shell builds, installs and runs offline;
+> cards can be created, edited, graded and scheduled; notes become cards three ways; study blocks are
+> timed and logged; and her plan has a home of its own. Workflows F (dashboard), S (sync),
+> G (nudges) and H (polish) are not started.
 >
 > Runbooks that name a canonical example mark it `(pending Workflow X)`. Treat a marked file as the
 > thing you are about to write, not the thing you are copying — **except** the shared UI primitives
-> and this workflow's `src/db/` + `src/features/flashcards/` files, which all exist now. Remove a
-> marker once its file exists.
+> and the files under `src/db/`, `src/features/flashcards/`, `src/features/ingest/`,
+> `src/features/timer/` and `src/features/tracker/`, which all exist now. Remove a marker once its
+> file exists.
 
 ## How to use with your AI tool
 

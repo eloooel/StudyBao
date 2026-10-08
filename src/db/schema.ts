@@ -1,25 +1,32 @@
 import Dexie, { type Table } from 'dexie'
 
-import { INTEGRATED_KNOWLEDGE_AREAS, PRC_PARTS, deckIdForPart } from './seed-data'
-import type { AppSettings, Card, Deck, ReviewLog, Session } from './types'
+import {
+  INTEGRATED_KNOWLEDGE_AREAS,
+  PRC_PARTS,
+  deckIdForPart,
+  prcPartName,
+  prcPartOrder,
+} from './seed-data'
+import type { AppSettings, Card, Deck, Lesson, ReviewLog, Session } from './types'
 
 /**
  * The Dexie schema, and the only module that opens the database.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * **Version 2** (Workflow D) adds the `sessions` table. Version 1 was Workflows A–C:
- * `decks`, `cards`, `reviewLogs`, `settings`.
+ * **Version 3** (Workflow E) adds the `lessons` table. Version 2 was Workflow D
+ * (`sessions`); version 1 was Workflows A–C: `decks`, `cards`, `reviewLogs`, `settings`.
  *
- * Version 1's store definitions are **repeated verbatim** in the version 2 block rather
+ * Earlier versions' store definitions are **repeated verbatim** in each newer block rather
  * than omitted. Dexie merges version blocks so omitting them would work, but this repo's
  * rule is that a released `version(n)` block is never edited, and restating them makes
  * this file readable as a history instead of requiring the reader to know Dexie's merge
  * semantics. See docs/ai/change-data-model.md.
  *
- * The version 2 upgrade is a **no-op on purpose**: it adds a table and touches no existing
- * row, so there is nothing to transform, and an idempotent function that does nothing is
- * the correct, retry-safe thing. New *optional* fields on `settings` (`workMin` and
- * friends) need no migration at all — readers treat `undefined` as the default.
+ * The version 2 and version 3 upgrades are **no-ops on purpose**: each adds a table and
+ * touches no existing row, so there is nothing to transform, and an idempotent function that
+ * does nothing is the correct, retry-safe thing. New *optional* fields (`workMin` and
+ * friends on `settings`, `deadline` and `notes` on `lessons`) need no migration at all —
+ * readers treat `undefined` as the default.
  * ─────────────────────────────────────────────────────────────────────────────
  *
  * Indexes are exactly the ones there is a query for — `deletedAt` and `updatedAt`
@@ -27,8 +34,10 @@ import type { AppSettings, Card, Deck, ReviewLog, Session } from './types'
  * `nextReview` because the due query is the core of the app, and the two foreign keys
  * because every list is filtered by them. `sessions` is indexed on `startedAt` because
  * every screen that reads it wants the most recent blocks first, plus the same two sync
- * fields. No compound indexes: at her scale a compound index costs write time and buys
- * nothing.
+ * fields. `lessons` carries only the two sync fields: it is a list of tens of rows that is
+ * loaded whole and grouped by date in memory, so a `status` or `deadline` index would have
+ * no query behind it and would cost write time for nothing. No compound indexes: at her
+ * scale a compound index costs write time and buys nothing.
  */
 export class StudyBaoDb extends Dexie {
   decks!: Table<Deck, string>
@@ -36,6 +45,7 @@ export class StudyBaoDb extends Dexie {
   reviewLogs!: Table<ReviewLog, string>
   settings!: Table<AppSettings, string>
   sessions!: Table<Session, string>
+  lessons!: Table<Lesson, string>
 
   constructor(name = 'studybao') {
     super(name)
@@ -62,6 +72,22 @@ export class StudyBaoDb extends Dexie {
         // into it because every new `settings` field is optional and read through
         // `sanitizeDurations`. A retried migration therefore cannot corrupt anything, which is
         // the property docs/ai/change-data-model.md asks for.
+      })
+
+    // Workflow E. Adds one table and transforms nothing — the same retry-safe reasoning as
+    // version 2. `deadline` and `notes` are optional on every row, so no row needs a default
+    // written into it and a half-applied migration is not a state that exists.
+    this.version(3)
+      .stores({
+        decks: 'id, subject, updatedAt, deletedAt',
+        cards: 'id, deckId, nextReview, updatedAt, deletedAt',
+        reviewLogs: 'id, cardId, deckId, reviewedAt',
+        settings: 'id',
+        sessions: 'id, startedAt, type, updatedAt, deletedAt',
+        lessons: 'id, updatedAt, deletedAt',
+      })
+      .upgrade(() => {
+        // Intentionally empty. See the version 2 comment above and docs/ai/change-data-model.md.
       })
 
     // A brand-new install seeds the five PRC decks. This is a `populate` (create-only)
@@ -146,7 +172,7 @@ export async function clearDatabaseForTests(): Promise<void> {
   // while leaking a session row between tests.
   await db.transaction(
     'rw',
-    [db.decks, db.cards, db.reviewLogs, db.settings, db.sessions],
+    [db.decks, db.cards, db.reviewLogs, db.settings, db.sessions, db.lessons],
     async () => {
       await Promise.all([
         db.decks.clear(),
@@ -154,6 +180,7 @@ export async function clearDatabaseForTests(): Promise<void> {
         db.reviewLogs.clear(),
         db.settings.clear(),
         db.sessions.clear(),
+        db.lessons.clear(),
       ])
     },
   )
@@ -225,7 +252,11 @@ export async function seedInitialData(db: StudyBaoDb, now = Date.now()): Promise
 }
 
 /**
- * The tag vocabulary the card form offers. Re-exported from here so feature code has one
- * place to read it from and never imports seed data directly.
+ * The vocabularies feature code is allowed to read, re-exported from here so a feature has one
+ * place to get them and never imports seed data directly.
+ *
+ * `PRC_PARTS` and the two helpers behind it come along for the lesson tracker, whose `subject` is
+ * a `PrcPart` key. A lesson's subject label must resolve from this data rather than from the
+ * `decks` table, which is soft-deletable — see `prcPartName` in `./seed-data`.
  */
-export { INTEGRATED_KNOWLEDGE_AREAS }
+export { INTEGRATED_KNOWLEDGE_AREAS, PRC_PARTS, prcPartName, prcPartOrder }

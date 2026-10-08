@@ -63,6 +63,13 @@ export function studyDayStart(timestamp: number): number {
  * timestamps, so the extra hour on a DST day does not round a 3-day gap down to 2.
  * Rounded to absorb that same hour rather than floored, which would report "1 day ago"
  * for something 30 hours old across a transition.
+ *
+ * **This is the only "how many days" that may be used for a deadline or a streak.** The one
+ * exception in the codebase is `daysUntilExam` in `src/db/repositories/settings.ts`, which is
+ * deliberately a whole-24-hour `ceil` against a fixed date in the world. The two notions coexist
+ * on purpose and are not interchangeable: feeding this one's jobs to that one reintroduces exactly
+ * the midnight boundary the study day exists to remove, and feeding that one's job to this one
+ * would make the exam countdown move at 04:00.
  */
 export function studyDaysBetween(from: number, to: number): number {
   return Math.round((studyDayStart(to) - studyDayStart(from)) / MS_PER_DAY)
@@ -85,4 +92,40 @@ export function addStudyDays(timestamp: number, days: number): number {
   // `setDate` normalises month, year and DST boundaries, which is exactly why it is used here.
   start.setDate(start.getDate() + days)
   return start.getTime()
+}
+
+/**
+ * A `YYYY-MM-DD` value from a date input, as the **04:00 study-day start** of that day.
+ *
+ * A date input hands over a calendar day, not an instant, and both her exam date and a lesson
+ * deadline mean "the study day she means" rather than "an instant eight hours into it". Anchoring
+ * to the rollover is what keeps "due today" from becoming "overdue" at 00:00 while she is still
+ * studying. Lives here rather than in the settings repository because it is the 04:00 rule, not a
+ * settings concern — and because a second copy for lesson deadlines is how two screens end up
+ * disagreeing about what "the 3rd" means.
+ *
+ * Returns `undefined` for an empty or unparseable value, so clearing the field clears it rather
+ * than storing `NaN`. It also rejects a rolled-over date like `2027-02-31`, which `Date` would
+ * silently turn into March.
+ */
+export function studyDayMsFromDateInput(value: string): number | undefined {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim())
+  if (!match) return undefined
+
+  const [, year, month, day] = match
+  const date = new Date(Number(year), Number(month) - 1, Number(day), STUDY_DAY_ROLLOVER_HOUR)
+
+  if (date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) return undefined
+
+  return date.getTime()
+}
+
+/** Epoch ms back to the `YYYY-MM-DD` a date input expects. Empty string when there is no date. */
+export function dateInputFromStudyDayMs(timestamp: number | undefined): string {
+  if (timestamp === undefined) return ''
+
+  const date = new Date(timestamp)
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
 }

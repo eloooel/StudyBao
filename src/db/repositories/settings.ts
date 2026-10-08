@@ -1,4 +1,3 @@
-import { STUDY_DAY_ROLLOVER_HOUR } from '@/lib/study-day'
 import { MS_PER_DAY } from '@/lib/time'
 import { DEFAULT_CRAM_THRESHOLD_DAYS, SETTINGS_ID, getDb } from '../schema'
 import type { AppSettings } from '../types'
@@ -48,38 +47,26 @@ export async function updateSettings(
 /**
  * The study-day start (04:00 local) for a `YYYY-MM-DD` value from a date input.
  *
- * A date input gives a calendar day, not an instant, and the exam date has to mean "the
- * study day she sits the exam" rather than "an instant 8 hours into it". Anchoring to the
- * 04:00 boundary keeps the countdown from being off by one depending on the time of day she
- * opened Settings.
- *
- * Returns `undefined` for an empty or unparseable value, so clearing the field clears it
- * rather than storing `NaN`.
+ * **Moved to `src/lib/study-day.ts`** as `studyDayMsFromDateInput` in Workflow E, when lesson
+ * deadlines needed the same conversion. It was a move rather than a copy because two copies of
+ * "which day does this date mean" disagree eventually, and the failure is a deadline that sorts
+ * into the wrong section with no way to see why. `src/lib/` rather than a feature because the
+ * 04:00 rule is what `study-day.ts` exists to own.
  */
-export function examDateToEpochMs(value: string): number | undefined {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim())
-  if (!match) return undefined
 
-  const [, year, month, day] = match
-  const date = new Date(Number(year), Number(month) - 1, Number(day), STUDY_DAY_ROLLOVER_HOUR)
-
-  // Reject a rolled-over date like 2027-02-31, which `Date` would silently turn into March.
-  if (date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) return undefined
-
-  return date.getTime()
-}
-
-/** Epoch ms back to the `YYYY-MM-DD` a date input expects. */
-export function epochMsToExamDateInput(examDate: number | undefined): string {
-  if (examDate === undefined) return ''
-
-  const date = new Date(examDate)
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${date.getFullYear()}-${month}-${day}`
-}
-
-/** Whole study days from `now` until the exam. Negative once the date has passed. */
+/**
+ * Whole study days from `now` until the exam. Negative once the date has passed.
+ *
+ * **Deliberately a 24-hour count, and deliberately not reusable for a lesson deadline.** The exam
+ * countdown answers "how many sleeps until the exam", where the date is a fixed fact in the world;
+ * the `ceil` here is what makes the day before the exam read 1. A lesson's overdue-ness is a
+ * study-day question — a lesson due today must not be overdue at 00:30 — and it goes through
+ * `studyDaysBetween` in `@/lib/study-day`, which rolls over at 04:00.
+ *
+ * The two "days until" notions coexist on purpose. Swapping either one for the other is a silent
+ * bug in one direction or the other: this function for a deadline reintroduces the midnight
+ * boundary, and `studyDaysBetween` for the countdown moves the exam number at 04:00.
+ */
 export function daysUntilExam(examDate: number | undefined, now = Date.now()): number | undefined {
   if (examDate === undefined) return undefined
   return Math.ceil((examDate - now) / MS_PER_DAY)

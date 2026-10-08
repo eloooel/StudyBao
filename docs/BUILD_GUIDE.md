@@ -58,8 +58,16 @@ the favicon/apple-touch-icon language. Tagline: _"Study buddy for the PNLE 💗"
 ### Lesson Tracker
 
 - Manual subject/topic/deadline/status (Not started / Reviewing / Mastered) entries.
-- Calendar + list view, filterable by status.
-- OCR-assisted schedule import from a photo, with a **mandatory** confirm/edit pass before saving.
+- **List view, grouped by overdue / this week / later, plus an explicit "No date yet" section**,
+  filterable by status. Shipped in Workflow E. The **calendar grid is deferred**, not dropped: its
+  cells are calendar days, which fights the 04:00 study-day rule that decides what "due today" means
+  (a grid says "yesterday" from midnight; the app does not) — so the list carries the date _and_ a
+  relative label instead, and it can be added later as pure presentation over the same rows.
+- ~~OCR-assisted schedule import from a photo, with a **mandatory** confirm/edit pass before saving.~~
+  **Deferred by Workflow E, deliberately.** §3's OCR reality check wins: tabular and handwritten
+  input is Tesseract's weakest case, and the field it would fill is the one that decides which
+  section a lesson lands in. A wrongly parsed date is _invisible_ — the lesson sorts confidently into
+  the wrong bucket and she trusts it — and typing twenty topics takes ten minutes.
 
 ### Notifications — in-app only, no backend
 
@@ -273,7 +281,7 @@ A0 (decisions)                            ✅
      ├─ B (flashcards + SM-2)             ✅
      │   └─ C (ingest → flashcards)       ✅
      ├─ D (Pomodoro)                      ✅
-     └─ E (tracker)                       ⏸
+     └─ E (tracker)                       ✅
           └─ F (dashboard)                ⏸  ← needs B, D, E data
           └─ S (cloud sync)               ⏸  ← needs B/E data model + decisions #1/#6
           └─ G (in-app attention nudges)  ⏸  ← needs D's session state only
@@ -387,15 +395,61 @@ vitest 4/5's optional browser peers — see the toolchain constraints in `CLAUDE
 6. Emit the events F and G need.
 7. **Output:** working timer, usable standalone.
 
-### Workflow E — Lesson Tracker + Schedule Import
+### Workflow E — Lesson Tracker — ✅ **DONE** (schedule import deferred)
 
-1. Data model: `Lesson { id, subject, topic, deadline?, status, notes?, updatedAt, deletedAt? }`.
-   `deadline` is optional — see §6 for why a required date would be a fabricated number. `subject` is
-   the stable `PrcPart` key; its label resolves from `seed-data.ts`, never from the `decks` table.
-2. Manual CRUD + calendar/list view, filterable by status.
-3. Reuse the ingest pipeline for schedule photos; keep parsing minimal and route straight to a
-   confirm/edit form. Reuse the `Lesson` form component — do not build a second one.
-4. **Output:** tracker usable manually, or via rough photo import + cleanup.
+1. Data model: `Lesson` in Dexie **version 3** (see §6). `deadline` is optional — see §6 for why a
+   required date would be a fabricated number. `subject` is the stable `PrcPart` key; its label
+   resolves from `seed-data.ts`, never from the `decks` table.
+2. Manual CRUD with a list grouped **overdue / this week / later / no date yet**, filterable by
+   status. The filter lives in the URL (`?status=`), like the ingest tab, so a refresh or an iPad tab
+   restore keeps her where she was.
+3. **The calendar grid is deferred** and the **schedule-photo import is not built** — both with their
+   reasoning in §1 above. §8's definition of done for E is a lesson created, filtered and completed
+   _without touching OCR_, and that is exactly what shipped.
+4. **Output:** the tracker is usable manually, which was the deliverable. Her plan has a home.
+
+**Decisions taken during the build that are not in §6** (each closes an ambiguity the model left):
+
+- **Statuses are stored as stable keys** (`'not-started' | 'reviewing' | 'mastered'`), never as the
+  labels she reads. A status filter that "ignores a case" is therefore not a bug that gets tested for;
+  it is a bug that cannot be expressed — and changing the wording ("Reviewing" → "In review") costs no
+  migration on a device with no undo.
+- **Mastered is out of the default view entirely.** A finished topic must never render as
+  outstanding: that is guilt framing, and the fastest way to make her stop opening the tracker. The
+  default chip is "To do" (everything not mastered) and Mastered is one tap away on its own chip.
+- **A mastered lesson is never overdue**, whatever its date says, and the mastered chip is one flat
+  section rather than date groups — otherwise a topic she finished last week would be filed under
+  "Still waiting" the moment its date passed.
+- **Every chip and every section has its own empty state.** A filter that matches nothing is the
+  _normal_ case on a good week (Mastered with nothing mastered, To do with everything done), and a
+  blank region under a row of chips is indistinguishable from a broken screen.
+- **A lesson with no deadline is not late, and is not a mistake.** Undated lessons gather in
+  "No date yet", last. The alternative — a required date — makes her invent one at entry for every
+  unplanned topic, and an invented date is a wrong number that sorts into "overdue" and shows for a
+  deadline she never meant.
+- **A lesson's subject label resolves from `PRC_PARTS`, never from the `decks` table.** Decks are
+  soft-deletable, so resolving through them would leave a lesson's subject unreadable because she
+  deleted an unrelated deck — a display bug with nothing she could do about it.
+- **Two "days until" notions coexist and are not interchangeable.** `daysUntilExam` is a whole-24-hour
+  `ceil` for a date fixed in the world; a lesson deadline goes through `studyDaysBetween` in
+  `src/lib/study-day.ts`, which rolls at 04:00. Substituting one for the other is a silent bug in one
+  direction or the other, so both carry a doc comment saying which is which.
+- **The date helpers moved rather than being copied.** `examDateToEpochMs` and
+  `epochMsToExamDateInput` became `studyDayMsFromDateInput` and `dateInputFromStudyDayMs` in
+  `src/lib/study-day.ts`, because the tracker and Settings must not hold two ideas of which day
+  "the 3rd" is.
+- **One lesson form, used by the manual path**, built from the existing primitives and remounted per
+  target (`key`), the same shape as the card form — so a second lesson never opens showing the first
+  one's topic.
+
+**Verified** — all six checks green on the working tree: `typecheck`, `lint:check`, `prettier --check .`,
+`test:coverage` (41 files, 552 tests, 87.4% lines, against the floor in `vitest.config.ts`), `build`
+(155 modules; precache **88 entries** with no PDF or OCR assets — the byte count is not restated here,
+because it had already gone stale once; `scripts/report-precache.mjs` reports it), and `preview` (the
+`/lessons` deep link serves the shell; the service worker is served and has no `push` handler). Eight
+reintroduced bugs were each confirmed to turn a test red before the tests were trusted. **Not verified:**
+anything needing a browser or a real device — iPad width, touch, and the offline cold start. Full detail
+in [`HANDOFF.md`](HANDOFF.md) §1.
 
 ### Workflow F — Dashboard & Gamification
 
@@ -433,6 +487,11 @@ The half of old G0 that survives. No server of ours: the client talks to Firesto
    a failed sync must be invisible while she studies. **But** it must be _visible_ somewhere persistent
    ("not saved since…"). Sync **per write**, not on a timer: an eviction between writes loses whatever
    was not yet pushed.
+   **The synced set is every table in `src/db/`, and it is listed here so a new one cannot be
+   forgotten:** `decks`, `cards`, `reviewLogs`, `settings`, `sessions`, `lessons`. `lessons` is the
+   sixth and arrived with Workflow E; a merge written against the previous five would silently drop
+   her entire study plan. `ReviewLog` is the one exception to last-write-wins: it is append-only and
+   merges **union-only**, because a last-write-wins merge on it is silent history loss.
 7. **Merge function as a pure unit** (`sync/lib/merge.ts`), tested before it ever touches real data.
    Cases: local-only, remote-only, both-changed-newer-local, both-changed-newer-remote, soft-deleted
    locally, soft-deleted remotely. It is load-bearing twice over — two devices _and_ potentially two
@@ -578,8 +637,9 @@ Settings  { id: 'app', examDate?, cramThresholdDays, seededAt?, cloudSync,
 Session   { id, type /* working | break | longBreak */, startedAt, endedAt, plannedMs,
             actualMs, completed, tabHiddenCount, updatedAt, deletedAt? }
 
-// Created by Workflow E (version 3):
-Lesson    { id, subject, topic, deadline?, status, notes?, updatedAt, deletedAt? }   // Workflow E
+// Shipped in Dexie version 3 (Workflow E):
+Lesson    { id, subject /* PrcPart key */, topic, deadline?, status /* not-started | reviewing | mastered */,
+            notes?, updatedAt, deletedAt? }
 ```
 
 **`deadline` is optional, amended 2026-10-07.** It was written bare above, which made it required.
@@ -590,6 +650,16 @@ may carry no deadline, and those gather in an explicit **"No date yet"** section
 `subject` is the stable `PrcPart` key, exactly as on `Deck`, and its display label resolves from
 `PRC_PARTS` in `src/db/seed-data.ts` — **not** from the `decks` table, which is soft-deletable and would
 leave a lesson's subject unreadable the moment she deletes a deck.
+
+**A deadline is the 04:00 study-day start of the day she means, and overdue-ness is a study-day
+question.** `deadline` is stored exactly like `examDate`: the epoch-ms instant of 04:00 local on the
+chosen day (`studyDayMsFromDateInput`). "Overdue" is then `studyDaysBetween(deadline, now) < 0`, never
+`deadline < Date.now()` — the anchored instant is _in the past_ for the whole of the day it is due, so
+the naive comparison reports every lesson as late from 04:00 onwards. **A mastered lesson is never
+overdue**, and mastered lessons are excluded from the default view entirely (the "To do" chip is
+everything that is not mastered). `daysUntilExam` is deliberately the opposite kind of count — a
+whole-24-hour `ceil` against a fixed date in the world — and the two are **not interchangeable**; each
+carries a doc comment saying which it is.
 
 **`Session` is written twice per block, and that is deliberate.** A row is created when she presses
 Start — so a block interrupted by a closed tab is still a row rather than nothing, which matters
@@ -762,8 +832,8 @@ Relative to build start; the dates assume starting immediately.
 | Weeks 17–22 | Jan 13 – Feb 26 | **Buffer. Cram mode. Bug fixes. No new features.** |                                                                               |
 
 **Deviation as actually run, at 2026-10-07 (142 days out):** weeks 1–3 shipped **A and B but not D**,
-then C (in three commits) and D followed, so **A, B, C and D are all done** and the weeks 4–8 window is
-complete except for **E**. The row above originally said "B and D" because §9.1 reasoned a timer was
+then C (in three commits), D, and **E** followed, so **A, B, C, D and E are all done** and the weeks 4–8
+window is complete. The row above originally said "B and D" because §9.1 reasoned a timer was
 needed early — but that was written before B existed, and the bottleneck B revealed is _card entry_, not
 timing. Spaced repetition compounds only over cards that already exist and the exam date does not move,
 whereas a timer added in December is exactly as useful in December as in October. So card creation binds
@@ -772,8 +842,8 @@ earlier than the timer does. Full reasoning in `docs/HANDOFF.md` §8.
 **A recommended change to the order below, awaiting a go-ahead.** The budget puts F and S at weeks 9–12
 and H at 13–16, which means the reveal could not happen until mid-January. But §9.1's own argument is
 that the app must be usable long before it is complete, and §9.5 calls the reveal a deliverable in its
-own right. The recommendation is therefore: **E → export/import → H's reveal-scoped items → reveal**,
-with **F, S and G landing afterwards, while she is already using it.** Two reasons:
+own right. The recommendation is therefore: **E (done) → export/import → H's reveal-scoped items →
+reveal**, with **F, S and G landing afterwards, while she is already using it.** Two reasons:
 
 - **F wants data that does not exist yet.** `ReviewLog` accumulates only from real reviews and the
   `sessions` table has never recorded a block on her device, because she does not know the app exists

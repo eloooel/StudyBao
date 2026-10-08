@@ -1,13 +1,10 @@
 import { useState } from 'react'
 
-import {
-  daysUntilExam,
-  epochMsToExamDateInput,
-  examDateToEpochMs,
-} from '@/db/repositories/settings'
+import { daysUntilExam } from '@/db/repositories/settings'
 import { useSettings } from '@/features/flashcards/hooks/use-settings'
 import { updateSettings } from '@/db/repositories/settings'
 import { useTimerSettings } from '@/features/timer/hooks/use-timer-settings'
+import { dateInputFromStudyDayMs, studyDayMsFromDateInput } from '@/lib/study-day'
 import { notifyDataChanged } from '@/lib/use-database-value'
 import { useTheme } from '@/lib/theme-store'
 import { SettingsView } from '../components/settings-view'
@@ -29,7 +26,7 @@ export default function SettingsPage() {
   const [storageNoticeDismissed, setStorageNoticeDismissed] = useState(false)
   const [draftDate, setDraftDate] = useState<string | undefined>(undefined)
 
-  const examDateInput = draftDate ?? epochMsToExamDateInput(settings.examDate)
+  const examDateInput = draftDate ?? dateInputFromStudyDayMs(settings.examDate)
 
   return (
     <SettingsView
@@ -44,7 +41,7 @@ export default function SettingsPage() {
           void setExamDate(undefined)
           return
         }
-        const parsed = examDateToEpochMs(value)
+        const parsed = studyDayMsFromDateInput(value)
         if (parsed !== undefined) void setExamDate(parsed)
       }}
       daysUntilExam={daysUntilExam(settings.examDate)}

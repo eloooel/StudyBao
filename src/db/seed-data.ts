@@ -80,3 +80,22 @@ const PART_ORDER: readonly PrcPart[] = PRC_PARTS.map((entry) => entry.part)
 export function prcPartOrder(part: PrcPart): number {
   return PART_ORDER.indexOf(part)
 }
+
+const PART_NAMES = new Map(PRC_PARTS.map((entry) => [entry.part, entry.name]))
+
+/**
+ * Display label for a PRC part, for anything that stores the key rather than the name — the
+ * lesson tracker's `subject`, which is a `PrcPart` exactly as `Deck.subject` is.
+ *
+ * **This is deliberately not resolved through the `decks` table.** A deck is soft-deletable, so a
+ * lesson whose subject label came from a deleted deck would be unreadable because of an unrelated
+ * action on another screen, with nothing she could do about it. `PRC_PARTS` holds the key and the
+ * name together, and it cannot be deleted.
+ *
+ * Falls back to the key itself. That is unreachable through the typed API — it exists because a
+ * stored row could always have come from somewhere else: a hand-edited database, or a later
+ * version's sixth part arriving through sync.
+ */
+export function prcPartName(part: PrcPart): string {
+  return PART_NAMES.get(part) ?? part
+}

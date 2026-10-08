@@ -20,15 +20,17 @@ Every new field is a migration, a sync field, a test, and a permanent maintenanc
 
 If any of the three is missing the change, you have a latent bug.
 
-**Current version: 2.** `decks`, `cards`, `reviewLogs`, `settings` and `sessions` — every table that
-exists. Version 2 added `sessions` (Workflow D) with an **intentionally empty** upgrade, because it
-introduced a table and transformed nothing; a retried migration therefore cannot corrupt anything.
-`Lesson` (Workflow E) is in `BUILD_GUIDE.md` §6 as the eventual model; it is deliberately not created
-until the workflow that fills it is built.
+**Current version: 3.** `decks`, `cards`, `reviewLogs`, `settings`, `sessions` and `lessons` — every
+table that exists. Version 2 added `sessions` (Workflow D) and version 3 added `lessons`
+(Workflow E), each with an **intentionally empty** upgrade, because they introduce a table and
+transform no row; a retried migration therefore cannot corrupt anything. Workflow S syncs all six —
+`ReviewLog` union-only — and `lessons` is the sixth mutable synced record, so a merge written
+against the old list would silently drop her whole study plan.
 
-`src/db/migrations.test.ts` carries the v1 → v2 test to copy for version 3. Note the pattern: it
-builds the v(N−1) database from a **bare `Dexie`**, not from `StudyBaoDb`, because the class now
-declares the newer version and opening it would run the very migration under test.
+`src/db/migrations.test.ts` carries a v1 → current test and a v2 → v3 test to copy for version 4.
+Note the pattern in both: they build the v(N−1) database from a **bare `Dexie`**, not from
+`StudyBaoDb`, because the class now declares the newer version and opening it would run the very
+migration under test.
 
 ## 3. Non-negotiable field rules
 

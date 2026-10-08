@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { DEFAULT_CRAM_THRESHOLD_DAYS, SETTINGS_ID, StudyBaoDb, seedInitialData } from './schema'
 import { deckIdForPart } from './seed-data'
-import type { Card } from './types'
+import type { Card, Lesson } from './types'
 
 /**
  * Migrations and seeding.
@@ -148,10 +148,11 @@ describe('schema version 1', () => {
     const db = new StudyBaoDb(name)
     await db.open()
 
-    expect(db.verno).toBe(2)
+    expect(db.verno).toBe(3)
     expect(db.tables.map((table) => table.name).sort()).toEqual([
       'cards',
       'decks',
+      'lessons',
       'reviewLogs',
       'sessions',
       'settings',
@@ -162,17 +163,18 @@ describe('schema version 1', () => {
 })
 
 /**
- * Version 1 → version 2, the Workflow D migration.
+ * Version 1 → the current version, i.e. every upgrade in sequence.
  *
- * This is the first migration in the project's history, and the runbook is explicit about the
- * shape: open a v(N−1) database, write representative rows, reopen at v(N), and assert nothing was
- * lost. The specific danger is that a store definition mistake silently drops a table's contents.
+ * This was the v1 → v2 test until Workflow E added version 3, and it is deliberately kept rather
+ * than replaced: a database that has been sitting on her iPad since Workflow B takes the whole
+ * chain, and the failure this catches is a *later* version block that restates an earlier version's
+ * stores wrongly and silently drops a table's contents on the way past.
  *
- * The upgrade function is deliberately empty — it adds a table and transforms nothing — so what
- * these tests defend is not the function but the **store definitions**: restating them wrongly is
- * how a migration loses months of SM-2 history.
+ * The specific danger is that a store definition mistake loses months of SM-2 history, and the
+ * upgrade functions are deliberately empty — they add tables and transform nothing — so what these
+ * tests defend is not the functions but the store definitions.
  */
-describe('schema version 1 → 2', () => {
+describe('schema version 1 → 3', () => {
   /**
    * A version 1 database, written the way Workflow B/C would have written it.
    *
@@ -246,9 +248,11 @@ describe('schema version 1 → 2', () => {
     const upgraded = new StudyBaoDb(name)
     await upgraded.open()
 
-    expect(upgraded.verno).toBe(2)
-    // The new table exists and is empty — not populated with invented rows.
+    expect(upgraded.verno).toBe(3)
+    // The tables added by the later versions exist and are empty — not populated with invented
+    // rows. `sessions` is version 2's, `lessons` is version 3's.
     expect(await upgraded.sessions.count()).toBe(0)
+    expect(await upgraded.lessons.count()).toBe(0)
 
     // No card lost, and the SM-2 history is byte-for-byte intact. This is the assertion that
     // matters: `intervalDays` and `lapses` cannot be reconstructed.
@@ -305,9 +309,9 @@ describe('schema version 1 → 2', () => {
   })
 
   it('is safe to open twice, because a failed migration can be retried', async () => {
-    // The runbook requires upgrade functions to be idempotent. This one does nothing, so the test
-    // is really asserting that a no-op is safe: reopening must not clear `sessions` or re-run
-    // seeding in a way that changes rows.
+    // The runbook requires upgrade functions to be idempotent. These do nothing, so the test
+    // is really asserting that a no-op is safe: reopening must not clear `sessions` or `lessons`
+    // or re-run seeding in a way that changes rows.
     const name = uniqueName()
     const first = new StudyBaoDb(name)
     await first.open()
@@ -317,9 +321,140 @@ describe('schema version 1 → 2', () => {
     const second = new StudyBaoDb(name)
     await second.open()
 
-    expect(second.verno).toBe(2)
+    expect(second.verno).toBe(3)
     expect(await second.decks.count()).toBe(deckCount)
     second.close()
+  })
+})
+
+/**
+ * Version 2 → version 3, the Workflow E migration.
+ *
+ * Same shape as the v1 test above, and the same reasoning: version 3 adds a table and transforms
+ * nothing, so the risk is in the store definitions rather than in the upgrade function. What this
+ * one defends specifically is that a database already carrying Workflow D's `sessions` — the first
+ * migration in the project's history — arrives at version 3 with every session row intact, because
+ * repeating "the v1 stores" in the v3 block instead of restating the v2 ones is exactly how the
+ * `sessions` table would be emptied.
+ */
+describe('schema version 2 → 3', () => {
+  /**
+   * A version 2 database, written the way Workflows B–D would have written it. Built from a bare
+   * `Dexie` for the reason the v1 helper gives: `StudyBaoDb` declares version 3, so opening it
+   * would run the migration under test.
+   */
+  async function openLegacyV2(name: string): Promise<Dexie> {
+    const legacy = new Dexie(name)
+    legacy.version(2).stores({
+      decks: 'id, subject, updatedAt, deletedAt',
+      cards: 'id, deckId, nextReview, updatedAt, deletedAt',
+      reviewLogs: 'id, cardId, deckId, reviewedAt',
+      settings: 'id',
+      sessions: 'id, startedAt, type, updatedAt, deletedAt',
+    })
+    await legacy.open()
+    return legacy
+  }
+
+  it('keeps every row, adds an empty lessons table, and invents no deadlines', async () => {
+    const name = uniqueName()
+    const now = 1_800_000_000_000
+
+    const session = {
+      id: 'session-1',
+      type: 'working',
+      startedAt: now - 25 * 60_000,
+      endedAt: now,
+      plannedMs: 25 * 60_000,
+      actualMs: 25 * 60_000,
+      completed: true,
+      tabHiddenCount: 2,
+      updatedAt: now,
+    }
+
+    const legacy = await openLegacyV2(name)
+    await legacy.table('settings').put({
+      id: SETTINGS_ID,
+      cramThresholdDays: DEFAULT_CRAM_THRESHOLD_DAYS,
+      cloudSync: true,
+      seededAt: now,
+      updatedAt: now,
+    })
+    await legacy.table('sessions').bulkAdd([
+      session,
+      // A tombstone on the table added by the previous migration, and a row she abandoned —
+      // `completed: false` with a planned end that has passed. Both must survive untouched.
+      { ...session, id: 'session-deleted', deletedAt: now - DAY },
+      { ...session, id: 'session-abandoned', completed: false, actualMs: 0 },
+    ])
+    legacy.close()
+
+    const upgraded = new StudyBaoDb(name)
+    await upgraded.open()
+
+    expect(upgraded.verno).toBe(3)
+    // The new table is empty: a migration must not invent lessons, and must not invent a deadline
+    // for a lesson she never created.
+    expect(await upgraded.lessons.count()).toBe(0)
+
+    expect(await upgraded.sessions.get('session-1')).toEqual(session)
+    expect((await upgraded.sessions.get('session-deleted'))?.deletedAt).toBe(now - DAY)
+    expect((await upgraded.sessions.get('session-abandoned'))?.completed).toBe(false)
+    expect(await upgraded.sessions.count()).toBe(3)
+
+    // A settings row written before Workflow D's optional timer fields existed still reads back
+    // with them absent — absence means "use the default", never "zero minutes".
+    const settings = await upgraded.settings.get(SETTINGS_ID)
+    expect(settings?.workMin).toBeUndefined()
+    expect(settings?.seededAt).toBe(now)
+
+    upgraded.close()
+  })
+
+  it('reopens at version 3 with a lesson tombstone and a lesson missing its optional fields', async () => {
+    // The runbook's two required row shapes, for the table this version introduces: a soft-deleted
+    // row must stay deleted, and a row written without its optional fields must read back with them
+    // still *absent* rather than nulled or defaulted. A lesson she never dated is the normal case
+    // here, not a legacy one — so "no deadline" has to survive every reopen.
+    const name = uniqueName()
+    const now = 1_800_000_000_000
+
+    const legacyShaped = {
+      id: 'lesson-undated',
+      subject: 'practice-iv',
+      topic: 'Endocrine emergencies',
+      status: 'not-started',
+      updatedAt: now - 3 * DAY,
+    }
+
+    const seeded = new StudyBaoDb(name)
+    await seeded.open()
+    await seeded.lessons.bulkAdd([
+      legacyShaped as Lesson,
+      {
+        id: 'lesson-deleted',
+        subject: 'practice-i',
+        topic: 'Something she removed',
+        deadline: now,
+        status: 'reviewing',
+        updatedAt: now - DAY,
+        deletedAt: now - DAY,
+      },
+    ])
+    seeded.close()
+
+    const reopened = new StudyBaoDb(name)
+    await reopened.open()
+
+    const undated = await reopened.lessons.get('lesson-undated')
+    expect(undated).toEqual(legacyShaped)
+    expect(Object.hasOwn(undated as Lesson, 'deadline')).toBe(false)
+    expect(Object.hasOwn(undated as Lesson, 'notes')).toBe(false)
+
+    expect((await reopened.lessons.get('lesson-deleted'))?.deletedAt).toBe(now - DAY)
+    expect(await reopened.lessons.count()).toBe(2)
+
+    reopened.close()
   })
 })
 

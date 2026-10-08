@@ -3,10 +3,11 @@
 > **Mostly spent.** The state of the world is [`HANDOFF.md`](HANDOFF.md) — read that first.
 >
 > Done since this file was last accurate: item 3 (`useDatabaseValue` promoted to `src/lib/`, during
-> Workflow C), and the whole of Workflows C and D.
+> Workflow C), and the whole of Workflows C, D and E.
 >
 > Still open: item 2, the `recordReview` whole-record write, and item 4, the union-only merge rule for
-> `ReviewLog`. Both belong to Workflow S, and both are repeated in `HANDOFF.md` §8.
+> `ReviewLog`. Both belong to Workflow S, and both are repeated in `HANDOFF.md` §8. Workflow S must also
+> sync `lessons`, the sixth table — see `BUILD_GUIDE.md` §4 Workflow S.
 >
 > **The hashes and test counts in the table below are historical and were stale within days of being
 > written.** Run `git log --oneline` instead — the file's own warning applies to it.
@@ -98,5 +99,5 @@ The default file sandbox blocks child processes, so these needed wider access:
 
 ## Not in scope, still not started
 
-Workflows C (ingest), D (Pomodoro), E (tracker), F (dashboard), S (sync), G (nudges), H (polish). Each
-needs its own go-ahead, per `CLAUDE.md` and `BUILD_GUIDE.md` §4.
+Workflows F (dashboard), S (sync), G (nudges), H (polish). C, D and E have since shipped. Each
+remaining workflow needs its own go-ahead, per `CLAUDE.md` and `BUILD_GUIDE.md` §4.

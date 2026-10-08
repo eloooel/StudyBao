@@ -4,6 +4,8 @@ import {
   MS_PER_DAY,
   STUDY_DAY_ROLLOVER_HOUR,
   addStudyDays,
+  dateInputFromStudyDayMs,
+  studyDayMsFromDateInput,
   studyDayStart,
   studyDaysBetween,
 } from './study-day'
@@ -11,9 +13,9 @@ import {
 /**
  * The 04:00 study-day boundary (docs/BUILD_GUIDE.md §2 decision #10).
  *
- * This module has exactly one consumer today (the scheduler) and one tomorrow (the streak
- * logic). The tests below are the specification: the boundary, the rollover hour, and the
- * deliberate 3am behaviour.
+ * This module has one consumer per workflow as they land: the scheduler (B), the exam date in
+ * settings and now the lesson tracker (E), and the streak logic (F) when it arrives. The tests
+ * below are the specification: the boundary, the rollover hour, and the deliberate 3am behaviour.
  *
  * All times are constructed from local calendar parts so the expectations hold in whatever
  * zone the suite runs in.
@@ -199,5 +201,71 @@ describe('addStudyDays', () => {
     const elapsed = addStudyDays(from, 1) - studyDayStart(from)
 
     expect(Math.abs(elapsed - MS_PER_DAY)).toBeLessThanOrEqual(60 * 60 * 1000)
+  })
+})
+
+/**
+ * The date-input ↔ epoch-ms conversion.
+ *
+ * Moved here from `src/db/repositories/settings.test.ts` in Workflow E, when the lesson tracker
+ * needed the same rule for a deadline: a date input hands over a calendar day, the model stores an
+ * epoch-ms instant, and an off-by-one would silently move her exam countdown and sort a lesson into
+ * the wrong section. Every assertion names the local calendar value it expects, never a raw number.
+ */
+describe('studyDayMsFromDateInput', () => {
+  it('anchors the date to the 04:00 study-day start, in local time', () => {
+    const parsed = studyDayMsFromDateInput('2027-02-26')
+
+    expect(parsed).toBeDefined()
+    const date = new Date(parsed as number)
+    expect(date.getFullYear()).toBe(2027)
+    expect(date.getMonth()).toBe(1) // February
+    expect(date.getDate()).toBe(26)
+    expect(date.getHours()).toBe(4)
+    expect(date.getMinutes()).toBe(0)
+  })
+
+  it('returns undefined for an empty value, so clearing the field clears the date', () => {
+    expect(studyDayMsFromDateInput('')).toBeUndefined()
+    expect(studyDayMsFromDateInput('   ')).toBeUndefined()
+  })
+
+  it('rejects a date that does not exist rather than rolling it over', () => {
+    // `new Date(2027, 1, 31)` silently becomes 3 March. Storing that would move her exam, or
+    // move a lesson's deadline out of the section she put it in.
+    expect(studyDayMsFromDateInput('2027-02-31')).toBeUndefined()
+    expect(studyDayMsFromDateInput('2027-13-01')).toBeUndefined()
+  })
+
+  it('rejects anything that is not a plain YYYY-MM-DD', () => {
+    expect(studyDayMsFromDateInput('26/02/2027')).toBeUndefined()
+    expect(studyDayMsFromDateInput('2027-2-6')).toBeUndefined()
+    expect(studyDayMsFromDateInput('tomorrow')).toBeUndefined()
+  })
+
+  it('accepts a leap day', () => {
+    const parsed = studyDayMsFromDateInput('2028-02-29')
+
+    expect(parsed).toBeDefined()
+    expect(new Date(parsed as number).getDate()).toBe(29)
+  })
+})
+
+describe('dateInputFromStudyDayMs', () => {
+  it('round-trips a date through the storage form and back', () => {
+    for (const value of ['2027-02-26', '2026-12-01', '2028-02-29', '2027-01-01']) {
+      const parsed = studyDayMsFromDateInput(value)
+      expect(dateInputFromStudyDayMs(parsed)).toBe(value)
+    }
+  })
+
+  it('returns an empty string when no date is set', () => {
+    expect(dateInputFromStudyDayMs(undefined)).toBe('')
+  })
+
+  it('reads a stored instant back as the calendar day it belongs to', () => {
+    // 04:00 local on the 26th is unambiguously the 26th; this is why the 04:00 anchor matters.
+    const atFourAm = new Date(2027, 1, 26, 4, 0, 0, 0).getTime()
+    expect(dateInputFromStudyDayMs(atFourAm)).toBe('2027-02-26')
   })
 })
