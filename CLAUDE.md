@@ -303,6 +303,11 @@ in `ui/`.
 - **Then one tap and nothing else:** a single Google sign-in with a reason (_"sign in so your notes are
   safe and show up on your laptop too"_), straight into reviewing pre-seeded cards. No permissions, no
   tutorial wall, no empty state that asks her to create something first.
+- **Until Workflow S lands there is no sign-in at all, and three rules here describe a flow that cannot
+  be built yet:** the one-tap Google sign-in above, "expect to be signed out after an eviction", and
+  "detect no local data with remote data exists". **The pre-S first run is the Home Screen prompt and
+  then straight into the app.** Do not read a missing sign-in screen as a defect, and do not build an
+  auth-shaped placeholder for it. S owns all three.
 - **Tell her to use the Home Screen icon, not the Safari tab.** Separate containers mean two local
   copies that only sync reconciles, and the Safari one is the one that gets deleted.
 - **Survive the local database being deleted at any time.** Empty IndexedDB plus remote data means
@@ -314,7 +319,13 @@ in `ui/`.
   not an inconvenience.
 - **Sync per write**, not on a timer — an eviction between writes loses whatever was not yet pushed.
 - **Export/import is a first-class screen**, reachable in two taps. It is the only backup that does not
-  depend on Google, the network, or a sync bug.
+  depend on Google, the network, or a sync bug. **Two caveats, because the rule has been read too
+  literally twice.** (1) **The screen is two taps; the destructive step intentionally costs more** —
+  pick a file, then confirm. Neither the pre-import save nor the confirmation may be removed to satisfy
+  a tap count. (2) **"Does not depend on Google" is not the same as "independent".** On iOS a downloaded
+  file lands in Files or iCloud Drive, so its durability may lean on a cloud account — and it is
+  plaintext, carrying her notes and any identifiers that were in the source material. The UI must tell
+  her to keep a copy on the other device too.
 - **Never use a decrementing timer.** Derive elapsed time from `startedAt` and `Date.now()`.
 
 ---
