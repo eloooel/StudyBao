@@ -434,7 +434,7 @@ Worth stating explicitly, because each one is a plausible-looking detour:
 | D10 — font         | ✅ Closed: **Quicksand**.                                                                                                                                                                                                               |
 | D11 — icon         | ✅ Closed: **generated bow placeholder**, swappable if she ever picks one.                                                                                                                                                              |
 | D13 — backup       | ✅ Closed: **manual export only**, no nag.                                                                                                                                                                                              |
-| D14 — OCR fallback | ✅ Closed: **build it** for rasterized PDFs, after the parser fix, with per-page persistence — her iPad is 3 GB.                                                                                                                        |
+| D14 — OCR fallback | ⚠️ **Deferred**, gated on whether a rasterized PDF is copyable on the Windows laptop. The iPad path already works through Live Text with no code, using a better OCR than ours would be.                                                |
 | D15 — reveal       | ✅ Closed: **mid-October / early November**, which moves the reveal ahead of F, S and G.                                                                                                                                                |
 
 **The next thing I need is a go-ahead.**
