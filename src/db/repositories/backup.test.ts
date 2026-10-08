@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { BACKUP_FORMAT_VERSION, BACKUP_TABLES, SETTINGS_ROW_ID, parseBackup } from '@/lib/backup-format'
+import {
+  BACKUP_FORMAT_VERSION,
+  BACKUP_TABLES,
+  SETTINGS_ROW_ID,
+  parseBackup,
+} from '@/lib/backup-format'
 import { SETTINGS_ID, clearDatabaseForTests, getDb, seedInitialData } from '@/db/schema'
 import type { AppSettings, Card, Deck, Lesson, ReviewLog, Session } from '@/db/types'
 
@@ -168,7 +173,8 @@ async function seedFixture(): Promise<void> {
   const db = await getDb()
 
   const storedSettings = await db.settings.get(SETTINGS_ID)
-  if (!storedSettings) throw new Error('The test database was not seeded, so the fixture has no base.')
+  if (!storedSettings)
+    throw new Error('The test database was not seeded, so the fixture has no base.')
 
   await db.settings.put({
     ...storedSettings,
@@ -257,7 +263,9 @@ describe('a round trip', () => {
     expect(after.lessons.find((lesson) => lesson.id === 'lesson-undated')).not.toHaveProperty(
       'deadline',
     )
-    expect(after.lessons.find((lesson) => lesson.id === 'lesson-undated')).not.toHaveProperty('notes')
+    expect(after.lessons.find((lesson) => lesson.id === 'lesson-undated')).not.toHaveProperty(
+      'notes',
+    )
     expect(after.sessions.find((session) => session.id === 'session-abandoned')?.completed).toBe(
       false,
     )
@@ -304,13 +312,19 @@ const REFUSALS: { name: string; text: (valid: string) => string }[] = [
   { name: 'it is not JSON at all', text: () => 'not json' },
   { name: 'it is not one of our files', text: (v) => damage(v, (f) => (f.format = 'other-app')) },
   { name: 'the format version is missing', text: (v) => damage(v, (f) => delete f.formatVersion) },
-  { name: 'the format version is from the future', text: (v) => damage(v, (f) => (f.formatVersion = 2)) },
+  {
+    name: 'the format version is from the future',
+    text: (v) => damage(v, (f) => (f.formatVersion = 2)),
+  },
   { name: 'a table is missing', text: (v) => damage(v, (f) => delete f.tables.lessons) },
   {
     name: 'a table is not a list',
     text: (v) => damage(v, (f) => (f.tables.lessons = null as unknown as unknown[])),
   },
-  { name: 'it holds a table this version does not know', text: (v) => damage(v, (f) => (f.tables.notes = [])) },
+  {
+    name: 'it holds a table this version does not know',
+    text: (v) => damage(v, (f) => (f.tables.notes = [])),
+  },
   { name: 'a card has no id', text: (v) => damage(v, (f) => (f.tables.cards = [{ front: 'x' }])) },
   {
     name: 'the same card appears twice',
@@ -321,7 +335,10 @@ const REFUSALS: { name: string; text: (valid: string) => string }[] = [
         f.counts.cards = 2
       }),
   },
-  { name: 'the counts disagree with the file', text: (v) => damage(v, (f) => (f.counts.cards = 99)) },
+  {
+    name: 'the counts disagree with the file',
+    text: (v) => damage(v, (f) => (f.counts.cards = 99)),
+  },
   {
     name: 'the settings row is gone',
     text: (v) =>

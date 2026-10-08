@@ -195,10 +195,12 @@ describe('refusing a file', () => {
   })
 
   it('refuses a version from the future rather than guessing', () => {
-    expect(parseBackup(textOf((file) => (file.formatVersion = BACKUP_FORMAT_VERSION + 1)))).toEqual({
-      ok: false,
-      failure: { code: 'version-newer', found: BACKUP_FORMAT_VERSION + 1 },
-    })
+    expect(parseBackup(textOf((file) => (file.formatVersion = BACKUP_FORMAT_VERSION + 1)))).toEqual(
+      {
+        ok: false,
+        failure: { code: 'version-newer', found: BACKUP_FORMAT_VERSION + 1 },
+      },
+    )
   })
 
   it('refuses a file that is missing a whole table', () => {
@@ -210,7 +212,9 @@ describe('refusing a file', () => {
 
   it('refuses a table that is not a list', () => {
     expect(
-      parseBackup(textOf((file) => (file.tables.lessons = { id: 'lesson-1' } as unknown as unknown[]))),
+      parseBackup(
+        textOf((file) => (file.tables.lessons = { id: 'lesson-1' } as unknown as unknown[])),
+      ),
     ).toEqual({
       ok: false,
       failure: { code: 'table-invalid', table: 'lessons' },

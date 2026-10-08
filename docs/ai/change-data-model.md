@@ -82,6 +82,11 @@ Use `fake-indexeddb` for this. A migration without a test is not done.
 - Repositories in `src/db/repositories/`
 - Feature types in `features/{name}/types.ts`
 - Any Zod schema that validates the record
+- **The backup's table list** in `src/lib/backup-format.ts` (`BACKUP_TABLES`). A new table that is not
+  added there is a backup that **silently omits it** — the worst kind, because she will trust the file.
+  `src/db/repositories/backup.test.ts` asserts the list covers every table the schema declares, so
+  forgetting turns the suite red instead of shipping. Bump `BACKUP_FORMAT_VERSION` only if an older
+  build could not read the new envelope; a new _optional field inside a record_ needs no bump.
 - The Firestore security rules, if access patterns changed
 - The data model section of `BUILD_GUIDE.md` §6
 - The sync contract: if the record syncs, confirm the merge function still handles it

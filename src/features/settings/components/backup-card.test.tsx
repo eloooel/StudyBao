@@ -109,7 +109,18 @@ describe('the backup card', () => {
 
     // 412 in the file, 0 here: the two columns are genuinely two readings, not one repeated.
     const columns = within(dialog).getAllByRole('definition')
-    expect(columns.map((cell) => cell.textContent)).toEqual(['5', '412', '1,208', '12', '34', '5', '0', '0', '0', '0'])
+    expect(columns.map((cell) => cell.textContent)).toEqual([
+      '5',
+      '412',
+      '1,208',
+      '12',
+      '34',
+      '5',
+      '0',
+      '0',
+      '0',
+      '0',
+    ])
   })
 
   it('keeps the settings singleton out of the comparison, and mentions it in words instead', () => {
@@ -145,7 +156,9 @@ describe('the backup card', () => {
     }
 
     const { rerender } = render(
-      <BackupCard backup={props({ pending, onConfirmImport, onCancelImport, onSaveBeforeImport })} />,
+      <BackupCard
+        backup={props({ pending, onConfirmImport, onCancelImport, onSaveBeforeImport })}
+      />,
     )
 
     await user.click(screen.getByRole('button', { name: 'Save what’s here first' }))

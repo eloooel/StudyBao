@@ -47,7 +47,9 @@ describe('a refusal', () => {
     for (const failure of EVERY_FAILURE) {
       const message = backupFailureMessage(failure)
 
-      expect(message, failure.code).not.toMatch(/undefined|null|NaN|reviewLogs|record-|BackupFailure/)
+      expect(message, failure.code).not.toMatch(
+        /undefined|null|NaN|reviewLogs|record-|BackupFailure/,
+      )
     }
   })
 

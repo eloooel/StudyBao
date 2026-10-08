@@ -79,8 +79,7 @@ export async function exportBackup(now = Date.now()): Promise<BackupExport> {
 }
 
 export type ImportOutcome =
-  | { ok: true; counts: TableCounts }
-  | { ok: false; failure: BackupFailure }
+  { ok: true; counts: TableCounts } | { ok: false; failure: BackupFailure }
 
 /**
  * Replace every table with the contents of a backup file.

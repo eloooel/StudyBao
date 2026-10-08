@@ -101,8 +101,7 @@ export type BackupFailure =
   | { code: 'settings-missing' }
 
 export type BackupParseResult =
-  | { ok: true; envelope: BackupEnvelope }
-  | { ok: false; failure: BackupFailure }
+  { ok: true; envelope: BackupEnvelope } | { ok: false; failure: BackupFailure }
 
 /**
  * Build the envelope that gets written to the file.

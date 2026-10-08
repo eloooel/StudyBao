@@ -8,6 +8,13 @@ import { backupFilename, downloadTextFile } from './backup-file'
  * jsdom has `Blob` and `File` but **not** `URL.createObjectURL`, so the two URL methods are
  * installed here by hand rather than mocked through a module boundary — that keeps the test
  * exercising the real function, including the element it builds and removes.
+ *
+ * **Timers are faked for the whole file, and that is not a convenience.** The download revokes its
+ * blob URL on a timer, deliberately (a URL revoked before the browser has read it is a download that
+ * never happens). On real timers that callback fires *after* the test has ended and after the stubs
+ * have been removed, so it throws `URL.revokeObjectURL is not a function` into an unrelated file's
+ * run — an unhandled error that passes here and pollutes there. Running the pending timer in
+ * `afterEach`, while the stub is still installed, is what keeps it honest.
  */
 
 const URL_METHODS = ['createObjectURL', 'revokeObjectURL'] as const
@@ -16,17 +23,23 @@ let clicked: HTMLAnchorElement[] = []
 
 beforeEach(() => {
   clicked = []
+  vi.useFakeTimers()
   Object.assign(URL, {
     createObjectURL: vi.fn(() => 'blob:studybao-backup'),
     revokeObjectURL: vi.fn(),
   })
   // jsdom's anchor click tries to navigate, which is noise and not what is under test.
-  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+    this: HTMLAnchorElement,
+  ) {
     clicked.push(this)
   })
 })
 
 afterEach(() => {
+  // Let the deferred revoke run *before* the stub is taken away — see the note above.
+  vi.runOnlyPendingTimers()
+  vi.useRealTimers()
   for (const method of URL_METHODS) Reflect.deleteProperty(URL, method)
 })
 
@@ -73,19 +86,14 @@ describe('handing the file to the browser', () => {
   })
 
   it('holds the blob URL open long enough for the browser to take it', () => {
-    vi.useFakeTimers()
-    try {
-      downloadTextFile('studybao-backup-2026-10-08.json', '{}')
+    downloadTextFile('studybao-backup-2026-10-08.json', '{}')
 
-      // Not revoked on the same tick: a URL revoked before the browser has read it is a download
-      // that silently never happens.
-      expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+    // Not revoked on the same tick: a URL revoked before the browser has read it is a download that
+    // silently never happens.
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled()
 
-      vi.advanceTimersByTime(1000)
+    vi.advanceTimersByTime(1000)
 
-      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:studybao-backup')
-    } finally {
-      vi.useRealTimers()
-    }
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:studybao-backup')
   })
 })

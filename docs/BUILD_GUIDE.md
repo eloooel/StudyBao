@@ -135,6 +135,21 @@ Durability therefore rests on three layers, in order of importance:
 3. **User-controlled: JSON export/import**, a first-class screen reachable in two taps, with a
    periodic nudge. The only backup that does not depend on Google, the network, or a sync bug.
 
+> **State as of the export/import change: layer 3 exists, and the nudge does not.** Settings carries
+> **Save a backup** and **Restore a backup**. Export writes one JSON file holding **every table** with a
+> `formatVersion` of **1**, an `exportedAt` stamp and a per-table count; import **replaces every table in
+> one transaction** and never merges. Two things above are deliberately not implemented: the **periodic
+> nudge** (D13 — the web has no reliable "write to a folder I choose" on iOS, and a reminder she cannot
+> complete is worse than none), and any encryption, which would invent a key-management problem on her
+> own device. Neither the pre-import save nor the confirmation may be removed to satisfy a tap count.
+>
+> **A consequence worth stating, because it is the pre-S gap.** Until S lands there is no remote copy, so
+> "the local database was deleted" and "this is a new device" are **indistinguishable** — every marker
+> that could tell them apart lives in the storage ITP just cleared. The app will re-seed the five PRC
+> decks and look new. Nothing in the client can detect it; **prevention is the install prompt, and
+> recovery is this file.** Detection is S's, and it is the reason the prompt is load-bearing rather than
+> decorative.
+
 Three behaviours fall out of this and are easy to miss:
 
 - **Prompt for the Home Screen _before_ sign-in.** The Home Screen Web App keeps its **own storage,

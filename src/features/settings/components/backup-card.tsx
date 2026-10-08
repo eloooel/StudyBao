@@ -15,11 +15,19 @@ import type { TableCounts } from '@/lib/backup-format'
  *
  * Its own component for two reasons. The quiet one is that this is a self-contained interaction —
  * a card, a hidden file input and a modal — and the settings screen is long enough already. The
- * loud one is that **reading the dialog's contents is not how you test it**: `Modal` keeps its
- * children mounted while closed, and jsdom has no visibility model for a closed `<dialog>`, so a
- * query for this dialog's copy succeeds whether or not it is open. See docs/HANDOFF.md §4. The
- * tests that mean anything here assert the *effect* — that nothing was written until the confirm
- * was pressed — and they live in `pages/settings.test.tsx`, against the real database.
+ * loud one is that **reading the dialog's contents is not how you test it**: `Modal` keeps its title
+ * and footer mounted while closed, so a *text* query for a label here succeeds whether or not the
+ * dialog is open. A *role* query is the opposite — jsdom gives `dialog:not([open])` the
+ * `display: none` a browser gives it, and RTL's role queries honour that — so the two queries
+ * disagree about the same frame. What the tests assert instead is the effect: nothing is written
+ * until the confirm is pressed. See `pages/settings.test.tsx`, against the real database.
+ *
+ * ## Why the panel is destructured rather than used as `backup.x`
+ *
+ * `BackupPanelProps` carries a ref, and `react-hooks/refs` cannot see which property is being read:
+ * every `backup.something` in the render body reads to it as a ref access during render, which is
+ * twelve lint errors and a fair point in spirit — a ref is not render state. Destructuring gives
+ * each value its own binding, and the ref reaches the DOM through `ref=` like any other.
  */
 
 export interface BackupPanelProps {
@@ -38,6 +46,19 @@ export interface BackupPanelProps {
 }
 
 export function BackupCard({ backup }: { backup: BackupPanelProps }) {
+  const {
+    fileInputRef,
+    onOpenFilePicker,
+    onFileChosen,
+    onExport,
+    onSaveBeforeImport,
+    onConfirmImport,
+    onCancelImport,
+    pending,
+    busy,
+    savedFirst,
+  } = backup
+
   return (
     <>
       <Card>
@@ -47,10 +68,10 @@ export function BackupCard({ backup }: { backup: BackupPanelProps }) {
         />
         <CardContent className="flex flex-col gap-3">
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={backup.onExport} disabled={backup.busy}>
+            <Button variant="secondary" onClick={onExport} disabled={busy}>
               Save a backup
             </Button>
-            <Button variant="secondary" onClick={backup.onOpenFilePicker} disabled={backup.busy}>
+            <Button variant="secondary" onClick={onOpenFilePicker} disabled={busy}>
               Restore a backup
             </Button>
           </div>
@@ -61,12 +82,12 @@ export function BackupCard({ backup }: { backup: BackupPanelProps }) {
             that is focusable but invisible is a keyboard trap, and the button is the real control.
           */}
           <input
-            ref={backup.fileInputRef}
+            ref={fileInputRef}
             type="file"
             accept="application/json,.json"
             className="hidden"
             onChange={(event) => {
-              backup.onFileChosen(event.target.files?.[0])
+              onFileChosen(event.target.files?.[0])
             }}
           />
 
@@ -76,61 +97,56 @@ export function BackupCard({ backup }: { backup: BackupPanelProps }) {
             — it doesn&rsquo;t combine the two.
           </p>
           <p className="text-xs text-ink-faint">
-            Keep the file somewhere you&rsquo;ll find it again, and keep one on the other device too.
-            It isn&rsquo;t locked with a password, so treat it like your notes.
+            Keep the file somewhere you&rsquo;ll find it again, and keep one on the other device
+            too. It isn&rsquo;t locked with a password, so treat it like your notes.
           </p>
         </CardContent>
       </Card>
 
       <Modal
-        open={backup.pending !== null}
-        onClose={backup.onCancelImport}
+        open={pending !== null}
+        onClose={onCancelImport}
         title="Restore this file and replace everything here?"
         description="This is the one thing in the app that can lose something, so here's exactly what it will do."
         footer={
           <>
-            <Button variant="ghost" onClick={backup.onCancelImport} disabled={backup.busy}>
+            <Button variant="ghost" onClick={onCancelImport} disabled={busy}>
               Cancel
             </Button>
-            <Button variant="strong" onClick={backup.onConfirmImport} loading={backup.busy}>
+            <Button variant="strong" onClick={onConfirmImport} loading={busy}>
               Replace everything with this file
             </Button>
           </>
         }
       >
-        {backup.pending ? (
+        {pending ? (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-ink-muted">
               From{' '}
               <span className="font-display font-semibold break-all text-ink">
-                {backup.pending.fileName}
+                {pending.fileName}
               </span>
             </p>
 
             <div className="grid grid-cols-2 gap-3">
-              <CountsTable title="In this file" counts={backup.pending.fileCounts} />
-              <CountsTable title="On this device now" counts={backup.pending.deviceCounts} />
+              <CountsTable title="In this file" counts={pending.fileCounts} />
+              <CountsTable title="On this device now" counts={pending.deviceCounts} />
             </div>
 
             <p className="text-sm leading-relaxed text-ink-muted">
-              Restoring replaces all of it — cards, reviews, lessons and your settings (the exam date
-              included). It doesn&rsquo;t combine the two, so anything here that isn&rsquo;t in the
-              file will be gone.
+              Restoring replaces all of it — cards, reviews, lessons and your settings (the exam
+              date included). It doesn&rsquo;t combine the two, so anything here that isn&rsquo;t in
+              the file will be gone.
             </p>
 
             <div className="flex flex-col gap-2">
               <div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={backup.onSaveBeforeImport}
-                  disabled={backup.busy}
-                >
+                <Button variant="secondary" size="sm" onClick={onSaveBeforeImport} disabled={busy}>
                   Save what&rsquo;s here first
                 </Button>
               </div>
 
-              {backup.savedFirst ? (
+              {savedFirst ? (
                 // Plain text, deliberately not a live region: the toast has already announced the
                 // save, and two announcements of one fact is noise. This is here for the moment
                 // after the toast has gone, while she is still deciding.
