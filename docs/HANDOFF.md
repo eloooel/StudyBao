@@ -281,6 +281,19 @@ during that work, each then confirmed to fail against its reintroduced bug; the 
   `Content-Encoding: identity` for `/ocr/lang/*`, the asset script asserts the file is really gzip,
   and both halves were verified by reading response headers rather than trusting the extension.
   Local `vite preview` gzips the same way, so this was observable before deploy.
+- **`vercel.json` may not contain comments, and that cost a failed deploy.** The file used `//` and
+  `//2` keys as JSON comments — an idiom every local tool ignores — and Vercel rejected it with
+  _"should NOT have additional property `//`"_, reporting one bad property at a time. **Nothing in the
+  repository validated that file**, so the problem was unreachable until a real deploy, days before the
+  reveal. `$schema` was removed at the same time: not known-invalid, but a second failure for the same
+  class of reason was not worth the editor autocomplete. So **keep the reasons for these headers here
+  and in `BUILD_GUIDE.md` §3, not in the file.** `src/lib/deploy-config.test.ts` now guards the
+  unknown-key rule and pins the two load-bearing headers, because the file that lost its comments is
+  exactly the file someone will try to comment again.
+- **The vendored decoders are long-cached because they are fetched on demand.** `/pdfjs/wasm/*` and
+  `/ocr/*` are immutable by name, so `max-age=31536000, immutable` is safe and is what makes her
+  _second_ use of the PDF or photo tab offline-capable. They are deliberately **absent** from the
+  service worker's precache — see `src/pwa.config.ts`'s `globIgnores` comment.
 - **Nothing ingest-related is precached.** Zero PDF or OCR assets are in the precache, verified by
   `node scripts/report-precache.mjs`, which reads the generated manifest rather than trusting the
   config. The worker and language data are runtime-cached instead, so the

@@ -1,7 +1,4 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "//": "The PDF.js wasm decoders (/pdfjs/wasm/*) and the Tesseract core (/ocr/core/*) are vendored into public/ and never rewritten in place, so they are immutable and cached for a year. They are fetched only when she opens the PDF or photo tab — hard caching is what makes the second use offline-capable, and the long max-age is safe precisely because those filenames change when the content does. Note they are deliberately NOT in the service worker's precache: see the globIgnores comment in src/pwa.config.ts.",
-  "//2": "ONE EXCEPTION, and it is load-bearing: /ocr/lang/*.traineddata.gz is itself gzip. Serving it with Content-Encoding: gzip makes the browser decode it transparently, so tesseract.js receives the *inner* LZMA payload and its own gunzip step fails — the photo tab would break on a real deploy while working in no local test. `Content-Encoding: identity` forbids that, so the bytes arrive as the .gz tesseract.js expects to unwrap itself. Found by inspecting response headers rather than by trusting the extension.",
   "rewrites": [
     {
       "source": "/((?!.*\\.).*)",
