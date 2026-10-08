@@ -225,66 +225,74 @@ complete is worse than none. Export/import is still its own step ahead of the re
 backup that does not depend on Google, the network, or a sync bug
 ([ADR 0007](adr/0007-browser-only-no-install.md)).
 
-### D14. Ingest: the OCR fallback for rasterized PDFs — ⚠️ **DEFERRED, gated on one test**
+### D14. Ingest: the OCR fallback for rasterized PDFs — ✅ **RESOLVED: not needed for the reveal; build only if the measurement says so**
 
-**This reverses my own recommendation, and the evidence arrived after I made it.** I proposed building
-the fallback; the watermark test then showed that the path already works without it.
+**The gating test has been run, and it splits the answer by device.** Selecting all and copying from the
+same rasterized BoardPal PDF:
 
-Her material is **digital PDFs and screenshots, and never handwriting.** That one fact invalidates the
-guide's framing of photo OCR as a _last resort_: §3's warning is specifically about handwriting, and
+| Device             | Result                                                                       | Consequence                                                                     |
+| ------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| **iPad**           | Text comes out. Preview runs **Live Text** invisibly over image-only pages.  | **Solved, zero code.** The paste tab works today.                               |
+| **Windows laptop** | **Nothing comes out.** The PDF viewer has no OCR, and there is no Live Text. | A dead end on that device **unless the copy changes or the fallback is built.** |
+
+**This reverses my own recommendation a second time, and the evidence arrived after I made it.** I first
+proposed building the fallback; the watermark test showed the iPad path already works without it; and now
+the laptop is confirmed as the only device that actually needs it.
+
+**The reveal is not blocked, because the reveal is iPad-first.** The install prompt is iPadOS-only, the
+Home Screen Web App is the target, and the laptop is a plain tab
+([ADR 0008](adr/0008-add-to-home-screen-on-ipad.md)) — so a laptop-only gap is not on the critical path.
+Adding a feature now would put the rehearsal and the reveal at risk for a secondary device.
+
+**Three things to do, in this order, and only the first is pre-reveal:**
+
+1. **Fix the copy — and this is the already-decided item 2 below, which was never implemented.** The
+   scanned-PDF message still reads _"Open it on your phone, use Live Text (iPhone) or Google Lens
+   (Android)"_ on **every** device, and nothing in the ingest feature is platform-aware. That is wrong in
+   both directions she will meet it: on her **iPad** it sends her to a phone she does not need, adding a
+   step she has already said she will not take; on her **laptop** it sends her to a phone, when the
+   built-in alternative is a screenshot tool's text action (Windows Snipping Tool's _Text actions_, or
+   PowerToys _Text Extractor_) — neither of which needs the app to change. **This is a copy fix, not a
+   feature, and it is worth doing before the reveal because the wrong advice appears on the iPad path.**
+2. **Then measure, and let the measurement decide whether to build anything.** The BoardPal paste is
+   itself what OCR output looks like, because Live Text already did the OCR — so
+   [`INGEST-TEXT-MEASUREMENT.md`](INGEST-TEXT-MEASUREMENT.md) answers "is this document type usable at
+   all?" **without building OCR.** If the parse is mostly watermark junk and 87% leftovers, then an
+   in-app fallback for the laptop would be plumbing noise into a pipeline that cannot use it, and the
+   honest answer becomes: rasterized handouts work on the iPad, and need manual conversion on the laptop.
+3. **Only then consider building it.** If the measurement is favourable it is a plumbing task rather
+   than research — pdfjs renders to canvas, and `image-prep` → Tesseract → `normalize` → `parse` all
+   exist and are tested.
+
+**One design note that inverted.** The constraint was written for a 3 GB iPad — persist each page as it
+completes, show partial results. But the fallback's real user is the **laptop**, so the default design
+pressure is much lighter. It must still be safe if she runs it on the iPad, but the iPad is the device
+that does _not_ need it.
+
+**Why the PDF tab reached nothing in the first place.** Her material is **digital PDFs and screenshots,
+and never handwriting**, and a watermark-bearing subset — BoardPal among them — has **no text layer at
+all**: 21 pages, 21 full-page images, **zero text operators**. That one fact invalidates the guide's
+framing of photo OCR as a _last resort_, because §3's warning is specifically about handwriting and
 Tesseract is trained on printed text.
 
-Confirmed: a watermark-bearing subset of her PDFs — BoardPal among them — has **no text layer at all**.
-Measured on BoardPal: 21 pages, 21 full-page images, **zero text operators**.
+**The proof that the iPad path is Live Text rather than a text layer.** The same watermark reads
+`Marbie Jade` on one line and `Marble Jade` on another; body text carries recognition errors (`four` →
+`tour`, `before` → `betore`, `feet` → `teet`, `infection` → `intection`); and the diagonal watermark
+arrives letter-spaced as `e j a d e m e n d i o l a @ g m a i l . c o m`, in a dozen different
+fragmentations. A PDF text layer cannot render one watermark a dozen ways.
 
-**What changed the decision.** She ran Select All → Copy on that same file and got the **entire
-document** — all 19 pages — as text. And the output proves it came from **Live Text OCR, not a text
-layer**:
+**Screenshots already work** through the photo tab, so the gap is specifically rasterized PDFs.
 
-- the same watermark reads **`Marbie Jade`** on one line and **`Marble Jade`** on another;
-- body text carries recognition errors — `four` → `tour`, `before` → `betore`, `feet` → `teet`,
-  `infection` → `intection`;
-- the diagonal watermark comes through letter-spaced (`e j a d e m e n d i o l a @ g m a i l . c o m`)
-  and in a dozen different fragmentations.
-
-A PDF text layer cannot render one watermark a dozen ways. So the fitness measurement was right, and the
-reader was doing the OCR — invisibly, with Apple's model.
-
-**Therefore the decision is: defer the in-app fallback.** The existing app copy already tells her to use
-Live Text and paste into the first tab, and that route **works today, needs no code, and uses a better
-OCR than Tesseract** — which `BUILD_GUIDE` §4 itself argues Live Text does. Building our own would
-re-do, worse and more slowly, something she already has in one action.
-
-**The one test that could un-defer it:** whether the same file is copyable **on the Windows laptop**.
-Live Text is Apple-only; Edge and Chrome do not OCR a PDF. If a rasterized PDF is unreadable there, the
-fallback earns its keep for the laptop specifically — so **run that test before building anything**, and
-note that it is also where the deferred `recordReview` write and sync questions live.
-
-**What survives regardless of that test,** because these were the right calls independent of OCR:
-
-1. **Recalibrate the copy** from "best-effort / last resort" to honest-but-not-self-deprecating, scoped
-   to _printed_ text. The current copy sends her to "your phone" for Live Text, which is a step she will
-   not take when she is already on the iPad or the laptop.
-2. **Screenshots already work** through the photo tab.
-3. **If it is ever built, the device constrains the design.** Her iPad is **9th generation — A13, 3 GB**;
-   the fitness run measured **424 MB peak** for an 82 MB / 133-page PDF in Node, and Safari on 3 GB kills
-   tabs. So each page's text must be **persisted as it completes** and **partial results shown** — a
-   killed tab must not lose a 50-page run. Typical maximum is ~50 pages, so a run is minutes long, which
-   is what makes those requirements rather than polish.
-
-**And the noise problem is now the real one, not OCR.** The paste shows two things no parser rule can
-fix from reading order alone:
+**And the noise problem is now the real one, not OCR.** Two things no parser rule can fix from reading
+order alone:
 
 - **the watermark is interleaved _within_ body lines**, in a dozen fragmentations per page — so a
-  repeated-**line** filter cannot catch it (it was my earlier proposal, and it is wrong). A
+  repeated-**line** filter cannot catch it (that was my earlier proposal, and it is wrong). A
   token-or-frequency approach is the shape that would work;
 - **multi-column tables are serialised column-wise** — `Point / Why it is called the silent killer /
 Primary (essential) hypertension / …` is a three-column table flattened into a false reading order.
   PDF.js exposes x and y per item, so the app can beat the reader's own copy here, but only once
   `contentItemsToLines` looks at x.
-
-**The watermark finding supersedes the open question recorded below** — it is answered: yes, it lands in
-the text, and not as a whole line.
 
 ### D15. The reveal moves to mid-October / early November — and it reorders everything left
 
@@ -418,24 +426,24 @@ Worth stating explicitly, because each one is a plausible-looking detour:
 
 **Every decision is closed. Nothing blocks Workflow A.**
 
-| #                  | Status                                                                                                                                                                                                                                  |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1 — push backend  | ✅ Closed. No backend; notifications in-app only ([ADR 0006](adr/0006-in-app-notifications-only.md)).                                                                                                                                   |
-| D1b — cloud sync   | ✅ Closed: yes. Google Sign-In, Firestore, owner-only rules, **Workflow S**.                                                                                                                                                            |
-| D2 — auth          | ✅ Closed: Google, one email. You put the email in `.env` + the rules file.                                                                                                                                                             |
-| D3 — exam date     | ✅ Closed: **Fri Feb 26, 2027 — 156 days.** Ordering in `BUILD_GUIDE.md` §9.                                                                                                                                                            |
-| D4 — hosting       | ✅ Closed: **Vercel**.                                                                                                                                                                                                                  |
-| D5 — install       | ✅ Closed: **yes — Share → Add to Home Screen on iPadOS**, prompted first, with a skip. Two taps, no app store, no download; the only ITP-exempt configuration. Laptop: plain tab. ([ADR 0008](adr/0008-add-to-home-screen-on-ipad.md)) |
-| D6 — does she know | ✅ Closed: **no, it's a surprise.** Reveal is a deliverable (`BUILD_GUIDE.md` §9.5).                                                                                                                                                    |
-| D7 — deck taxonomy | ✅ Closed. Verified against the official PRC program.                                                                                                                                                                                   |
-| D12 — sync default | ✅ Closed: **ON**, per your call — and it stays the safety net if she skips the Home Screen prompt or uses a Safari tab.                                                                                                                |
-| D8 — cadence       | ✅ Closed: idle nudge **+10 min**, max **2** per session, **quiet hours off** — she studies late, so the default would have silenced every nudge she could receive.                                                                     |
-| D9 — night mode    | ✅ Closed: **keep**.                                                                                                                                                                                                                    |
-| D10 — font         | ✅ Closed: **Quicksand**.                                                                                                                                                                                                               |
-| D11 — icon         | ✅ Closed: **generated bow placeholder**, swappable if she ever picks one.                                                                                                                                                              |
-| D13 — backup       | ✅ Closed: **manual export only**, no nag.                                                                                                                                                                                              |
-| D14 — OCR fallback | ⚠️ **Deferred**, gated on whether a rasterized PDF is copyable on the Windows laptop. The iPad path already works through Live Text with no code, using a better OCR than ours would be.                                                |
-| D15 — reveal       | ✅ Closed: **mid-October / early November**, which moves the reveal ahead of F, S and G.                                                                                                                                                |
+| #                  | Status                                                                                                                                                                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| D1 — push backend  | ✅ Closed. No backend; notifications in-app only ([ADR 0006](adr/0006-in-app-notifications-only.md)).                                                                                                                                            |
+| D1b — cloud sync   | ✅ Closed: yes. Google Sign-In, Firestore, owner-only rules, **Workflow S**.                                                                                                                                                                     |
+| D2 — auth          | ✅ Closed: Google, one email. You put the email in `.env` + the rules file.                                                                                                                                                                      |
+| D3 — exam date     | ✅ Closed: **Fri Feb 26, 2027 — 156 days.** Ordering in `BUILD_GUIDE.md` §9.                                                                                                                                                                     |
+| D4 — hosting       | ✅ Closed: **Vercel**.                                                                                                                                                                                                                           |
+| D5 — install       | ✅ Closed: **yes — Share → Add to Home Screen on iPadOS**, prompted first, with a skip. Two taps, no app store, no download; the only ITP-exempt configuration. Laptop: plain tab. ([ADR 0008](adr/0008-add-to-home-screen-on-ipad.md))          |
+| D6 — does she know | ✅ Closed: **no, it's a surprise.** Reveal is a deliverable (`BUILD_GUIDE.md` §9.5).                                                                                                                                                             |
+| D7 — deck taxonomy | ✅ Closed. Verified against the official PRC program.                                                                                                                                                                                            |
+| D12 — sync default | ✅ Closed: **ON**, per your call — and it stays the safety net if she skips the Home Screen prompt or uses a Safari tab.                                                                                                                         |
+| D8 — cadence       | ✅ Closed: idle nudge **+10 min**, max **2** per session, **quiet hours off** — she studies late, so the default would have silenced every nudge she could receive.                                                                              |
+| D9 — night mode    | ✅ Closed: **keep**.                                                                                                                                                                                                                             |
+| D10 — font         | ✅ Closed: **Quicksand**.                                                                                                                                                                                                                        |
+| D11 — icon         | ✅ Closed: **generated bow placeholder**, swappable if she ever picks one.                                                                                                                                                                       |
+| D13 — backup       | ✅ Closed: **manual export only**, no nag.                                                                                                                                                                                                       |
+| D14 — OCR fallback | ✅ **Resolved, split by device.** iPad: solved by Live Text, no code. **Laptop: nothing copies out**, so it is the only device needing a fix. Not needed for the reveal (iPad-first). Order: fix the copy, then measure, then consider building. |
+| D15 — reveal       | ✅ Closed: **mid-October / early November**, which moves the reveal ahead of F, S and G.                                                                                                                                                         |
 
 **The next thing I need is a go-ahead.**
 

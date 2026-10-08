@@ -132,6 +132,11 @@ Path alias: `@` → `./src`.
   reports success while doing nothing**. This silently produced one inaccurate commit message during the
   ingest work before it was caught by inspecting the file rather than trusting the exit code. Use the
   edit tool, and confirm the change landed by grepping for it.
+- **`$env:TEMP` is not the same directory under the confined and elevated sandboxes.** Each command is a
+  fresh process and the session temp path differs, so a file written to `$env:TEMP` in one command is
+  **not found** by the next — and the failure looks like the file was never created. This silently
+  destroyed a probe backup during the ingest work and cost a second attempt. Use an **absolute** path
+  outside the repo, and re-derive it in every command rather than trusting an earlier `$env:TEMP`.
 - **In a confined sandbox, `[System.IO.File]::ReadAllBytes(path)` returns `null` rather than throwing**,
   so a check built on .NET static calls fails _silently_ and reports "no match" for every pattern. Use
   cmdlets (`Get-Content`, `Select-String`). Note that `Select-String` reads the file as text, so a

@@ -29,9 +29,16 @@ import TrackerPage from './tracker.page'
  *   the same call `src/router.test.tsx` makes, and for the same reason: under contention the 1s
  *   default is not enough, and raising it further should be read as a finding about speed rather
  *   than as tuning.
+ *
+ * **5000 was wrong, and it failed under coverage load.** It equalled vitest's *default* 5s
+ * `testTimeout`, so the wait could never report its own failure — vitest killed the test first with
+ * "Test timed out", naming no element — and a wait that legitimately needed longer simply failed.
+ * This file takes 20s for 8 tests under coverage. `testTimeout` is now explicit and higher in
+ * `vitest.config.ts`; the invariant is **wait budget < test timeout**, and the raise to 10000 is the
+ * finding about speed this comment asked for, not tuning.
  */
 
-const WAIT = { timeout: 5000 } as const
+const WAIT = { timeout: 10000 } as const
 
 /** A fixed timestamp for `updatedAt`, so nothing depends on when the suite runs. */
 const NOW = 1_800_000_000_000

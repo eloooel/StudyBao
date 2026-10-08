@@ -135,6 +135,21 @@ Durability therefore rests on three layers, in order of importance:
 3. **User-controlled: JSON export/import**, a first-class screen reachable in two taps, with a
    periodic nudge. The only backup that does not depend on Google, the network, or a sync bug.
 
+> **State as of the export/import change: layer 3 exists, and the nudge does not.** Settings carries
+> **Save a backup** and **Restore a backup**. Export writes one JSON file holding **every table** with a
+> `formatVersion` of **1**, an `exportedAt` stamp and a per-table count; import **replaces every table in
+> one transaction** and never merges. Two things above are deliberately not implemented: the **periodic
+> nudge** (D13 — the web has no reliable "write to a folder I choose" on iOS, and a reminder she cannot
+> complete is worse than none), and any encryption, which would invent a key-management problem on her
+> own device. Neither the pre-import save nor the confirmation may be removed to satisfy a tap count.
+>
+> **A consequence worth stating, because it is the pre-S gap.** Until S lands there is no remote copy, so
+> "the local database was deleted" and "this is a new device" are **indistinguishable** — every marker
+> that could tell them apart lives in the storage ITP just cleared. The app will re-seed the five PRC
+> decks and look new. Nothing in the client can detect it; **prevention is the install prompt, and
+> recovery is this file.** Detection is S's, and it is the reason the prompt is load-bearing rather than
+> decorative.
+
 Three behaviours fall out of this and are easy to miss:
 
 - **Prompt for the Home Screen _before_ sign-in.** The Home Screen Web App keeps its **own storage,
@@ -465,6 +480,14 @@ in [`HANDOFF.md`](HANDOFF.md) §1.
 
 The half of old G0 that survives. No server of ours: the client talks to Firestore directly.
 
+> **State as of the reveal-scoped first run: item 1 below has shipped, and items 2–3 have not.**
+> The Home Screen prompt is built (`src/features/first-run/`), and the first run is **that prompt and
+> then straight into the app — no sign-in step and no auth-shaped placeholder**, because S is
+> unbuilt. **Items 2, 3 and 5 describe the post-S flow and are not defects while they are missing.**
+> Item 4 shipped in a reduced form: the "use the Home Screen icon, not the Safari tab" advice lives
+> in the Settings card, where it is reference information she can return to, rather than in the
+> one-time prompt.
+
 1. **First run on iPadOS: prompt Share → Add to Home Screen, with a skip.** One friendly screen, a
    screenshot of the Share sheet, and one sentence of why: _"two taps, and it stops your notes from
    being cleared."_ No jargon — not "install", not "PWA". It comes **before** sign-in, because the Home
@@ -631,6 +654,10 @@ Settings  { id: 'app', examDate?, cramThresholdDays, seededAt?, cloudSync,
             // Added by Workflow D. All optional, so a Workflow B settings row reads back
             // unchanged — absent means "use the default", never "zero minutes".
             workMin?, breakMin?, longBreakMin?, cyclesBeforeLongBreak?,
+            // Added by the reveal-scoped first run (Workflow H, part 1). Optional for the same
+            // reason, and absent means "the Add to Home Screen prompt has not been shown".
+            // Set on dismiss OR skip, so a skip is final and there is no second flag.
+            installPromptSeenAt?,
             updatedAt }
 
 // Shipped in Dexie version 2 (Workflow D):
@@ -831,19 +858,27 @@ Relative to build start; the dates assume starting immediately.
 | Weeks 13–16 | Dec 16 – Jan 13 | G (nudges), H (polish)                             | Comfort features, once the core is proven in daily use                        |
 | Weeks 17–22 | Jan 13 – Feb 26 | **Buffer. Cram mode. Bug fixes. No new features.** |                                                                               |
 
-**Deviation as actually run, at 2026-10-07 (142 days out):** weeks 1–3 shipped **A and B but not D**,
-then C (in three commits), D, and **E** followed, so **A, B, C, D and E are all done** and the weeks 4–8
-window is complete. The row above originally said "B and D" because §9.1 reasoned a timer was
-needed early — but that was written before B existed, and the bottleneck B revealed is _card entry_, not
-timing. Spaced repetition compounds only over cards that already exist and the exam date does not move,
-whereas a timer added in December is exactly as useful in December as in October. So card creation binds
-earlier than the timer does. Full reasoning in `docs/HANDOFF.md` §8.
+**Deviation as actually run, at 2026-10-08:** weeks 1–3 shipped **A and B but not D**, then C (in
+three commits), D, and **E** followed, so **A, B, C, D and E are all done** and the weeks 4–8 window is
+complete. The row above originally said "B and D" because §9.1 reasoned a timer was needed early — but
+that was written before B existed, and the bottleneck B revealed is _card entry_, not timing. Spaced
+repetition compounds only over cards that already exist and the exam date does not move, whereas a timer
+added in December is exactly as useful in December as in October. So card creation binds earlier than
+the timer does. Full reasoning in `docs/HANDOFF.md` §8.
 
-**A recommended change to the order below, awaiting a go-ahead.** The budget puts F and S at weeks 9–12
-and H at 13–16, which means the reveal could not happen until mid-January. But §9.1's own argument is
-that the app must be usable long before it is complete, and §9.5 calls the reveal a deliverable in its
-own right. The recommendation is therefore: **E (done) → export/import → H's reveal-scoped items →
-reveal**, with **F, S and G landing afterwards, while she is already using it.** Two reasons:
+**The reorder was taken, and it is done.** The budget puts F and S at weeks 9–12 and H at 13–16, which
+would have put the reveal in mid-January. Instead: **the parser join fix → H's reveal-scoped items and
+export/import → the dress rehearsal → the reveal**, with **F, S and G landing afterwards, while she is
+already using it.** Two orderings worth recording, because the second was not in the original
+recommendation:
+
+- **The join fix went first.** The ingest parser was mangling her real notes, and OCR text fed into it
+  would have multiplied the damage. A defect in shipped code outranks new work.
+- **H's reveal-scoped items went before export/import in practice**, not after — because the rehearsal
+  cannot happen without the first-run flow; the rehearsal _is_ that walkthrough. Export/import ran in
+  parallel and landed second.
+
+The two reasons the reorder was right are unchanged:
 
 - **F wants data that does not exist yet.** `ReviewLog` accumulates only from real reviews and the
   `sessions` table has never recorded a block on her device, because she does not know the app exists

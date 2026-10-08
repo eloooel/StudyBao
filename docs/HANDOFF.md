@@ -28,18 +28,68 @@ A study companion for one person's **PNLE** (Philippine Nurse Licensure Examinat
 with SM-2 spaced repetition, a Pomodoro timer, a lesson tracker, and in-app attention nudges. Free tools
 only, **no backend**, browser-based. Coquette pink-and-white.
 
-|                                           |                                                                                  |
-| ----------------------------------------- | -------------------------------------------------------------------------------- |
-| **Her exam**                              | **Friday, February 26, 2027**                                                    |
-| **Her devices**                           | iPad (as a Home Screen Web App) and a Windows laptop (browser tab)               |
-| **Workflow A** (scaffold + design system) | ✅ **Done**                                                                      |
-| **Workflow B** (flashcards + SM-2)        | ✅ **Done** — reviewed, defects fixed, committed                                 |
-| **Workflow C** (ingest pipeline)          | ✅ **Done** — all three commits (paste, PDF, photo OCR)                          |
-| **Workflow D** (Pomodoro + sessions)      | ✅ **Done** — the first schema migration in the project's history                |
-| **Workflow E** (lesson tracker)           | ✅ **Done, verified** — Dexie version 3; calendar grid and photo import deferred |
-| F, S, G, H                                | ⏸ Not started                                                                    |
-| Tests / coverage                          | 552 tests, 87.4% lines, 88.5% branches (floor is in `vitest.config.ts`)          |
-| Backend                                   | None, by decision. No server, no secrets.                                        |
+|                                                                              |                                                                                  |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **Her exam**                                                                 | **Friday, February 26, 2027**                                                    |
+| **Her devices**                                                              | iPad (as a Home Screen Web App) and a Windows laptop (browser tab)               |
+| **Workflow A** (scaffold + design system)                                    | ✅ **Done**                                                                      |
+| **Workflow B** (flashcards + SM-2)                                           | ✅ **Done** — reviewed, defects fixed, committed                                 |
+| **Workflow C** (ingest pipeline)                                             | ✅ **Done** — all three commits (paste, PDF, photo OCR)                          |
+| **Workflow D** (Pomodoro + sessions)                                         | ✅ **Done** — the first schema migration in the project's history                |
+| **Workflow E** (lesson tracker)                                              | ✅ **Done, verified** — Dexie version 3; calendar grid and photo import deferred |
+| **Reveal-scoped H** (first run + Home Screen prompt, and the Today dead end) | ✅ **Done** on `wip/pre-reveal-two-changes` — **not yet on `main`**              |
+| **Export/import** (JSON save + restore)                                      | ✅ **Done** on the same branch. Import **replaces**; merge is S's.               |
+| F, S, G                                                                      | ⏸ Not started                                                                    |
+| Tests / coverage                                                             | 684 tests, 88.94% lines, 89.27% branches (floor is in `vitest.config.ts`)        |
+
+**The two rows above are committed on a branch, not on `main`.** They were built concurrently, so they
+share one branch and will land together. Anything reading this file as "what `main` contains" should
+check `git log` first — `main` is two changes behind until that pull request merges.
+| Backend | None, by decision. No server, no secrets. |
+
+### Export/import shipped — her only backup that is not Google
+
+**Two buttons in Settings, and they are the whole safety net until S lands.** Settings carries **Save a
+backup** and **Restore a backup**: one JSON file with **every table** — decks, cards, review logs,
+settings, sessions, lessons — named `studybao-backup-YYYY-MM-DD.json`, and a restore that replaces
+everything on the device. Six things about it are load-bearing:
+
+- **Import REPLACES and never merges.** A merge is the correct answer for _sync_, which is S, and S
+  owns the union-only rule for `ReviewLog` and its six test cases. A second, weaker merge here would be
+  the drift this repo keeps paying for. The screen says so in her words, and a test asserts that a row
+  which is not in the file does not survive.
+- **`seededAt` is the seeding gate, not "are there any decks".** An import that restored `decks` but not
+  the settings row would leave no marker, and the next open would seed **five duplicate PRC decks** —
+  resurrecting a deck she had deleted. The settings singleton is required by validation, and
+  `withSeededMarker` stamps a missing marker inside the write. The test asserts the **consequence**: a
+  simulated next open (`seedInitialData` with a later clock) adds nothing and leaves the tombstone
+  deleted.
+- **Validation happens before the database is touched, and the write is one transaction across all six
+  tables.** A refused file writes nothing — asserted against the database for all eleven refusal cases,
+  not against a thrown error — and a write that fails partway (a `bulkPut` spy rejecting on the fifth of
+  six) rolls the clears back with it. That atomicity test is the one that proves the transaction is
+  doing the job; unwrapping it turns exactly that test red.
+- **The envelope is versioned: `formatVersion: 1`.** A newer file is **refused**, not guessed at; the
+  counts in the file are a cross-check against the arrays (so a truncated or hand-edited file is caught)
+  rather than decoration; unknown tables are refused rather than dropped.
+- **The table list lives in `src/lib/backup-format.ts`, and a test asserts it covers every table the
+  schema declares.** Adding a seventh table without adding it there turns the suite red instead of
+  shipping a backup that silently omits her data — the `sessions` lesson, institutionalised. The
+  settings singleton's id is duplicated in that module so it stays free of the Dexie schema, and
+  `src/db/repositories/backup.test.ts` asserts the two are equal.
+- **What a round trip must preserve, and does:** tombstones (a deleted card stays deleted), optional
+  fields that are **absent** rather than blank (a lesson with no `deadline`, a card with no
+  `lastReviewedAt`), and `ReviewLog`, which cannot be reconstructed.
+
+**Recorded rather than hidden:** the export/import change ran the repo's six-probe red/green drill (drop
+the settings write; per-table writes with no transaction; no version check; a write on the refusal path;
+`toISOString()` for the filename; the table list missing `lessons`). All six went red, and each file was
+restored from a copy kept **outside** the repository with SHA-256 compared before and after.
+
+**Deliberately not here:** no merge or sync (S), no scheduled or nagging export (D13 — a reminder she
+cannot complete is worse than none), no CSV (declined), and no encryption or passphrase. The **import**
+is unverified in the same way the export is: one transaction replacing six tables is where a slow or
+failed operation would surface, and nobody here has a device.
 
 ### Workflow E shipped — and bumped Dexie to version 3
 
@@ -301,13 +351,14 @@ src/
 │   ├── theme.ts              # pure theme resolution — testable without a DOM
 │   ├── theme-store.ts        # tiny external store; useTheme()
 │   ├── time.ts               # MS_PER_MINUTE / HOUR / DAY. No bare magic numbers.
-│   └── study-day.ts          # ★ THE 04:00 study-day boundary. Single implementation.
+│   ├── study-day.ts          # ★ THE 04:00 study-day boundary. Single implementation.
+│   └── backup-format.ts      # ★ THE backup envelope: format version, the table list, validation
 ├── db/                       # ★ the only layer allowed to import dexie
 │   ├── types.ts              # Deck, Card, ReviewLog, AppSettings, Grade
 │   ├── schema.ts             # Dexie version 1 + the lazily-opened singleton
 │   ├── seed-data.ts          # the five PRC parts, verbatim from the reference file
 │   ├── migrations.test.ts    # schema + seeding tests
-│   └── repositories/         # decks · cards · review-logs · settings
+│   └── repositories/         # decks · cards · review-logs · settings · sessions · lessons · backup
 ├── components/
 │   ├── icons.tsx             # inline SVG, no icon dependency
 │   ├── layout/app-shell.tsx  # header + nav + skip link
@@ -318,13 +369,22 @@ src/
 │   ├── ingest/               # ★ Workflow C — lib/ hooks/ components/ pages/ types.ts
 │   ├── timer/                # ★ Workflow D — lib/ (timer, cue, format) hooks/ components/ pages/
 │   ├── tracker/              # ★ Workflow E — lib/ hooks/ components/ pages/ + types.ts
-│   └── settings/             # page + view; theme, exam date, cram threshold, timer lengths
+│   └── settings/             # theme, exam date, cram threshold, timer lengths, backup + restore
 └── test/                     # setup.ts (jsdom shims + DB reset) and render.tsx
 ```
 
 `src/db/` is at **Dexie version 3** with six tables (`decks`, `cards`, `reviewLogs`, `settings`,
-`sessions`, `lessons`) and six repositories: `decks`, `cards`, `review-logs`, `settings`, `sessions`,
-`lessons`.
+`sessions`, `lessons`) and seven repositories: `decks`, `cards`, `review-logs`, `settings`, `sessions`,
+`lessons`, `backup`.
+
+`src/db/repositories/backup.ts` is the only repository that reads or writes all six tables at once,
+which is what a backup is: export in one read transaction (so a file cannot hold a card with no log
+row), import as **one `rw` transaction** across every table. Its companion `src/lib/backup-format.ts`
+holds the format version, the table list and the validation, and it is pure on purpose — it must not
+import the Dexie schema, so the settings singleton's id is duplicated there and
+`src/db/repositories/backup.test.ts` asserts the two agree **and** that the table list covers every
+table the schema declares. **A new table that is not added there fails the suite** rather than shipping
+a backup that silently omits it.
 
 `src/lib/use-database-value.ts` is the shared cross-screen refresh signal, promoted out of
 `flashcards/` in Workflow C when ingest became its third consumer. **Do not copy it** — two copies
@@ -408,11 +468,16 @@ the tree, not about this paragraph.
   writable. It is gitignored.
 - **jsdom does not implement `HTMLDialogElement.showModal`.** `src/test/setup.ts` shims it, and the
   Modal tests dispatch `cancel` directly. Do not "fix" this by replacing native `<dialog>` with a div —
-  the platform behaviour is the reason it was chosen. **The consequence for tests:** `Modal` keeps its
-  children _and its `footer`_ mounted while closed, and jsdom has no visibility model for a closed
-  dialog, so a query for a dialog's button or title succeeds whether or not the dialog is open. Assert
-  the _effect_ instead — "nothing was deleted until the confirm was pressed" — because a query for the
-  dialog's copy would pass either way and is a test that cannot go red.
+  the platform behaviour is the reason it was chosen. **The consequence for tests, measured rather than
+  assumed:** `Modal` keeps its children _and its `footer`_ mounted while closed, and **role queries and
+  text queries disagree about it.** `getByRole` respects accessibility and the `display: none` a closed
+  dialog carries, so it finds **nothing** inside a closed dialog; `getByText` and `findByText` **do**
+  find the nodes. That asymmetry caused a real flake: a synchronous role query landing in the frame
+  between "counts rendered" and `showModal()` fails, and it passes a millisecond later. So **wait for the
+  `open` attribute before any role query inside the dialog**, and prefer asserting the _effect_ —
+  "nothing was written until the confirm was pressed" — because a query for the dialog's copy, by text,
+  passes whether or not it is open. Measured on jsdom 30 with Testing Library; see
+  `src/features/settings/components/backup-card.tsx`.
 - **`window.localStorage` hands back a _new_ `Storage` instance on every access in jsdom**, so
   `window.localStorage.getItem = fn` does not affect the code under test. Patch
   `Storage.prototype.getItem` with `vi.spyOn` instead. The old form made `theme.test.ts` pass or fail
@@ -705,9 +770,19 @@ A text layer cannot render one watermark a dozen ways.
 
 So the app's existing copy — "use Live Text and paste into the first tab" — is **already the correct
 instruction, costs nothing, and uses a better OCR than Tesseract**. Building ours would redo it worse and
-more slowly. **Gated on one test:** whether the file is copyable on the **Windows laptop**, where Live
-Text does not exist and neither Edge nor Chrome OCRs a PDF. That is the only place the fallback still
-earns its keep.
+more slowly.
+
+**And that test has now been run, which splits the answer by device.** On the **iPad**, Select All → Copy
+gives the whole document, so it is solved with no code. On the **Windows laptop**, nothing comes out —
+the PDF viewer has no OCR and there is no Live Text. So the laptop is the only device that needs either a
+copy change or the fallback.
+
+**But the reveal is iPad-first** — the install prompt is iPadOS-only, the Home Screen Web App is the
+target, and the laptop is a plain tab — so a laptop-only gap is **not on the critical path** and must not
+delay the reveal. `DECISIONS.md` D14 carries the three-step order: **fix the copy** (which is still
+sending her to "your phone" on _every_ device, including the iPad that does not need it — a copy fix,
+not a feature), then **measure** whether this document type produces usable cards at all, and only then
+consider building anything.
 
 Two facts survive that reversal:
 
@@ -762,11 +837,14 @@ usable long before it is complete, so the reveal moves ahead of F, S and G.
 Critical path, and nothing else starts before it:
 
 1. **The parser join fix** — running now.
-2. **Export/import** — her only backup that does not depend on Google, the network, or a sync bug.
+2. ~~**Export/import**~~ — **done.** Her only backup that does not depend on Google, the network, or a
+   sync bug. See §1 for the state and the four things it had to get right.
 3. **H, reveal-scoped** — the install prompt (which is what exempts her local data from ITP) and a first
    run with **no sign-in**, because S is unbuilt. `CLAUDE.md`'s UX rules describe the post-S flow.
-4. **The Windows-laptop copy test** (D14) — if a rasterized PDF is unreadable there, the in-app OCR
-   fallback is un-deferred for that device. If it reads, nothing is built.
+4. ~~**The Windows-laptop copy test**~~ — **done, and it failed on the laptop while passing on the
+   iPad.** A laptop-only gap, so it is **not** on this path; see D14 for the three-step order. The
+   pre-reveal half is the **copy fix**, because the current message sends her to her phone on _every_
+   device.
 5. **The reveal.**
 
 **The honest costs, which are accepted rather than hidden:** no laptop sync and no dashboard until S and
@@ -785,13 +863,15 @@ app represented _cards_ and _time_ and had no representation of what she is supp
 and it is the last input path: C handled her notes, E handles her plan. Everything after it is
 presentation or plumbing.
 
-#### 2. **Export/import — next**
+#### 2. ~~Export/import~~ — **done**
 
 Her only backup that does not depend on Google, the network, or a sync bug
 ([ADR 0007](adr/0007-browser-only-no-install.md)), and the interim way to move cards between the iPad
-and the laptop until S lands. It is deliberately its own small step rather than part of S, whose
-definition of done includes calendar-time acceptance that cannot be simulated. The Settings screen
-already carries disabled Export and Import buttons waiting for it.
+and the laptop until S lands. It was deliberately its own small step rather than part of S, whose
+definition of done includes calendar-time acceptance that cannot be simulated — and **S must not
+re-implement it.** Import is a _transfer_ (replace everything, or write nothing), S owns the _merge_
+(union-only for `ReviewLog`, newest `updatedAt` elsewhere). Two merges is the drift this repo keeps
+paying for. State and evidence in §1.
 
 #### 3. F (dashboard) — after she is using it, and specifically not before
 
@@ -837,7 +917,8 @@ reasons:
 - **It is also the interim multi-device story.** She uses an iPad and a Windows laptop. Until S lands,
   export/import is how cards move between them, which makes it load-bearing rather than a nice extra.
 
-The Settings screen already carries disabled Export and Import buttons waiting for it.
+The Settings screen carries **Save a backup** and **Restore a backup**, both live; see §1 for what they
+do and what they deliberately do not.
 
 ### A recommended change to the order, which needs your go-ahead
 
@@ -869,11 +950,13 @@ for that workflow and §6 for the model and contracts.
 
 ### What E leaves you, concretely
 
-- `src/db/` — **Dexie version 3**, six tables, six repositories. **Any further change needs a version
+- `src/db/` — **Dexie version 3**, six tables, seven repositories. **Any further change needs a version
   bump and a tested migration**; `src/db/migrations.test.ts` carries two tests to copy — a v1 → current
   walk and a v2 → v3 test — including the trick of building the old database from a **bare `Dexie`** so
   opening it does not run the migration under test. **Add every new table to the enumerated list in
-  `clearDatabaseForTests`**, which exists because `sessions` was missed there once.
+  `clearDatabaseForTests`** (which exists because `sessions` was missed there once) **and to
+  `BACKUP_TABLES` in `src/lib/backup-format.ts`** — the second has a test that fails if you forget, so a
+  backup cannot silently omit her data.
 - `src/features/tracker/lib/deadline.ts` — the deadline rules, pure and clock-injected: overdue-ness,
   the four sections, the sort order and the date labels. The rules are here, not in the hook or the
   view; keep it that way.
@@ -883,6 +966,24 @@ for that workflow and §6 for the model and contracts.
   Settings and the tracker both use. F's streak must call it, never reimplement it.
 - `src/db/repositories/lessons.ts` — the tombstone rules for her plan, and the two optional fields that
   are _removed_ rather than blanked when she clears them.
+
+### What export/import leaves you, concretely
+
+- `src/lib/backup-format.ts` — the envelope: `BACKUP_FORMAT_VERSION` (**1**), `BACKUP_TABLES`,
+  `parseBackup` (pure, returns refusal **codes**, never prose), `withSeededMarker`, `countRows`.
+- `src/db/repositories/backup.ts` — `listTableCounts`, `exportBackup` (one read transaction) and
+  `importBackup` (**takes the file's text and re-parses it**, so what the dialog showed and what is
+  written are one reading; clears and rewrites all six tables in one `rw` transaction).
+- `src/features/settings/` — `hooks/use-backup.ts` (the state machine, `busy`, the hidden file input),
+  `lib/backup-messages.ts` (every string, one place), `lib/backup-file.ts` (the filename and the
+  download), `components/backup-card.tsx` (the card + confirmation dialog).
+- **Two behaviours that are load-bearing and easy to "fix" away:** the file input is cleared after every
+  pick (otherwise choosing the same refused file twice fires no `change` event and the button looks
+  broken), and `savedFirst` keeps the "that file is your way back" note in the dialog after the toast
+  has gone.
+- **In tests:** `URL.revokeObjectURL` is deferred by a timer on purpose; the download test therefore
+  fakes timers and runs the pending one in `afterEach`, because on real timers the callback fires after
+  the stub is removed and throws into an unrelated file's run.
 
 ### The contracts that must not be improvised
 
@@ -904,6 +1005,13 @@ pattern; that is the mechanism that stops a dropped line becoming a card she nev
 overdue-ness is `studyDaysBetween(deadline, now) < 0` — never `deadline < Date.now()`, which marks every
 lesson late from 04:00 on the day it is due. A mastered lesson is never overdue and is out of the default
 view entirely. Statuses are compared as the stored keys, never as the labels she reads.
+
+**The backup's two contracts.** (1) **Import replaces; it never merges.** A merge belongs to S, and S
+owns the union-only rule for `ReviewLog` — a second one here would resurrect deleted cards or discard
+edits, and S would have to remove it. (2) **`seededAt` is the seeding gate, not "are there any decks".**
+Any future path that restores `decks` without the settings singleton will make the next open seed five
+duplicate PRC decks on top of hers; `backup.test.ts` asserts the consequence of that, so reintroducing
+it turns the suite red rather than her device.
 
 **On scope discipline:** do not start a workflow because it looks small. The remaining workflows are
 sequential by design and each needs its own go-ahead.

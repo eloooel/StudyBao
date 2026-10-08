@@ -8,6 +8,8 @@ import {
   HomeIcon,
   SettingsIcon,
 } from '@/components/icons'
+import { HomeScreenPrompt } from '@/features/first-run/components/home-screen-prompt'
+import { useHomeScreenSetup } from '@/features/first-run/hooks/use-home-screen-setup'
 import { useTheme } from '@/lib/theme-store'
 import { cn } from '@/lib/cn'
 
@@ -29,6 +31,10 @@ const NAV_ITEMS: NavItem[] = [
 
 export function AppShell() {
   const { theme, toggle } = useTheme()
+  // Mounted here rather than on a route, because this is the only component that renders on every
+  // path: the prompt has to appear once on the first open whichever screen she lands on, and the
+  // index route is not the only way in (a deck bookmark opens straight to a review).
+  const { promptOpen, markSeen } = useHomeScreenSetup()
 
   return (
     <div className="flex min-h-dvh flex-col bg-canvas">
@@ -114,6 +120,8 @@ export function AppShell() {
           ))}
         </ul>
       </nav>
+
+      <HomeScreenPrompt open={promptOpen} onDismiss={markSeen} />
     </div>
   )
 }

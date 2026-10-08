@@ -2,13 +2,22 @@ import { BowIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Modal } from '@/components/ui/modal'
 import { Tag } from '@/components/ui/tag'
+import {
+  HomeScreenAddedNotice,
+  HomeScreenExplanation,
+  HomeScreenHelpButton,
+  HomeScreenNotNeededNotice,
+} from '@/features/first-run/components/home-screen-explanation'
+import type { HomeScreenState } from '@/features/first-run/lib/home-screen'
 import {
   DEFAULT_DURATIONS,
   sanitizeDurations,
   type TimerDurations,
 } from '@/features/timer/lib/timer'
 import type { Theme } from '@/lib/theme'
+import { BackupCard, type BackupPanelProps } from './backup-card'
 
 /**
  * Layer 3 — pure view. Theme and settings are passed in, so this file stays hook-free and
@@ -17,8 +26,6 @@ import type { Theme } from '@/lib/theme'
 export interface SettingsViewProps {
   theme: Theme
   onToggleTheme: () => void
-  storageNoticeDismissed: boolean
-  onDismissStorageNotice: () => void
   examDateInput: string
   onExamDateChange: (value: string) => void
   daysUntilExam?: number
@@ -27,13 +34,25 @@ export interface SettingsViewProps {
   /** Timer lengths. Optional fields in the row, so this arrives already defaulted. */
   timerDurations: TimerDurations
   onTimerDurationsChange: (patch: Partial<TimerDurations>) => void
+  /**
+   * Where this device stands on the Home Screen question. Owned by `useHomeScreenSetup`, so this
+   * view never reads `window` and the same decision cannot be made twice in two ways.
+   */
+  homeScreenState: HomeScreenState
+  /** Whether the "How to add it" explanation is open. */
+  homeScreenHelpOpen: boolean
+  onOpenHomeScreenHelp: () => void
+  onCloseHomeScreenHelp: () => void
+  /**
+   * The backup card's interaction: save, restore, and the confirmation dialog. Grouped into one
+   * prop because it is one state machine, and ten loose props would bury the settings above it.
+   */
+  backup: BackupPanelProps
 }
 
 export function SettingsView({
   theme,
   onToggleTheme,
-  storageNoticeDismissed,
-  onDismissStorageNotice,
   examDateInput,
   onExamDateChange,
   daysUntilExam,
@@ -41,6 +60,11 @@ export function SettingsView({
   onCramThresholdChange,
   timerDurations,
   onTimerDurationsChange,
+  homeScreenState,
+  homeScreenHelpOpen,
+  onOpenHomeScreenHelp,
+  onCloseHomeScreenHelp,
+  backup,
 }: SettingsViewProps) {
   return (
     <div className="flex flex-col gap-5">
@@ -171,46 +195,63 @@ export function SettingsView({
         </CardContent>
       </Card>
 
-      {!storageNoticeDismissed ? (
-        <Card>
-          <CardHeader
-            title="Keeping your notes safe"
-            description="Worth knowing, because it's not obvious."
-          />
-          <CardContent className="flex flex-col gap-3">
-            <p className="text-sm leading-relaxed text-ink-muted">
-              iPads clear a website's saved data if you don't visit it for about a week. Adding
-              StudyBao to your Home Screen stops that happening — it's two taps in the Share menu,
-              and nothing gets installed.
-            </p>
-            <div>
-              <Button variant="ghost" size="sm" onClick={onDismissStorageNotice}>
-                Got it
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
-
+      {/*
+        Permanent, and deliberately not dismissible. It was a "Got it" card that could be dismissed
+        and gone forever, which is the wrong shape twice over: a card she can dismiss is a card she
+        loses the instructions from, and one that looks the same before and after she has added the
+        icon is a nag. So it has three states and always says which one applies.
+      */}
       <Card>
         <CardHeader
-          title="Your data"
-          description="Everything lives on your device and in your own account."
+          title="Keeping your notes safe"
+          description={
+            homeScreenState === 'already-added'
+              ? 'You\u2019re all set.'
+              : 'Worth knowing, because it\u2019s not obvious.'
+          }
         />
         <CardContent className="flex flex-col gap-3">
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" disabled>
-              Export
-            </Button>
-            <Button variant="secondary" disabled>
-              Import
-            </Button>
-          </div>
-          <p className="text-xs text-ink-faint">
-            Backup lands with the sync work — it'll be the one thing you control completely.
-          </p>
+          {homeScreenState === 'add-now' ? (
+            <>
+              <p className="text-sm leading-relaxed text-ink-muted">
+                iPads clear a website&rsquo;s saved data after about a week away. A Home Screen icon
+                is the one copy that&rsquo;s kept safe — it&rsquo;s two taps, and it&rsquo;s worth
+                doing before you&rsquo;ve built up a lot of cards.
+              </p>
+              <HomeScreenHelpButton onOpen={onOpenHomeScreenHelp} />
+            </>
+          ) : null}
+
+          {homeScreenState === 'already-added' ? <HomeScreenAddedNotice /> : null}
+          {homeScreenState === 'desktop' ? <HomeScreenNotNeededNotice /> : null}
         </CardContent>
       </Card>
+
+      {/*
+        The same explanation the first-run prompt shows, from the same component — so the two can
+        never disagree about which row she has to tap.
+      */}
+      <Modal
+        open={homeScreenHelpOpen}
+        onClose={onCloseHomeScreenHelp}
+        title="Add StudyBao to your Home Screen"
+        description="It takes about ten seconds, and it's the thing that keeps your notes."
+        className="w-[min(34rem,calc(100vw-2rem))]"
+        footer={
+          <Button variant="secondary" onClick={onCloseHomeScreenHelp}>
+            Close
+          </Button>
+        }
+      >
+        <HomeScreenExplanation />
+      </Modal>
+
+      {/*
+        Its own component: a card, a hidden file input and a confirmation dialog are one
+        interaction, and this screen is long enough without them inline. See backup-card.tsx for
+        why the dialog's copy is not what the tests assert.
+      */}
+      <BackupCard backup={backup} />
 
       <Card>
         <CardHeader title="About" />
