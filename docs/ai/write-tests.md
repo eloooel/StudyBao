@@ -160,17 +160,42 @@ These are all in `src/features/ingest/lib/parse.test.ts`:
 
    Two further guards, because positive evidence alone still permits a runaway join:
 
-   - **cap the span.** A card may not absorb more than a handful of source lines; the observed worst
-     case spanned 109.
-   - **stop at a boundary.** A blank line, an ALL-CAPS heading or a numbered heading ends the join
-     regardless of what the text looks like. Note that `contentItemsToLines` currently _drops_
-     whitespace-only lines, so the strongest boundary in her notes never reaches the parser — carrying
-     it through as a marker is a legitimate part of fixing this.
+   - **cap the span.** No entry — card _or_ leftover run — may absorb more than a small, named number of
+     source lines. The observed worst case spanned **109**; the legitimate envelope measured over 2,199
+     real continuation runs is p50 1, p90 3, p99 5, max 11.
+   - **stop at a boundary.** An ALL-CAPS heading or a numbered heading ends the join. **Note the
+     operand:** the boundary is asked about the line being joined _to_, never about the joining line — a
+     line that matches a card-start pattern was already answered by `findCardStart`, one step earlier and
+     unconditionally. The earlier wording here implied headings and the lowercase rule were peers; they
+     are not, and this is the one guard that is not about the joining line at all.
 
-   Two tests carry this: a ten-line definition wrapped at an awkward point becomes **one** card, and a
-   lowercase line that genuinely begins a `term: definition` still becomes its **own** card. Add a
-   third: a `term: definition` followed by `NEXT SECTION HEADING` stays two entries, which is the
-   smallest repro of the failure above.
+   `contentItemsToLines` currently _drops_ whitespace-only lines, so a blank line never reaches the
+   parser. That is the strongest boundary in her notes and carrying it through is legitimate — but it
+   changes the provenance index space, so it belongs in **its own change** with its own invariant test,
+   not in the join fix.
+
+   **The rule must be falsifiable on real input, and this is the part that was missing.** Case 6's
+   invariant counts coverage, which makes it **join-agnostic**: a card that swallowed 109 lines and the
+   same 109 lines as correct fragments are indistinguishable to it. That is precisely why the suite was
+   green for the whole life of the defect. So case 7 needs assertions a test can make about join
+   _quality_, not just rules the implementation follows:
+
+   - **no entry's provenance span exceeds the cap** — assert the span, not just that the code has a cap;
+   - **no card's span contains a heading that is not its own front** — the "swallowed a section" failure
+     stated directly;
+   - **the leftover queue receives what the join rule rejects**, with the fallback gone, so a capitalised
+     line that is not a card start lands there instead of on the card above.
+
+   Two tests carry the earlier half: a ten-line definition wrapped at an awkward point becomes **one**
+   card, and a lowercase line that genuinely begins a `term: definition` still becomes its **own** card.
+   Add the smallest repro of the failure: a `term: definition` followed by `NEXT SECTION HEADING` stays
+   **two** entries. **That test does not exist yet** — the fixture at `parse.test.ts` named for the
+   lowercase-`term:` case is a different scenario, exercises positive evidence, and passes today.
+
+   **A third correction, unrelated to the defect.** This case previously said "a line ending in a hyphen
+   starts the next card". That is backwards: `parse.ts` **holds the hyphenated line back** and appends
+   the next line's text to it (`bridgeHyphenatedLine`). The behaviour is right; the sentence would have
+   misled anyone implementing from it.
 
    **The corollary, which is a test of its own:** a line whose separator the term rules _rejected_ —
    `"Note: she reported: pain"`, or a long sentence with a colon — is an anchor too, and must not be
