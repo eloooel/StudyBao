@@ -241,7 +241,7 @@ the laptop is confirmed as the only device that actually needs it.
 
 **The reveal is not blocked, because the reveal is iPad-first.** The install prompt is iPadOS-only, the
 Home Screen Web App is the target, and the laptop is a plain tab
-([ADR 0008](adr/0008-add-on-home-screen-on-ipad.md)) — so a laptop-only gap is not on the critical path.
+([ADR 0008](adr/0008-add-to-home-screen-on-ipad.md)) — so a laptop-only gap is not on the critical path.
 Adding a feature now would put the rehearsal and the reveal at risk for a secondary device.
 
 **Three things to do, in this order, and only the first is pre-reveal:**
