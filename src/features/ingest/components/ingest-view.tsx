@@ -163,7 +163,14 @@ export function IngestView({
  * Every state says what is happening and what to do about it, especially the failure states. The
  * two common real ones are opposite in cause and identical in answer: a **scanned PDF** has no
  * text layer at all, and **handwriting** is what Tesseract is worst at — both are better served
- * by her phone's text recognition, and saying so is better than a vague "couldn't read it".
+ * by the text recognition she already has on the device in her hands, and saying so is better than
+ * a vague "couldn't read it".
+ *
+ * **That advice names the local tools and never a second device**, and it is one sentence rather
+ * than a platform branch. She has an iPad and a Windows laptop, and iPadOS and Windows each carry
+ * a text feature of their own; a sentence naming both is correct on every device, where
+ * `navigator.platform` would be a feature-to-feature import and a predicate that misfires on a
+ * device nobody tested. See `docs/DECISIONS.md` D14.
  */
 type FilePanelProps = {
   label: string
@@ -224,8 +231,9 @@ function FilePanel(props: FilePanelProps) {
           {status.fileName} has no text in it — {String(status.pageCount)} page
           {status.pageCount === 1 ? '' : 's'} of images, which usually means it was scanned. We
           can&rsquo;t read a scan reliably, and guessing would give you cards you can&rsquo;t trust.
-          Open it on your phone, use Live Text (iPhone) or Google Lens (Android) to copy the words,
-          and paste them into the first tab — that works well.
+          Open the file and copy the words out with the text feature already on the device
+          you&rsquo;re using — Live Text on an iPad, or the Snipping Tool&rsquo;s text actions on
+          Windows — then paste them into the first tab.
         </p>
       ) : null}
 
@@ -233,9 +241,10 @@ function FilePanel(props: FilePanelProps) {
         <p role="alert" className="text-sm leading-relaxed text-ink-muted">
           We couldn&rsquo;t find any words in {status.fileName}. That is usually handwriting, a
           blurry photo, or a picture of something that isn&rsquo;t text. Try a flatter, brighter
-          photo taken straight on — or, if it is handwriting, copy it with Live Text on your phone
-          and paste it into the first tab. That reads handwriting far better than we can, and
-          guessing at words would give you cards you can&rsquo;t trust.
+          photo taken straight on — or, if it is handwriting, copy it with the text feature already
+          on the device you&rsquo;re using (Live Text on an iPad, or the Snipping Tool&rsquo;s text
+          actions on Windows) and paste it into the first tab. That reads handwriting far better
+          than we can, and guessing at words would give you cards you can&rsquo;t trust.
         </p>
       ) : null}
 
@@ -299,16 +308,20 @@ function ReadingLine({
  * The honest framing for the photo tab, from `docs/BUILD_GUIDE.md` §3 and ADR 0004.
  *
  * Tesseract is trained on printed text. Saying so *before* she takes a photo, and naming the free
- * tool that is better at the hard case, is the difference between a feature that occasionally
- * disappoints and one that looks broken.
+ * text feature she already has for the hard case, is the difference between a feature that
+ * occasionally disappoints and one that looks broken.
+ *
+ * It names the **capability** rather than one menu path on purpose: nobody on this project has
+ * used the Windows side, and a tool named wrongly sends her hunting for a button that is not
+ * there.
  */
 function PhotoAdvice() {
   return (
     <p className="text-xs leading-relaxed text-ink-faint">
-      Printed text works best — flat, bright, straight on. For handwriting, your phone is better at
-      this than we are: use Live Text (iPhone) or Google Lens (Android) and paste the words into the
-      first tab. The first photo you read downloads a small reading engine, so it needs the network
-      once.
+      Printed text works best — flat, bright, straight on. For handwriting, the text feature already
+      on your device is better at this than we are: use Live Text on an iPad, or a screenshot
+      tool&rsquo;s text actions on Windows, and paste the words into the first tab. The first photo
+      you read downloads a small reading engine, so it needs the network once.
     </p>
   )
 }

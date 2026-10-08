@@ -247,13 +247,25 @@ Adding a feature now would put the rehearsal and the reveal at risk for a second
 **Three things to do, in this order, and only the first is pre-reveal:**
 
 1. **Fix the copy — and this is the already-decided item 2 below, which was never implemented.** The
-   scanned-PDF message still reads _"Open it on your phone, use Live Text (iPhone) or Google Lens
-   (Android)"_ on **every** device, and nothing in the ingest feature is platform-aware. That is wrong in
-   both directions she will meet it: on her **iPad** it sends her to a phone she does not need, adding a
-   step she has already said she will not take; on her **laptop** it sends her to a phone, when the
+   scanned-PDF message read _"Open it on your phone, use Live Text (iPhone) or Google Lens
+   (Android)"_ on **every** device, and nothing in the ingest feature was platform-aware. That was wrong
+   in both directions she will meet it: on her **iPad** it sent her to a phone she does not need, adding a
+   step she has already said she will not take; on her **laptop** it sent her to a phone, when the
    built-in alternative is a screenshot tool's text action (Windows Snipping Tool's _Text actions_, or
-   PowerToys _Text Extractor_) — neither of which needs the app to change. **This is a copy fix, not a
-   feature, and it is worth doing before the reveal because the wrong advice appears on the iPad path.**
+   PowerToys _Text Extractor_) — neither of which needs the app to change. **This was a copy fix, not a
+   feature, and it was worth doing before the reveal because the wrong advice appeared on the iPad path.**
+
+   **✅ Done.** All three strings now name the text feature on the device in her hands — Live Text on an
+   iPad, the Windows Snipping Tool's text actions — and **no platform detection was added**: one sentence
+   naming both is correct on every device, where `navigator.platform` would mean importing `isIpadOs`
+   across a feature boundary or forking the one predicate whose iPadOS subtleties are already documented.
+   `ingest-view.tsx` still reads no browser global. The rule is now a property test over every rendered
+   state (`components/ingest-view.test.tsx`) rather than three copy assertions, because three separate
+   strings is exactly how this was missed the first time. `BUILD_GUIDE.md` §4's "last resort" label for
+   the photo path is recalibrated to the case it was actually written for, and §3's escalation line no
+   longer names a phone or Google Lens. **Not verified by anyone:** the exact Windows menu wording and
+   whether either path's recognition is good enough for a scanned handout.
+
 2. **Then measure, and let the measurement decide whether to build anything.** The BoardPal paste is
    itself what OCR output looks like, because Live Text already did the OCR — so
    [`INGEST-TEXT-MEASUREMENT.md`](INGEST-TEXT-MEASUREMENT.md) answers "is this document type usable at
@@ -426,24 +438,24 @@ Worth stating explicitly, because each one is a plausible-looking detour:
 
 **Every decision is closed. Nothing blocks Workflow A.**
 
-| #                  | Status                                                                                                                                                                                                                                           |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| D1 — push backend  | ✅ Closed. No backend; notifications in-app only ([ADR 0006](adr/0006-in-app-notifications-only.md)).                                                                                                                                            |
-| D1b — cloud sync   | ✅ Closed: yes. Google Sign-In, Firestore, owner-only rules, **Workflow S**.                                                                                                                                                                     |
-| D2 — auth          | ✅ Closed: Google, one email. You put the email in `.env` + the rules file.                                                                                                                                                                      |
-| D3 — exam date     | ✅ Closed: **Fri Feb 26, 2027 — 156 days.** Ordering in `BUILD_GUIDE.md` §9.                                                                                                                                                                     |
-| D4 — hosting       | ✅ Closed: **Vercel**.                                                                                                                                                                                                                           |
-| D5 — install       | ✅ Closed: **yes — Share → Add to Home Screen on iPadOS**, prompted first, with a skip. Two taps, no app store, no download; the only ITP-exempt configuration. Laptop: plain tab. ([ADR 0008](adr/0008-add-to-home-screen-on-ipad.md))          |
-| D6 — does she know | ✅ Closed: **no, it's a surprise.** Reveal is a deliverable (`BUILD_GUIDE.md` §9.5).                                                                                                                                                             |
-| D7 — deck taxonomy | ✅ Closed. Verified against the official PRC program.                                                                                                                                                                                            |
-| D12 — sync default | ✅ Closed: **ON**, per your call — and it stays the safety net if she skips the Home Screen prompt or uses a Safari tab.                                                                                                                         |
-| D8 — cadence       | ✅ Closed: idle nudge **+10 min**, max **2** per session, **quiet hours off** — she studies late, so the default would have silenced every nudge she could receive.                                                                              |
-| D9 — night mode    | ✅ Closed: **keep**.                                                                                                                                                                                                                             |
-| D10 — font         | ✅ Closed: **Quicksand**.                                                                                                                                                                                                                        |
-| D11 — icon         | ✅ Closed: **generated bow placeholder**, swappable if she ever picks one.                                                                                                                                                                       |
-| D13 — backup       | ✅ Closed: **manual export only**, no nag.                                                                                                                                                                                                       |
-| D14 — OCR fallback | ✅ **Resolved, split by device.** iPad: solved by Live Text, no code. **Laptop: nothing copies out**, so it is the only device needing a fix. Not needed for the reveal (iPad-first). Order: fix the copy, then measure, then consider building. |
-| D15 — reveal       | ✅ Closed: **mid-October / early November**, which moves the reveal ahead of F, S and G.                                                                                                                                                         |
+| #                  | Status                                                                                                                                                                                                                                                          |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1 — push backend  | ✅ Closed. No backend; notifications in-app only ([ADR 0006](adr/0006-in-app-notifications-only.md)).                                                                                                                                                           |
+| D1b — cloud sync   | ✅ Closed: yes. Google Sign-In, Firestore, owner-only rules, **Workflow S**.                                                                                                                                                                                    |
+| D2 — auth          | ✅ Closed: Google, one email. You put the email in `.env` + the rules file.                                                                                                                                                                                     |
+| D3 — exam date     | ✅ Closed: **Fri Feb 26, 2027 — 156 days.** Ordering in `BUILD_GUIDE.md` §9.                                                                                                                                                                                    |
+| D4 — hosting       | ✅ Closed: **Vercel**.                                                                                                                                                                                                                                          |
+| D5 — install       | ✅ Closed: **yes — Share → Add to Home Screen on iPadOS**, prompted first, with a skip. Two taps, no app store, no download; the only ITP-exempt configuration. Laptop: plain tab. ([ADR 0008](adr/0008-add-to-home-screen-on-ipad.md))                         |
+| D6 — does she know | ✅ Closed: **no, it's a surprise.** Reveal is a deliverable (`BUILD_GUIDE.md` §9.5).                                                                                                                                                                            |
+| D7 — deck taxonomy | ✅ Closed. Verified against the official PRC program.                                                                                                                                                                                                           |
+| D12 — sync default | ✅ Closed: **ON**, per your call — and it stays the safety net if she skips the Home Screen prompt or uses a Safari tab.                                                                                                                                        |
+| D8 — cadence       | ✅ Closed: idle nudge **+10 min**, max **2** per session, **quiet hours off** — she studies late, so the default would have silenced every nudge she could receive.                                                                                             |
+| D9 — night mode    | ✅ Closed: **keep**.                                                                                                                                                                                                                                            |
+| D10 — font         | ✅ Closed: **Quicksand**.                                                                                                                                                                                                                                       |
+| D11 — icon         | ✅ Closed: **generated bow placeholder**, swappable if she ever picks one.                                                                                                                                                                                      |
+| D13 — backup       | ✅ Closed: **manual export only**, no nag.                                                                                                                                                                                                                      |
+| D14 — OCR fallback | ✅ **Resolved, split by device.** iPad: solved by Live Text, no code. **Laptop: nothing copies out**, so it is the only device needing a fix. Not needed for the reveal (iPad-first). Order: ~~fix the copy~~ (**done**), then measure, then consider building. |
+| D15 — reveal       | ✅ Closed: **mid-October / early November**, which moves the reveal ahead of F, S and G.                                                                                                                                                                        |
 
 **The next thing I need is a go-ahead.**
 
