@@ -1,6 +1,7 @@
 # ADR 0008 — Add to Home Screen on the iPad (not an app install)
 
-- **Status:** Accepted
+- **Status:** Accepted — **amended 2026-10-08**; see the note under Decision item 1. The decision is
+  unchanged, but its detection guidance was under-specified in two ways.
 - **Date:** 2026-09
 - **Supersedes:** [ADR 0007](0007-browser-only-no-install.md) (browser-only, no install). ADR 0007's
   analysis of _why_ storage is evicted remains the reference for the mechanism — and it corrected two
@@ -38,6 +39,26 @@ app. The Windows laptop stays a plain browser tab.**
 
 1. **Prompt on iPadOS only**, when the app is _not_ already running standalone. Detect with
    `window.matchMedia('(display-mode: standalone)').matches || navigator.standalone`.
+
+   > **Amendment, 2026-10-08, during the reveal-scoped first run.** The decision above is unchanged; what
+   > follows pins what "detect" was always meant to cover, because as written it is **insufficient in two
+   > places**.
+   >
+   > - **Both standalone checks are required.** The media query alone does not cover older iPadOS, where
+   >   it is not evaluated for a Home Screen Web App; `navigator.standalone` is the iOS-specific half.
+   >   Using only `matchMedia` silently fails to detect an already-added app on those versions, which
+   >   means prompting her to do something she has already done.
+   > - **The iPadOS check is not a user-agent test for `"iPad".`** iPadOS 13 and later report themselves
+   >   as **`MacIntel`**, so that check fails on the exact devices this ADR exists for. Use
+   >   `navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1`, and accept the legacy
+   >   `"iPad"` string as well — rejecting it would deny the prompt to an older iPad.
+   >
+   > The asymmetry is deliberate: a **false positive** shows a harmless prompt on a Mac, while a **false
+   > negative** denies the prompt to an iPad — and the prompt is the only thing exempting her data from
+   > ITP. **When in doubt, prompt.** Implemented in `src/features/first-run/lib/home-screen.ts`, with the
+   > legacy-string case as a test, because a suite covering only `MacIntel` passes straight through the
+   > older-iPad bug.
+
 2. **The prompt comes before sign-in, with a visible "skip for now".** Order matters, and not for
    cosmetic reasons: the Home Screen Web App **keeps its own storage, separate from Safari's** ("not
    part of Safari", above). So if she signs in inside a Safari tab and _then_ adds it to the home
