@@ -770,9 +770,19 @@ A text layer cannot render one watermark a dozen ways.
 
 So the app's existing copy — "use Live Text and paste into the first tab" — is **already the correct
 instruction, costs nothing, and uses a better OCR than Tesseract**. Building ours would redo it worse and
-more slowly. **Gated on one test:** whether the file is copyable on the **Windows laptop**, where Live
-Text does not exist and neither Edge nor Chrome OCRs a PDF. That is the only place the fallback still
-earns its keep.
+more slowly.
+
+**And that test has now been run, which splits the answer by device.** On the **iPad**, Select All → Copy
+gives the whole document, so it is solved with no code. On the **Windows laptop**, nothing comes out —
+the PDF viewer has no OCR and there is no Live Text. So the laptop is the only device that needs either a
+copy change or the fallback.
+
+**But the reveal is iPad-first** — the install prompt is iPadOS-only, the Home Screen Web App is the
+target, and the laptop is a plain tab — so a laptop-only gap is **not on the critical path** and must not
+delay the reveal. `DECISIONS.md` D14 carries the three-step order: **fix the copy** (which is still
+sending her to "your phone" on _every_ device, including the iPad that does not need it — a copy fix,
+not a feature), then **measure** whether this document type produces usable cards at all, and only then
+consider building anything.
 
 Two facts survive that reversal:
 
@@ -831,8 +841,10 @@ Critical path, and nothing else starts before it:
    sync bug. See §1 for the state and the four things it had to get right.
 3. **H, reveal-scoped** — the install prompt (which is what exempts her local data from ITP) and a first
    run with **no sign-in**, because S is unbuilt. `CLAUDE.md`'s UX rules describe the post-S flow.
-4. **The Windows-laptop copy test** (D14) — if a rasterized PDF is unreadable there, the in-app OCR
-   fallback is un-deferred for that device. If it reads, nothing is built.
+4. ~~**The Windows-laptop copy test**~~ — **done, and it failed on the laptop while passing on the
+   iPad.** A laptop-only gap, so it is **not** on this path; see D14 for the three-step order. The
+   pre-reveal half is the **copy fix**, because the current message sends her to her phone on _every_
+   device.
 5. **The reveal.**
 
 **The honest costs, which are accepted rather than hidden:** no laptop sync and no dashboard until S and
