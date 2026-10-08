@@ -159,36 +159,38 @@ parts, the integrated knowledge areas, and the two-day schedule are transcribed 
    Nursing Practice part to different content than PRC does, and asserts item counts PRC never
    states. Useful proof that the app should never surface a third-party "TOS".
 
-### D8. Notification cadence and quiet hours
+### D8. Notification cadence and quiet hours — ✅ **RESOLVED: +10 min, max 2, quiet hours OFF**
 
-Defaults I chose, all changeable in Settings: idle nudge at **+8 min** into a work session, max **1
-per session**; streak reminder once daily at a time you pick; **quiet hours 22:00–06:30 local**.
+Your call, and the quiet-hours half turned out to be the important one.
 
-**Needs from you:** the idle threshold, and the quiet-hours window. If she studies late, the default
-quiet hours will suppress nudges she might want.
+| Setting         | Was         | Now          | Why                                                                                     |
+| --------------- | ----------- | ------------ | --------------------------------------------------------------------------------------- |
+| Idle nudge      | +8 min      | **+10 min**  | Your call.                                                                              |
+| Max per session | 1           | **2**        | Your call — she often procrastinates, and one nudge does not bring her back.            |
+| Quiet hours     | 22:00–06:30 | **disabled** | **She studies late, so the default would have silenced every nudge she could receive.** |
 
-### D9. Night mode
+The quiet-hours reasoning is worth keeping, because it is counter-intuitive: nudges are **in-app only**
+([ADR 0006](adr/0006-in-app-notifications-only.md)), so one can only ever fire while she is already
+looking at the app. A quiet window covering her actual study hours therefore does not make the app less
+intrusive — it disables the feature outright. The setting stays available; it is off by default.
 
-I added a night variant (dim plum, not black) because a `#FFF9FA` screen at 2 a.m. is genuinely
-unpleasant. It is extra work in every component.
+### D9. Night mode — ✅ **RESOLVED: keep**
 
-**Needs from you:** keep it or cut it. If cut, the palette work shrinks noticeably.
+Kept. The per-component cost was already paid in Workflow A, so it is sunk, and the benefit stands — no
+`#FFF9FA` screen at 2 a.m., which matters more than usual given she studies late (D8).
 
-### D10. Font decision
+### D10. Font decision — ✅ **RESOLVED: Quicksand**
 
-I recommended **Quicksand** over Playfair Display — Playfair is a high-contrast display serif that
-fights dense nursing text at phone sizes.
+Confirmed as recommended. Playfair Display is a high-contrast display serif and would have fought dense
+nursing text at the sizes she actually reads. Both are free and self-hosted, so the decision was
+reversible; it is now closed.
 
-**Needs from you:** confirm, or override for the aesthetic. Both are free and self-hosted.
+### D11. Icon and mascot — ✅ **RESOLVED: a generated bow placeholder**
 
-### D11. Icon and mascot
-
-The design system reserves bows/sparkles/ribbons for streak and achievement moments. The app icon
-needs a decision: a bow, a bun/dumpling (per the "Bun-Bun Bao" idea), a plain wordmark, or something
-she'd pick.
-
-**Needs from you:** a direction, or an asset. I can generate a placeholder, but an icon she chose will
-get installed and kept.
+A bow, generated from the same geometry as `public/favicon.svg` by `scripts/generate-icons.mjs`, exactly
+as the other icons already are. **Swap it if she ever says what she would want** — an icon she chose gets
+installed and kept, which is why this is deliberately the cheapest possible placeholder rather than a
+design direction.
 
 ### D12. Should cloud sync default on? — ✅ **RESOLVED: ON, by your call. And it turned out to be necessary.**
 
@@ -216,12 +218,79 @@ Resolution:
 data, and it is worth it. The mitigation is framing: one prominent button with a reason, not an account
 form or a feature tour.
 
-### D13. Backup behaviour
+### D13. Backup behaviour — ✅ **RESOLVED: manual export only**
 
-I specified manual JSON export/import. Automatic periodic export to a file is possible but the web has
-no reliable "write to a folder I choose" on iOS.
+No monthly nag. The web has no reliable "write to a folder I choose" on iOS, so a reminder she cannot
+complete is worse than none. Export/import is still its own step ahead of the reveal, and it is the only
+backup that does not depend on Google, the network, or a sync bug
+([ADR 0007](adr/0007-browser-only-no-install.md)).
 
-**Needs from you:** is manual export enough, or should I prompt her to export monthly?
+### D14. Ingest: the OCR fallback for rasterized PDFs — ✅ **RESOLVED: build it**
+
+Her material is **digital PDFs and screenshots, and never handwriting.** That one fact invalidates the
+guide's framing of photo OCR as a _last resort_: §3's warning is specifically about handwriting, and
+Tesseract is trained on printed text.
+
+Confirmed: she can select text in **most** of her PDFs, but a watermark-bearing subset — BoardPal among
+them — has **no text layer at all**, so the PDF tab currently reaches nothing for them. Measured on
+BoardPal: 21 pages, 21 full-page images, **zero text operators**.
+
+Decisions:
+
+1. **Build the fallback.** When `looksScanned` is true, render pages to canvas with pdfjs and run them
+   through the **existing** OCR pipeline. This is plumbing rather than a new pipeline — every stage
+   except the canvas render already exists and is tested.
+2. **Recalibrate the copy** from "best-effort / last resort" to honest-but-not-self-deprecating, scoped
+   to _printed_ text. The current copy also sends her to "your phone" for Live Text, which is a step she
+   will not take when she is already on the iPad or the laptop.
+3. **Screenshots already work** through the photo tab, so the gap is specifically rasterized PDFs.
+4. **Ordered after the parser join fix**, because OCR text fed into the current parser would multiply the
+   mangling, and it would land in her first week.
+
+**The device is the design constraint.** Her iPad is **9th generation — A13, 3 GB of RAM.** The fitness
+run measured **424 MB peak** for an 82 MB / 133-page PDF in Node, and Safari on a 3 GB device has a much
+tighter budget and will kill a tab. Therefore:
+
+- **Persist each page's text as it completes** rather than accumulating a 50-page job in memory and
+  writing at the end. A tab killed five minutes in must not lose the work.
+- **Show partial results**, so she can review the first pages while the rest is still being read.
+- Typical maximum is **~50 pages**, so a run is minutes rather than seconds — long enough for the tab to
+  die, which is what makes the two rules above requirements instead of polish.
+
+**One unresolved thing, and it needs an answer before the fallback is designed:** whether the watermark
+text itself lands in the extracted text. A watermark drawn as _text_ would repeat on every page and
+become a junk card each time — the same failure the fitness run already found as "27 cards are the
+running page header". A repeated-line filter would solve both. Ask whether the watermarked PDFs that
+_are_ selectable produce watermark text when copied.
+
+### D15. The reveal moves to mid-October / early November — and it reorders everything left
+
+Stated plainly because the gap is large: a mid-October reveal gives her **~19 weeks** of spaced
+repetition before the exam. A mid-January reveal — which is where `export/import → F → S → G → H` puts it
+— gives her **~6**. §9.1 exists precisely because the app should be usable long before it is complete.
+
+**So the reveal moves ahead of F, S and G.**
+
+| #   | Task                                                   | Why it is on the critical path                                                                                                                        |
+| --- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Parser join fix                                        | Her first week is ingest. A parser that merges unrelated sections into one card is a bad first impression and a real risk.                            |
+| 2   | Export/import                                          | Her only backup that does not depend on Google, the network, or a sync bug.                                                                           |
+| 3   | H, reveal-scoped: install prompt, no-sign-in first run | The prompt is what exempts her local data from ITP ([ADR 0008](adr/0008-add-to-home-screen-on-ipad.md)). Without it her data is at risk from day one. |
+| 4   | PDF→OCR fallback (D14)                                 | Conditional on how much of her library is rasterized. Her first attempt at her own notes should not hit a dead end.                                   |
+| 5   | **Reveal**                                             |                                                                                                                                                       |
+
+**What this costs, stated honestly:**
+
+- **No laptop sync until S lands.** She is iPad-only, and moving cards between devices is manual
+  export/import — which is what makes step 2 load-bearing rather than a nicety.
+- **No dashboard until F lands**, so no streak or progress view. The core loop is complete without it:
+  notes become cards, cards get spaced, blocks get timed, and her plan lives in the tracker.
+- **First run has no sign-in**, because S is unbuilt. D12's one-tap Google sign-in is part of S and
+  arrives with it; until then the first run is the install prompt and then straight in. `CLAUDE.md`'s UX
+  rules describe the post-S flow and need that caveat.
+
+None of these argues for waiting: they are all things she can be given while already using the app, which
+is the same trade §9.1 already made.
 
 ---
 
@@ -337,7 +406,13 @@ Worth stating explicitly, because each one is a plausible-looking detour:
 | D6 — does she know | ✅ Closed: **no, it's a surprise.** Reveal is a deliverable (`BUILD_GUIDE.md` §9.5).                                                                                                                                                    |
 | D7 — deck taxonomy | ✅ Closed. Verified against the official PRC program.                                                                                                                                                                                   |
 | D12 — sync default | ✅ Closed: **ON**, per your call — and it stays the safety net if she skips the Home Screen prompt or uses a Safari tab.                                                                                                                |
-| D8–D11, D13        | Defaults exist; answer whenever. None blocks anything.                                                                                                                                                                                  |
+| D8 — cadence       | ✅ Closed: idle nudge **+10 min**, max **2** per session, **quiet hours off** — she studies late, so the default would have silenced every nudge she could receive.                                                                     |
+| D9 — night mode    | ✅ Closed: **keep**.                                                                                                                                                                                                                    |
+| D10 — font         | ✅ Closed: **Quicksand**.                                                                                                                                                                                                               |
+| D11 — icon         | ✅ Closed: **generated bow placeholder**, swappable if she ever picks one.                                                                                                                                                              |
+| D13 — backup       | ✅ Closed: **manual export only**, no nag.                                                                                                                                                                                              |
+| D14 — OCR fallback | ✅ Closed: **build it** for rasterized PDFs, after the parser fix, with per-page persistence — her iPad is 3 GB.                                                                                                                        |
+| D15 — reveal       | ✅ Closed: **mid-October / early November**, which moves the reveal ahead of F, S and G.                                                                                                                                                |
 
 **The next thing I need is a go-ahead.**
 

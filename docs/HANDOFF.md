@@ -695,16 +695,48 @@ unit suite was green the entire time the parser was mangling her real notes. The
 committed as `scripts/ingest-fitness.mjs` this time, taking file paths as arguments so no third-party
 content enters the repository.
 
-The same test surfaced one thing that is **not** a bug and needs a human decision: **one of the two
-sample documents is a scan**, so the PDF tab yields nothing for it at all. Half her material may be in
-that category. Either the iOS Live Text → paste route is the documented answer — free, and §3 of the
-guide already argues it is the best path for scans — or the PDF tab should render pages to canvas and
-OCR them with the Tesseract worker the app already ships. That is a scope decision, not a fix.
+The same test surfaced one thing that is **not** a bug and is now **decided** (D14 in
+[`docs/DECISIONS.md`](DECISIONS.md)): **one of the two sample documents is a rasterized PDF**, so the
+PDF tab yields nothing for it at all. **The OCR fallback is being built** — when `looksScanned` is true,
+render pages to canvas with pdfjs and run them through the OCR pipeline that already exists. It is
+plumbing, not a new pipeline. **Sequence it after the join fix**, because OCR text would feed the same
+parser and multiply the mangling.
 
-**Sequence the join fix before any OCR extension**, because OCR text would feed the same parser and
-multiply the mangling.
+Two facts from that decision that change the design, not just the scope:
 
-### After that, the planned order: **export/import → F → S**
+- **Her material is digital PDFs and screenshots and never handwriting**, which invalidates the guide's
+  framing of photo OCR as a _last resort_ — §3's warning is about handwriting, and Tesseract is trained
+  on printed text. The copy is to be recalibrated, including the line that sends her to "your phone".
+- **Her iPad is 9th generation: A13, 3 GB of RAM.** A 50-page OCR run is minutes long, and Safari on a
+  3 GB device kills tabs. So the fallback must **persist each page as it completes** and **show partial
+  results** — otherwise a killed tab loses the whole run. Measured context: 424 MB peak for an 82 MB
+  133-page PDF in Node.
+
+**One question still open, and it gates the fallback's design:** whether a watermark drawn as _text_
+lands in the extracted text. It would repeat on every page and become a junk card each time — the same
+failure already measured as "27 cards are the running page header". A repeated-line filter would solve
+both, so this is worth asking before building either.
+
+### The reveal is mid-October / early November, so it now comes first
+
+**This reorders everything below.** A mid-October reveal gives her **~19 weeks** of spaced repetition
+before the exam; the old order put it in mid-January and **~6**. §9.1 exists because the app should be
+usable long before it is complete, so the reveal moves ahead of F, S and G.
+
+Critical path, and nothing else starts before it:
+
+1. **The parser join fix** — running now.
+2. **Export/import** — her only backup that does not depend on Google, the network, or a sync bug.
+3. **H, reveal-scoped** — the install prompt (which is what exempts her local data from ITP) and a first
+   run with **no sign-in**, because S is unbuilt. `CLAUDE.md`'s UX rules describe the post-S flow.
+4. **The PDF→OCR fallback** (D14), conditional on how much of her library is rasterized.
+5. **The reveal.**
+
+**The honest costs, which are accepted rather than hidden:** no laptop sync and no dashboard until S and
+F land, and a first run with no sign-in. All three are things she can be given while already using the
+app, which is the same trade §9.1 already made.
+
+### After the reveal, in this order: **S → F → G**
 
 Each workflow still needs its own go-ahead. This is the recommendation, with the reasoning, because the
 ordering has one dependency that is easy to get wrong.
