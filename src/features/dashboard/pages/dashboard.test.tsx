@@ -24,7 +24,9 @@ import DashboardPage from './dashboard.page'
  * `useHomeScreenSetup`, jsdom is not an iPad, so the real shell renders without it. That keeps this
  * file testing the dashboard rather than the prompt.
  */
-const WAIT = { timeout: 5000 } as const
+// Wait budget must stay strictly below `testTimeout` in vitest.config.ts, or the wait cannot report
+// its own failure. At 5000 it equalled vitest's default and silently could not.
+const WAIT = { timeout: 10000 } as const
 
 function renderDashboard() {
   return render(<DashboardPage />, { initialPath: '/' })

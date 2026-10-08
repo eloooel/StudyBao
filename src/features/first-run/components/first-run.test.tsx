@@ -92,9 +92,13 @@ function promptIsShowing(): boolean {
  * The framework default is 1s, which is enough when this file runs alone and was **measured** as not
  * enough under `--coverage`, where instrumentation slows the suite and the workers contend. The same
  * call `src/router.test.tsx` makes, and for the same reason: this is a per-suite budget on the wait,
- * not a global `testTimeout`, so each assertion stays honest about what it is waiting for.
+ * so each assertion stays honest about what it is waiting for.
+ *
+ * It must stay strictly below `testTimeout` in `vitest.config.ts`, or the wait cannot report its own
+ * failure — vitest kills the test first with an unhelpful message. At 5000 it was exactly equal to
+ * vitest's default, which is the bug this comment now guards.
  */
-const WAIT = { timeout: 5000 } as const
+const WAIT = { timeout: 10000 } as const
 
 afterEach(() => {
   // `restoreMocks` puts the vi.fn back, but these are plain definitions and would leak into the next
