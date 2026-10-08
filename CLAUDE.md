@@ -122,6 +122,15 @@ Path alias: `@` → `./src`.
 - **`npm ci --ignore-scripts` resolves every package but strips esbuild's binary**, after which the
   build dies with `Cannot find module` until a full `npm install` runs. Do not use it as a stand-in for
   `npm ci`.
+- **The shell is Windows PowerShell 5.1, not PowerShell 7.** Check with `$PSVersionTable.PSEdition`
+  before using anything modern: `-AsByteStream` does not exist (use `-Encoding Byte`), the ternary and
+  null-coalescing operators are absent, and `Get-ChildItem -File` behaves differently in places. Two
+  commands failed on this during Workflow E's review before it was noticed.
+- **In a confined sandbox, `[System.IO.File]::ReadAllBytes(path)` returns `null` rather than throwing**,
+  so a check built on .NET static calls fails _silently_ and reports "no match" for every pattern. Use
+  cmdlets (`Get-Content`, `Select-String`). Note that `Select-String` reads the file as text, so a
+  whole-file grep of a PDF proves what it _defines_, never what it _uses_ — for a PDF's text layer, ask
+  PDF.js and count `showText` operators, not a byte scan.
 
 ---
 

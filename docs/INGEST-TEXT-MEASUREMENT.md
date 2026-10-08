@@ -13,11 +13,18 @@ Written at commit `c2f770a`. Do not trust that hash — run `git log --oneline -
 
 ## 1. The input, and why a human had to supply it
 
-**The file is at `%TEMP%\boardpal-ocr-paste.txt`.** A human saved it from the clipboard after running
+**The file is at `D:\Downloads\boardpal-ocr-paste.txt`** — note that `Downloads` is redirected to `D:` on
+this machine, so `%USERPROFILE%\Downloads` is empty. A human saved it from the clipboard after running
 Select All → Copy on a BoardPal sheet. Treat it as read-only and **never copy it into the repository** —
 it contains a real person's name and email address on nearly every line, and it is commercial
 board-review material. If a sandbox denies reading it, **say so and stop**; do not work around it by
 copying the bytes somewhere the sandbox prefers.
+
+**It has already been checked, so you do not have to:** 66,997 bytes, **1,717 lines**, UTF-8 with the
+non-ASCII intact — the Arabic-Indic digits (`a٢٩`, `٠٥٣`) and the misread `¿` bullets are both present,
+and there are **no U+FFFD replacement characters**, so the save mangled nothing. It runs from `Page 1`
+through `Page 19` to the document's closing sentence, so it is the whole sheet rather than a truncated
+clipboard.
 
 It is worth being precise about what this file is, because it is not what it looks like:
 
