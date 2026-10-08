@@ -95,6 +95,11 @@ text contains stray characters, Arabic-Indic digits, letter-spaced runs and bull
 invariant fails on it, **that is the single most important thing in your report** — stop and report
 rather than adjusting anything.
 
+**Before you measure anything, confirm `git status` shows `src/features/ingest/lib/parse.ts` clean.**
+The join fix may still be in flight, and measuring a half-edited parser produces numbers nobody can
+act on — including your own before/after, which would both be taken against a work in progress. If it
+is dirty, stop and say so rather than running anyway.
+
 ## 5. Constraints
 
 - **Do not modify `src/`.** This is a measurement. Findings are reported, not fixed.
