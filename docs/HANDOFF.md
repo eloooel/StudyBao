@@ -712,10 +712,39 @@ Two facts from that decision that change the design, not just the scope:
   results** — otherwise a killed tab loses the whole run. Measured context: 424 MB peak for an 82 MB
   133-page PDF in Node.
 
-**One question still open, and it gates the fallback's design:** whether a watermark drawn as _text_
-lands in the extracted text. It would repeat on every page and become a junk card each time — the same
-failure already measured as "27 cards are the running page header". A repeated-line filter would solve
-both, so this is worth asking before building either.
+**Answered, and the answer is worse than the question.** A watermark **does** land in the extracted
+text — and not as a whole repeated line. Tested by selecting all and copying from a watermarked PDF, the
+watermark arrives as **partial-word fragments interleaved at varying positions through the body text**:
+`la@gmail.com`, `la@g`, `la @9`, `larbie J`, `bie Jade /`. So:
+
+- **A repeated-line filter does not solve this.** That was the proposed fix and it is wrong: the fragments
+  are not a consistent line, so there is nothing for a line-level rule to match. This needs a
+  token-or-provenance-level approach, or acceptance that the review screen is where it gets cleaned up.
+- **It produces cards, not only leftovers.** `PART 1 - la@gmail.com` and
+  `PART 1 - WHAT THE PHILIPPINES ACTUALLY DIES OF` both match the **dash separator** with a short
+  left-hand side, so each becomes a card whose front is a page header. A short-line or header-shaped guard
+  would help.
+- **The watermark carries her name and email**, so the junk cards are conspicuous rather than silent —
+  better than invisible noise, still a first-impression cost.
+
+**The same paste confirmed finding 3 is not theoretical.** Two runs on one baseline are serialised
+adjacent with no separator — `overstatedprevention, not cure` is `overstated` + `prevention` glued — and a
+two-column table interleaves column-wise (`unattended / So the true NCD burden is / understated, not /
+The nurse's leverage / overstatedprevention, not cure`). PDF.js exposes x and y per item, so the app can
+do better than the reader's own copy — but only once `contentItemsToLines` looks at x, which today it does
+not.
+
+**And a signal worth measuring rather than assuming:** that sheet is written as **prose and tables, not
+`Term: Definition` pairs**, so most of it would land in the leftover queue even given perfect text. Her
+two sample documents have very different shapes, so the leftover rate is **document-dependent**. The
+harness should report it per document — a parser tuned on one handout is not evidence about the other.
+
+**One contradiction to resolve before designing the fallback.** The fitness run measured BoardPal as
+**zero text operators, 21 full-page images, `looksScanned: true`** — yet the paste above produced a great
+deal of selectable text from a BoardPal sheet. Either that paste came from a different file in the set, or
+a reader on that device supplied the text itself: iOS and macOS Preview run Live Text invisibly over
+image-only pages, which would also explain interleaved fragments and glued words. This changes whether
+BoardPal needs the OCR fallback at all, so **ask which file and which reader** first.
 
 ### The reveal is mid-October / early November, so it now comes first
 
