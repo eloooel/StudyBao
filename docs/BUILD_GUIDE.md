@@ -38,7 +38,8 @@ the favicon/apple-touch-icon language. Tagline: _"Study buddy for the PNLE 💗"
 - **Ingest, three paths** (in descending order of accuracy — push users to the top):
   1. **Paste text / upload `.txt` / `.md`** → parser. Highest fidelity, zero OCR risk.
   2. **Upload a digital PDF** → `pdfjs-dist` `getTextContent()` → parser. No OCR at all.
-  3. **Photo/scan** → Tesseract.js OCR → parser. Last resort; see §3 for limits.
+  3. **Photo/scan** → Tesseract.js OCR → parser. The path for anything rasterized; good on printed
+     text, poor on handwriting — see §3 for the limit.
 - Heuristic parser, layered, in priority order:
   - `Term: Definition` / `Term - Definition` → direct card
   - Numbered `Q1. … A1. …` blocks → direct card
@@ -280,9 +281,11 @@ API, `beforeinstallprompt`, `display: standalone` polish, maskable icons, and iO
   - hyphens inside words (`self-esteem`) must not split as `Term - Definition`
   - require the left-hand term to be short (< ~60 chars) and not end in a period
   - strip OCR noise characters and collapse whitespace before parsing
-- **Escalation path worth putting in the UI:** her phone's built-in text recognition (iOS Live Text,
-  Google Lens) is free and beats Tesseract on handwriting. Tell her to copy the text and paste it
-  into path 1.
+- **Escalation path worth putting in the UI:** the built-in text recognition already on the device she
+  is holding — Live Text on an iPad, a screenshot tool's text action on Windows — is free and beats
+  Tesseract on handwriting. Tell her to copy the text and paste it into path 1. **Name the local
+  tools, never a second device**: she has an iPad and a Windows laptop, so advice to open the file on
+  a phone adds a step on both.
 
 ---
 

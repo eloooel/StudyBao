@@ -779,10 +779,10 @@ copy change or the fallback.
 
 **But the reveal is iPad-first** — the install prompt is iPadOS-only, the Home Screen Web App is the
 target, and the laptop is a plain tab — so a laptop-only gap is **not on the critical path** and must not
-delay the reveal. `DECISIONS.md` D14 carries the three-step order: **fix the copy** (which is still
-sending her to "your phone" on _every_ device, including the iPad that does not need it — a copy fix,
-not a feature), then **measure** whether this document type produces usable cards at all, and only then
-consider building anything.
+delay the reveal. `DECISIONS.md` D14 carries the three-step order: **fix the copy** (✅ **done** — the three
+strings sent her to "your phone" on _every_ device, including the iPad that does not need it, and they
+now name the text feature on the device she is holding; see D14 item 1), then **measure** whether this
+document type produces usable cards at all, and only then consider building anything.
 
 Two facts survive that reversal:
 
@@ -843,8 +843,8 @@ Critical path, and nothing else starts before it:
    run with **no sign-in**, because S is unbuilt. `CLAUDE.md`'s UX rules describe the post-S flow.
 4. ~~**The Windows-laptop copy test**~~ — **done, and it failed on the laptop while passing on the
    iPad.** A laptop-only gap, so it is **not** on this path; see D14 for the three-step order. The
-   pre-reveal half is the **copy fix**, because the current message sends her to her phone on _every_
-   device.
+   pre-reveal half was the **copy fix**, and **it is now done** — the strings name the tool on the
+   device she is holding, with a property test that goes red if a phone reappears in any state.
 5. **The reveal.**
 
 **The honest costs, which are accepted rather than hidden:** no laptop sync and no dashboard until S and
