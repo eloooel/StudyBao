@@ -138,26 +138,6 @@ const LEFT_SIDE_KEYWORDS = /\b(patient|client|she|he|they|we|i|you|it|was|were|i
  */
 export const MAX_TERM_LENGTH = 60
 
-/**
- * Sentence terminators, used by the joining rule.
- *
- * The closing set is included because quoted and parenthetical sentences end with the
- * punctuation inside: `"…he said."` and `"…(see above.)"` both end a sentence.
- */
-const SENTENCE_END = /[.!?…]["'”’)\]]*$/
-
-/**
- * Abbreviations that end in a period but do **not** end a sentence.
- *
- * Necessary because PDF and OCR extraction breaks lines at page and column bounds, not at
- * sentences, so `"…explained by Dr."` / `"Reyes."` is a real continuation that a bare
- * period check would split into two leftovers. The list is short because a false positive
- * costs little (a missed join, which stays in the leftover queue as visible text) while a
- * long speculative list would silently glue unrelated content together.
- */
-const TRAILING_ABBREVIATION =
-  /\b(?:dr|mr|mrs|ms|prof|fig|no|approx|admin|prep|rx|dx|tx|pt|hr|min|sec|temp|bp|rr|hr|wt|ht|eg|ie|vs|etc|cf|ca|al|mg|kg|ml|cc|iv|im|sc|po|prn|qid|tid|bid|od|qhs)\.$/i
-
 // ── Term recognition ───────────────────────────────────────────────────────────────
 
 interface SeparatorSplit {
@@ -251,6 +231,21 @@ function stripDecoration(term: string, options: { stripNumber?: boolean } = {}):
     .trim()
   return result
 }
+
+/**
+ * Sentence terminators and the abbreviations exception that used to soften them were here.
+ *
+ * They are deleted along with the `!endsASentence` fallback in `isContinuation`, which was
+ * their only consumer: `TRAILING_ABBREVIATION` existed to stop a line ending `"explained by
+ * Dr."` from reading as a sentence end, precisely so the fallback would join the line below
+ * it. With the fallback gone there is no join left to soften, and the abbreviation list only
+ * invites the reader to look for behaviour that no longer exists.
+ *
+ * The consequence is a recorded behaviour change: a wrapped sentence broken after an
+ * abbreviation is no longer rejoined, because the line below it begins with a capital and
+ * carries no other evidence. It lands in the leftover queue instead. See the fixture named
+ * for it in `parse.test.ts`.
+ */
 
 // ── Line classification (pass 1: patterns) ─────────────────────────────────────────
 
@@ -408,21 +403,146 @@ function hasNoQuestionAbove(lines: readonly NormalizedLine[], index: number): bo
 // ── Joining (pass 2) ───────────────────────────────────────────────────────────────
 
 /**
- * Does `line` continue the line above it?
+ * The largest number of source lines one entry — a card, or a run in the leftover queue — may
+ * be assembled from, counting the line it started on.
  *
- * The rule from `docs/ai/write-tests.md` case 7, in its stated priority order: a lowercase
- * start, a closing bracket or punctuation start, or a previous line that does not end a
- * sentence. It is applied **only** to lines that matched no card-start pattern, which is
- * what lets a lowercase `term: definition` stay its own card.
+ * The rule is "never rest a join on the absence of a signal", and this is the guard for when
+ * positive evidence is present but still wrong: a run of note fragments that each happen to
+ * begin lowercase can chain indefinitely. The observed worst case before this cap existed
+ * spanned **109** source lines and 3,109 characters.
+ *
+ * Ten, taken from the legitimate envelope rather than from the damage. Measured over 2,199
+ * maximal runs of continuation lines in a real 133-page handout, that envelope is p50 1,
+ * p90 3, p99 5, max 11 — and the single run longer than ten begins with a 28-letter
+ * single-token line, i.e. a heading. So ten keeps every real wrapped definition (the
+ * ten-line fixture in `parse.test.ts` sits exactly at the boundary, deliberately), while
+ * cutting the one runaway. The cost is a missed join, which is visible in the leftover queue
+ * and one tap from becoming a card. The cost of the alternative is a card that silently says
+ * something her notes do not, which for a licensure exam is the worse failure by a wide margin.
  */
-function isContinuation(previous: NormalizedLine, line: NormalizedLine): boolean {
+export const MAX_SOURCE_LINES_PER_ENTRY = 10
+
+/**
+ * Whether this line is a boundary that a continuation may not be joined across.
+ *
+ * **Note the operand.** This is asked about the line being joined *to*, never about the line
+ * doing the joining — a line that matches a card-start pattern was already answered by
+ * `findCardStart`, one step earlier and unconditionally, so asking again here would be dead
+ * code. It is also the one guard in this file that is not a property of the joining line.
+ *
+ * Two shapes count, both derived from the line itself:
+ *
+ * - **all capitals** — `NEXT SECTION HEADING`. A note fragment that is shouted is a heading,
+ *   and on real input 134 of 3,190 lines (4.2%) are shaped this way. At least two letters are
+ *   required, so a lone `N` is data rather than a heading; and a line containing *any*
+ *   lowercase letter is not a heading, which is what keeps `NEXT SECTION: the drugs` a card
+ *   start. Punctuation and digits are ignored, so `I. VITAMINS` and `VITAMINS.` both count.
+ * - **a numbered heading** — `1. VITAMINS`, `(2) SIGNS`. A bare number is only a heading when
+ *   nothing after it suggests a definition: no colon, and no lowercase word. `1. Vitamin C:
+ *   ascorbic acid` is a numbered *definition* and must not be caught here — that was a real
+ *   defect in Workflow C, where reading `1.` as a marker ate the card.
+ *
+ * The trailing hyphen split is deliberately not a boundary: it is the one place a card-start
+ * line is joined, and the hyphen is the evidence.
+ */
+export function stopsJoin(text: string): boolean {
+  return isAllCapsHeading(text) || isNumberedHeading(text)
+}
+
+/** A line of capitals and punctuation, with nothing lowercase in it. */
+function isAllCapsHeading(text: string): boolean {
+  const letters = text.replace(/[^\p{L}]/gu, '')
+  return letters.length >= 2 && letters === letters.toUpperCase()
+}
+
+/** `1. VITAMINS` — a numbered line whose remainder is not a definition. */
+function isNumberedHeading(text: string): boolean {
+  const marker = NUMBERED_START.exec(text)
+  if (marker === null) return false
+
+  const rest = text.slice(marker[0].length)
+  return !rest.includes(':') && !/[a-z]/.test(rest)
+}
+
+/**
+ * Whether an entry's span ends at `line`, which is what makes it the thing directly above.
+ *
+ * A join always attaches to the entry immediately above, never to one further back, so this is
+ * the adjacency test. It matters because `appendToLastCard` and `appendToLastLeftover` reach
+ * for the *last* entry of their kind, and after a heading the last card can be several lines
+ * back while a newer leftover sits between them.
+ */
+function entryEndsAt(entry: { sourceLines: number[] }, line: NormalizedLine): boolean {
+  return entry.sourceLines[entry.sourceLines.length - 1] === line.index
+}
+
+/**
+ * The two conditions a join target must satisfy, shared by both entry kinds.
+ *
+ * **Adjacency.** A join attaches to the entry immediately above, so the target's span must end
+ * at `previous` — the line directly above the one being joined, never the joining line itself,
+ * which is not part of any entry yet. This is not a formality: `appendToLastCard` and
+ * `appendToLastLeftover` reach for the *last* entry of their kind, and after a heading the last
+ * card can sit several lines back with a newer leftover in between. Appending to it would step
+ * over the boundary that had just been respected.
+ *
+ * **The span cap.** Neither entry may grow past `MAX_SOURCE_LINES_PER_ENTRY`. One rule, not two:
+ * a card that swallowed too much and an unparsed blob that swallowed too much are the same
+ * failure with different labels.
+ *
+ * Note what is *not* checked here: `stopsJoin`. A heading must still be able to absorb a
+ * lowercase definition written under it, so what stops a join is the heading being the line
+ * joined *to* — see the guard at the end of the join block in `parse`.
+ */
+function canAcceptContinuation(
+  entry: { sourceLines: number[] },
+  previous: NormalizedLine,
+): boolean {
+  if (entry.sourceLines.length >= MAX_SOURCE_LINES_PER_ENTRY) return false
+  return entryEndsAt(entry, previous)
+}
+
+/** Whether a continuation may be appended to the last card. */
+function cardAcceptsContinuation(cards: readonly ParsedCard[], previous: NormalizedLine): boolean {
+  const last = cards[cards.length - 1]
+  return last !== undefined && canAcceptContinuation(last, previous)
+}
+
+/** Whether a continuation may be appended to the last leftover run. */
+function leftoverAcceptsContinuation(
+  leftover: readonly LeftoverQueueEntry[],
+  previous: NormalizedLine,
+): boolean {
+  const last = leftover[leftover.length - 1]
+  return last !== undefined && canAcceptContinuation(last, previous)
+}
+
+/**
+ * Whether a line that matched no card-start pattern continues the line above it.
+ *
+ * The rule from `docs/ai/write-tests.md` case 7: **join only on positive evidence** — a
+ * lowercase start, or a closing bracket or punctuation start.
+ *
+ * The rule deliberately does **not** consult the line above it. An earlier version ended with
+ * `return !endsASentence(previous.text)`, which is the *absence* of a signal read as evidence.
+ * On real input 91% of lines have no terminal punctuation because they are note fragments
+ * rather than prose, so that clause was effectively always true: it produced 1,465 of 2,458
+ * joins on a real handout, and merged unrelated sections into single cards. A rule that
+ * triggers on a missing signal triggers on nearly everything in the domain where the signal is
+ * rare, and note fragments are exactly that domain. See docs/INGEST-FITNESS-RESULTS.md.
+ *
+ * The line above is still consulted, but by `stopsJoin` and the span cap, and both are about
+ * *what the rule may attach to* rather than about whether this line "looks" like a
+ * continuation. That separation is the whole fix.
+ */
+function isContinuation(line: NormalizedLine): boolean {
   const text = line.text
 
   if (/^[a-z]/.test(text)) return true
   if (/^[)\]}"'”’]/.test(text)) return true
   if (/^[,;:]/.test(text)) return true
 
-  return !endsASentence(previous.text)
+  return false
 }
 
 /**
@@ -434,19 +554,6 @@ function isContinuation(previous: NormalizedLine, line: NormalizedLine): boolean
  */
 function endsWithHyphen(text: string): boolean {
   return /[A-Za-z]-$/.test(text)
-}
-
-/**
- * Whether a line ends a sentence, with abbreviations excepted.
- *
- * See `TRAILING_ABBREVIATION` for why the exception exists. An abbreviation that is not on
- * that list reads as a sentence end, so the following line stays separate — a missed join,
- * which is visible in the leftover queue, rather than two unrelated statements glued into
- * one card.
- */
-function endsASentence(text: string): boolean {
-  if (!SENTENCE_END.test(text)) return false
-  return !TRAILING_ABBREVIATION.test(text)
 }
 
 // ── Provenance, enforced ───────────────────────────────────────────────────────────
@@ -589,8 +696,26 @@ export function parse(lines: readonly NormalizedLine[]): ParseResult {
     // An *anchored* line — an unpaired `Q1.` or `A1.`, which is what `leftover` means here —
     // never joins at all. The anchor exists so the text cannot be absorbed into the card
     // above it, and joining it would defeat exactly that. It stands alone with its own reason.
-    if (start?.kind !== 'leftover' && previous !== undefined && isContinuation(previous, line)) {
-      const claimedBy = appendToLastCard(cards, line, 'back')
+    //
+    // Past the anchor there are three guards, and the split between them is the fix:
+    //
+    // - `!stopsJoin(previous.text)` — **a heading is never a join target, and ends the join
+    //   wherever it appears.** This is the one guard about the line being joined *to*, which is
+    //   why it is asked here rather than inside `isContinuation`: the joining line's own shape
+    //   says nothing about whether the line above it is a section boundary. It is the guard
+    //   that produces the canonical repro — `Term: definition one` / `NEXT SECTION HEADING` is
+    //   two entries, and so is a heading followed by a line that would otherwise continue it.
+    // - adjacency and the span cap, in `canAcceptContinuation` — tested against the entry that
+    //   would actually receive the line, the last card first and then the last leftover run.
+    if (
+      start?.kind !== 'leftover' &&
+      previous !== undefined &&
+      isContinuation(line) &&
+      !stopsJoin(previous.text)
+    ) {
+      const claimedBy = cardAcceptsContinuation(cards, previous)
+        ? appendToLastCard(cards, line, 'back')
+        : undefined
 
       if (claimedBy !== undefined) {
         claims.push({ card: claimedBy, line: line.index })
@@ -598,7 +723,10 @@ export function parse(lines: readonly NormalizedLine[]): ParseResult {
         continue
       }
 
-      const toLeftover = appendToLastLeftover(leftover, line)
+      const toLeftover = leftoverAcceptsContinuation(leftover, previous)
+        ? appendToLastLeftover(leftover, line)
+        : undefined
+
       if (toLeftover !== undefined) {
         claims.push({ card: toLeftover, line: line.index })
         consumed.add(index)

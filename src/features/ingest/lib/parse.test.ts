@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ParseResult } from '../types'
+import type { NormalizedLine, ParseResult } from '../types'
 import { normalize } from './normalize'
-import { assertProvenance, parse, parseText } from './parse'
+import { assertProvenance, MAX_SOURCE_LINES_PER_ENTRY, parse, parseText, stopsJoin } from './parse'
 
 /**
  * Parser tests.
@@ -47,6 +47,81 @@ function expectExactCoverage(result: ParseResult, lineCount: number, context: st
     expect(counts.get(index), `${context} — line ${String(index)}`).toBe(1)
   }
 }
+
+// ── Join quality ───────────────────────────────────────────────────────────────────
+//
+// The invariant in case 6 counts *coverage*, which makes it join-agnostic: a card that
+// swallowed 109 lines and the same 109 lines as correct fragments are indistinguishable to
+// it. That is exactly why the suite stayed green for the whole life of the over-joining
+// defect, so case 7 asserts properties of the *join* itself. These helpers build them from
+// the same provenance the UI sees.
+
+/** Assert no entry's span ran past the cap, and no card contains a heading that is not its own front. */
+function expectJoinQuality(
+  result: ParseResult,
+  lines: readonly NormalizedLine[],
+  context: string,
+): void {
+  for (const entry of [...result.cards, ...result.leftover]) {
+    expect(
+      entry.sourceLines.length,
+      `${context} — an entry spans ${String(entry.sourceLines.length)} lines, over the cap`,
+    ).toBeLessThanOrEqual(MAX_SOURCE_LINES_PER_ENTRY)
+  }
+
+  for (const card of result.cards) {
+    // Every line after the first was absorbed by the join rule, so none of them may be a
+    // boundary. A heading on the front is fine — that is the card starting at its heading.
+    for (const line of card.sourceLines.slice(1)) {
+      const text = lines[line]?.text ?? ''
+      expect(
+        stopsJoin(text),
+        `${context} — a card absorbed the heading at line ${String(line)} ("${text}")`,
+      ).toBe(false)
+    }
+  }
+}
+
+/** Parse what a test expects to be independently meaningful lines, with the text it saw. */
+function parseJoin(lines: readonly string[]): { result: ParseResult; lines: NormalizedLine[] } {
+  const normalized = normalize(lines.join('\n'))
+  return { result: parse(normalized), lines: normalized }
+}
+
+/**
+ * The join-quality vocabulary.
+ *
+ * Shared with case 6's generator, and deliberately containing shapes the first version lacked:
+ * an ALL-CAPS heading, a numbered heading, and a run of short lowercase lines long enough to
+ * reach the span cap. A vocabulary with no heading in it cannot reach either guard, so a
+ * generator built from one would leave both new rules asserted by fixtures alone.
+ */
+const JOIN_VOCABULARY = [
+  'Vitamin C: ascorbic acid',
+  'self-esteem',
+  'post-operative - after surgery',
+  'Q1. What is the antidote?',
+  'A1. N-acetylcysteine',
+  'The patient was admitted with a fever and a productive cough that had lasted four days',
+  'Note: she reported: pain',
+  '- Iron - ferrous sulfate',
+  '• Calcium: bone health',
+  'and he reported dizziness on standing',
+  'that supports immune function',
+  ') a closing bracket opening',
+  '160/90: elevated',
+  'See https://prc.gov.ph: the official site',
+  '1. Vitamin C: ascorbic acid',
+  // The shapes the first vocabulary could not build.
+  'NEXT SECTION HEADING',
+  'CARDIAC DISORDERS',
+  '1. VITAMINS',
+  'Shock:',
+  'a life-threatening condition',
+  'in which the body',
+  'does not get enough',
+  'blood flow,',
+]
 
 describe('normalize', () => {
   it('drops blank lines and renumbers what is left, so a line index means a visible line', () => {
@@ -250,24 +325,19 @@ describe('parse — case 4: numbered Q1./A1. blocks pair correctly, in order', (
     expect(result.leftover[0]?.reason).toBe('unpaired-answer')
   })
 
-  it('lets an answer that lost its question finish an incomplete line above it', () => {
-    // The honest case: `"Vitamin C: ascorbic acid"` does not end a sentence, so the orphan
-    // answer reads as its continuation and joins rather than becoming a second fragment.
-    // That is the joining rule doing its job on an incomplete line, and it is what the
-    // first version of this test got wrong by asserting a shape the parser should not have.
-    const { result } = parseText(
-      ['Vitamin C: ascorbic acid', 'A1. This answer has lost its question'].join('\n'),
-    )
-
-    expect(result.cards).toHaveLength(1)
-    expect(result.cards[0]?.sourceLines).toEqual([0, 1])
-    expect(result.leftover).toEqual([])
-  })
-
-  it('does not let an orphan answer join a card that already ended its sentence', () => {
-    const { result } = parseText(
-      ['Vitamin C: ascorbic acid.', 'A1. This answer has lost its question'].join('\n'),
-    )
+  // These two fixtures are parameterised rather than written twice, because after the join
+  // fix they are the *same* assertion and the reason they were once different is gone.
+  //
+  // The first fixture used to join: `"Vitamin C: ascorbic acid"` does not end a sentence, so
+  // the deleted `!endsASentence` fallback treated the orphan answer as its continuation. The
+  // second used to stand alone, because the previous line did end one. Sentence-ending no
+  // longer distinguishes them — the orphan answer is now an anchor in both cases, and the
+  // anchor is the whole point: nothing may be absorbed into the card above it.
+  it.each([
+    { label: 'a previous line that does not end a sentence', above: 'Vitamin C: ascorbic acid' },
+    { label: 'a previous line that ends a sentence', above: 'Vitamin C: ascorbic acid.' },
+  ])('keeps an orphaned answer beside $label in the leftover queue', ({ above }) => {
+    const { result } = parseText([above, 'A1. This answer has lost its question'].join('\n'))
 
     expect(result.cards).toHaveLength(1)
     expect(result.cards[0]?.sourceLines).toEqual([0])
@@ -356,30 +426,17 @@ describe('parse — case 6: provenance is exact, so nothing is lost or double-cl
     // still falls through to the leftover queue and stays accounted for. That is the
     // invariant working as designed, and it is also why the fixtures above matter: only a
     // named case can assert that a particular input produced a particular card.
+    //
+    // It also asserts join *quality* per round now, not only coverage, because coverage alone
+    // cannot see an over-join — see `expectJoinQuality`. The vocabulary carries heading shapes
+    // and a long lowercase run for that reason.
     const next = seededRandom(20_260_101)
-    const vocabulary = [
-      'Vitamin C: ascorbic acid',
-      'self-esteem',
-      'post-operative - after surgery',
-      'Q1. What is the antidote?',
-      'A1. N-acetylcysteine',
-      'The patient was admitted with a fever and a productive cough that had lasted four days',
-      'Note: she reported: pain',
-      '- Iron - ferrous sulfate',
-      '• Calcium: bone health',
-      'and he reported dizziness on standing',
-      'that supports immune function',
-      ') a closing bracket opening',
-      '160/90: elevated',
-      'See https://prc.gov.ph: the official site',
-      '1. Vitamin C: ascorbic acid',
-    ]
 
     for (let round = 0; round < 400; round += 1) {
       const length = 1 + Math.floor(next() * 6)
       const chosen: string[] = []
       for (let i = 0; i < length; i += 1) {
-        chosen.push(vocabulary[Math.floor(next() * vocabulary.length)] ?? '')
+        chosen.push(JOIN_VOCABULARY[Math.floor(next() * JOIN_VOCABULARY.length)] ?? '')
       }
 
       const lines = normalize(chosen.join('\n'))
@@ -389,6 +446,7 @@ describe('parse — case 6: provenance is exact, so nothing is lost or double-cl
       // from the outside, so a broken claim list cannot hide inside the parser.
       const result = parse(lines)
       expectExactCoverage(result, lines.length, JSON.stringify(chosen))
+      expectJoinQuality(result, lines, JSON.stringify(chosen))
     }
   })
 
@@ -458,7 +516,13 @@ describe('parse — case 7: a wrapped line joins the line above it, conservative
     expect(result.cards[0]?.sourceLines).toEqual([0, 1, 2])
   })
 
-  it('does not join a line that begins a new sentence after a completed one', () => {
+  it('treats a line beginning with a capital after a completed card as its own entry', () => {
+    // This replaces a fixture whose name asserted a rule that no longer exists. The old name
+    // was "does not join a line that begins a new sentence after a completed one", which was
+    // vacuous once the fallback went: nothing joins without positive evidence now, so
+    // passing the test proved nothing about the sentence-end check. What it actually pins is
+    // the rule that survives — a capitalised line that is not a card start receives the
+    // leftover queue rather than the card above it.
     const { result } = parseText(
       ['Vitamin C: ascorbic acid.', 'This is a separate thought about nutrition.'].join('\n'),
     )
@@ -466,16 +530,25 @@ describe('parse — case 7: a wrapped line joins the line above it, conservative
     expect(result.cards).toHaveLength(1)
     expect(result.cards[0]?.sourceLines).toEqual([0])
     expect(result.leftover).toHaveLength(1)
+    expect(result.leftover[0]?.text).toBe('This is a separate thought about nutrition.')
   })
 
-  it('does not treat a trailing abbreviation as the end of a sentence', () => {
+  it('has no abbreviation exception any more, so a wrapped sentence broken after "Dr." splits', () => {
+    // A real behaviour change, recorded rather than hidden. `"explained by Dr."` was joined
+    // only because the deleted fallback consulted `TRAILING_ABBREVIATION`: the period made it
+    // fail `SENTENCE_END`, so "the previous line does not end a sentence" was true and the
+    // line was appended. With the fallback gone, `"Reyes in the handout"` begins with a
+    // capital and has no other evidence — so it becomes a leftover fragment she can see and
+    // fix in one tap, which is the trade this fix deliberately makes.
     const { result } = parseText(
       ['Vitamin C:', 'explained by Dr.', 'Reyes in the handout'].join('\n'),
     )
 
     expect(result.cards).toHaveLength(1)
-    expect(result.cards[0]?.sourceLines).toEqual([0, 1, 2])
-    expect(result.cards[0]?.back).toContain('Reyes')
+    expect(result.cards[0]?.sourceLines).toEqual([0, 1])
+    expect(result.cards[0]?.back).toBe('explained by Dr.')
+    expect(result.leftover).toHaveLength(1)
+    expect(result.leftover[0]?.text).toBe('Reyes in the handout')
   })
 
   it('joins a continuation onto the leftover queue when there is no card above it', () => {
@@ -507,6 +580,132 @@ describe('parse — case 7: a wrapped line joins the line above it, conservative
     expect(result.cards[0]?.back).toBe('a sense of worth')
     expect(result.cards[0]?.sourceLines).toEqual([0, 1])
   })
+
+  it('keeps a term and a following ALL-CAPS heading as two entries', () => {
+    // **The canonical repro from the fitness test, and it did not exist before this change.**
+    // The fixture named for the lowercase-`term:` case is a different scenario: it exercises
+    // the lowercase start, which is positive evidence and joins correctly both before and
+    // after. This is the smallest input that reproduces the real failure — a heading with no
+    // period above it was appended to the card because the previous line did not end a
+    // sentence.
+    const { result, lines } = parseJoin(['Term: definition one', 'NEXT SECTION HEADING'])
+
+    expect(result.cards).toHaveLength(1)
+    expect(result.cards[0]?.back).toBe('definition one')
+    expect(result.leftover).toHaveLength(1)
+    expect(result.leftover[0]?.text).toBe('NEXT SECTION HEADING')
+    expectExactCoverage(result, lines.length, 'heading repro')
+    expectJoinQuality(result, lines, 'heading repro')
+  })
+
+  it('stops the join at an ALL-CAPS heading, so the heading keeps its own entry', () => {
+    const { result, lines } = parseJoin([
+      'Shock:',
+      'a life-threatening condition',
+      'NEXT SECTION HEADING',
+    ])
+
+    expect(result.cards).toHaveLength(1)
+    expect(result.cards[0]?.sourceLines).toEqual([0, 1])
+    expect(result.leftover).toHaveLength(1)
+    expect(result.leftover[0]?.text).toBe('NEXT SECTION HEADING')
+    expectExactCoverage(result, lines.length, 'ALL-CAPS heading')
+    expectJoinQuality(result, lines, 'ALL-CAPS heading')
+  })
+
+  it('stops the join at a numbered heading too, not only a shouted one', () => {
+    const { result, lines } = parseJoin([
+      'Shock:',
+      'a life-threatening condition',
+      '1. VITAMINS AND MINERALS',
+    ])
+
+    expect(result.cards).toHaveLength(1)
+    expect(result.cards[0]?.sourceLines).toEqual([0, 1])
+    expect(result.leftover).toHaveLength(1)
+    expect(result.leftover[0]?.text).toBe('1. VITAMINS AND MINERALS')
+    expectExactCoverage(result, lines.length, 'numbered heading')
+    expectJoinQuality(result, lines, 'numbered heading')
+  })
+
+  it('does not let a line below a heading join past it into the card above', () => {
+    // The boundary is a boundary in both directions. The heading ends the join, so the lowercase
+    // line below it cannot reach the card above for two independent reasons: the heading is not a
+    // join target, and the card is no longer the entry directly above. What the line must *not*
+    // do is travel up to `Term` — that is the failure this asserts against.
+    const { result, lines } = parseJoin([
+      'Term: definition one',
+      'NEXT SECTION HEADING',
+      'a lowercase line under the heading',
+    ])
+
+    expect(result.cards).toHaveLength(1)
+    expect(result.cards[0]?.sourceLines).toEqual([0])
+    expect(result.leftover.map((entry) => entry.sourceLines)).toEqual([[1], [2]])
+    expectExactCoverage(result, lines.length, 'below a heading')
+    expectJoinQuality(result, lines, 'below a heading')
+  })
+
+  it('caps an entry at the span limit, and does not off-by-one past it', () => {
+    // The legitimate ten-line definition sits exactly at the cap, so on its own it cannot tell
+    // "the cap is ten" from "the cap is nine or eleven". Eleven lines splits, and the split
+    // point is asserted, which pins the boundary from both sides.
+    const run = [
+      'Shock:',
+      'a life-threatening condition',
+      'in which the body',
+      'does not get enough',
+      'blood flow,',
+      'which means',
+      'the organs',
+      'and the tissues',
+      'do not receive',
+      'enough oxygen',
+      'and the tissues fail',
+    ]
+    const { result, lines } = parseJoin(run)
+
+    expect(lines).toHaveLength(11)
+    expect(result.cards).toHaveLength(1)
+    expect(result.cards[0]?.sourceLines).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    expect(result.leftover).toHaveLength(1)
+    expect(result.leftover[0]?.sourceLines).toEqual([10])
+    expectExactCoverage(result, lines.length, 'span cap')
+    expectJoinQuality(result, lines, 'span cap')
+  })
+
+  it('caps a run that is not a card too, so an unparsed blob cannot grow without bound', () => {
+    const run = Array.from({ length: 13 }, () => 'a fragment with no separator at all')
+    const { result, lines } = parseJoin(run)
+
+    expect(result.cards).toEqual([])
+    // Thirteen identical continuation lines split into a capped run plus a new one.
+    expect(result.leftover.map((entry) => entry.sourceLines.length)).toEqual([
+      MAX_SOURCE_LINES_PER_ENTRY,
+      3,
+    ])
+    expectExactCoverage(result, lines.length, 'leftover cap')
+    expectJoinQuality(result, lines, 'leftover cap')
+  })
+
+  it('holds the join-quality assertions over generated sequences, not only fixtures', () => {
+    const next = seededRandom(20_260_102)
+
+    for (let round = 0; round < 400; round += 1) {
+      const length = 1 + Math.floor(next() * 14)
+      const chosen: string[] = []
+      for (let i = 0; i < length; i += 1) {
+        chosen.push(JOIN_VOCABULARY[Math.floor(next() * JOIN_VOCABULARY.length)] ?? '')
+      }
+
+      const lines = normalize(chosen.join('\n'))
+      if (lines.length === 0) continue
+
+      const result = parse(lines)
+      expectExactCoverage(result, lines.length, JSON.stringify(chosen))
+      expectJoinQuality(result, lines, JSON.stringify(chosen))
+    }
+  })
 })
 
 describe('parse — empty and degenerate input', () => {
@@ -534,7 +733,7 @@ describe('parse — empty and degenerate input', () => {
  * A deterministic PRNG, because `Math.random()` would make a failure unreproducible and
  * the whole point of the generated test is that a dropped line is caught at all.
  *
- * Mulberry32 — small, seeded, and good enough to shuffle a fifteen-item vocabulary.
+ * Mulberry32 — small, seeded, and good enough to shuffle a twenty-two-item vocabulary.
  */
 function seededRandom(seed: number): () => number {
   let state = seed >>> 0
