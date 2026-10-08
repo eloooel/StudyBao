@@ -6,18 +6,19 @@ Add or fix tests. This repo tests _rules_, not rendering.
 
 These are pure functions whose bugs are silent and whose consequences she feels for weeks:
 
-| Module                              | Why it is critical                                                                         |
-| ----------------------------------- | ------------------------------------------------------------------------------------------ |
-| `features/flashcards/lib/sm2.ts`    | A wrong interval is invisible until her exam.                                              |
-| `lib/study-day.ts`                  | The 04:00 boundary. Wrong here means a wrong streak and a wrong interval.                  |
-| `features/flashcards/lib/queue.ts`  | Decides what she sees and in what order, including cram ordering.                          |
-| `features/ingest/lib/parse.ts`      | Silent data loss: a dropped note line is a card she never reviews.                         |
-| `features/ingest/lib/normalize.ts`  | Every rule downstream depends on the text being clean and the line indices being right.    |
-| `features/ingest/lib/image-prep.ts` | OCR preprocessing. A wrong scale or a zeroed alpha channel is a page of gibberish.         |
-| `features/ingest/lib/pdf-lines.ts`  | Where PDF line breaks land: one card per page, or thirty cards.                            |
-| `sync/lib/merge.ts`                 | A wrong merge resurrects deleted cards or discards edits. **(pending Workflow S)**         |
-| `features/timer/lib/timer.ts`       | Wall-clock math; a bug means the timer lies about remaining time. **(pending Workflow D)** |
-| `features/dashboard/lib/stats.ts`   | Streak/mastery math she will act on. **(pending Workflow F)**                              |
+| Module                              | Why it is critical                                                                                          |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `features/flashcards/lib/sm2.ts`    | A wrong interval is invisible until her exam.                                                               |
+| `lib/study-day.ts`                  | The 04:00 boundary. Wrong here means a wrong streak and a wrong interval.                                   |
+| `features/flashcards/lib/queue.ts`  | Decides what she sees and in what order, including cram ordering.                                           |
+| `features/ingest/lib/parse.ts`      | Silent data loss: a dropped note line is a card she never reviews.                                          |
+| `features/ingest/lib/normalize.ts`  | Every rule downstream depends on the text being clean and the line indices being right.                     |
+| `features/ingest/lib/image-prep.ts` | OCR preprocessing. A wrong scale or a zeroed alpha channel is a page of gibberish.                          |
+| `features/ingest/lib/pdf-lines.ts`  | Where PDF line breaks land: one card per page, or thirty cards.                                             |
+| `sync/lib/merge.ts`                 | A wrong merge resurrects deleted cards or discards edits. **(pending Workflow S)**                          |
+| `features/timer/lib/timer.ts`       | Wall-clock math; a bug means the timer lies about remaining time.                                           |
+| `features/tracker/lib/deadline.ts`  | A deadline that is wrong only across the 04:00 boundary sorts a lesson into the wrong section, confidently. |
+| `features/dashboard/lib/stats.ts`   | Streak/mastery math she will act on. **(pending Workflow F)**                                               |
 
 Target: **100% branch coverage on `lib/` pure functions.** A threshold in `vitest.config.ts` enforces
 the floor; the floor is not the goal.
@@ -145,11 +146,31 @@ These are all in `src/features/ingest/lib/parse.test.ts`:
 
    - if a line matches a card-start pattern it starts a card — **never** join it, even when it begins
      lowercase;
-   - otherwise join it to the previous line when it looks like a continuation: it begins lowercase, or
-     begins with a closing bracket or punctuation, or the previous line does not end a sentence.
+   - otherwise join it to the previous line only on **positive evidence**: it begins lowercase, or
+     begins with a closing bracket or punctuation.
+
+   **A join may never rest on the absence of a signal.** This file previously allowed a third clause —
+   "or the previous line does not end a sentence" — and on real input it was a disaster: 91% of the
+   lines in a set of real board-review notes do not end in terminal punctuation, because they are note
+   fragments rather than prose. So the clause was effectively always on. It fired 1,483 times, 60% of
+   all joins, and merged unrelated sections into single cards — 88 cards absorbed a mid-text ALL-CAPS
+   heading and 27 became the running page header. A rule that triggers on a missing signal will trigger
+   on nearly everything in the domain where that signal is rare, and note fragments are exactly that
+   domain. See [`INGEST-FITNESS-RESULTS.md`](../INGEST-FITNESS-RESULTS.md).
+
+   Two further guards, because positive evidence alone still permits a runaway join:
+
+   - **cap the span.** A card may not absorb more than a handful of source lines; the observed worst
+     case spanned 109.
+   - **stop at a boundary.** A blank line, an ALL-CAPS heading or a numbered heading ends the join
+     regardless of what the text looks like. Note that `contentItemsToLines` currently _drops_
+     whitespace-only lines, so the strongest boundary in her notes never reaches the parser — carrying
+     it through as a marker is a legitimate part of fixing this.
 
    Two tests carry this: a ten-line definition wrapped at an awkward point becomes **one** card, and a
-   lowercase line that genuinely begins a `term: definition` still becomes its **own** card.
+   lowercase line that genuinely begins a `term: definition` still becomes its **own** card. Add a
+   third: a `term: definition` followed by `NEXT SECTION HEADING` stays two entries, which is the
+   smallest repro of the failure above.
 
    **The corollary, which is a test of its own:** a line whose separator the term rules _rejected_ —
    `"Note: she reported: pain"`, or a long sentence with a colon — is an anchor too, and must not be
