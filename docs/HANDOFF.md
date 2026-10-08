@@ -688,7 +688,12 @@ running page header, and one spanning **109 source lines**.
 
 **That is a defect in shipped code, so it outranks everything below.** The spec is corrected; the join
 rule is not. Measurements, the seven ranked findings, what could not be tested, and the proposed order
-are in [`docs/INGEST-FITNESS-RESULTS.md`](INGEST-FITNESS-RESULTS.md).
+are in [`docs/INGEST-FITNESS-RESULTS.md`](INGEST-FITNESS-RESULTS.md), and
+**[`docs/INGEST-JOIN-FIX.md`](INGEST-JOIN-FIX.md) is the brief for the fix.** Note what that brief
+requires: the fix is judged by **re-running the fitness measurement**, not by unit tests, because the
+unit suite was green the entire time the parser was mangling her real notes. The harness is to be
+committed as `scripts/ingest-fitness.mjs` this time, taking file paths as arguments so no third-party
+content enters the repository.
 
 The same test surfaced one thing that is **not** a bug and needs a human decision: **one of the two
 sample documents is a scan**, so the PDF tab yields nothing for it at all. Half her material may be in
