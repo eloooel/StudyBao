@@ -465,6 +465,14 @@ in [`HANDOFF.md`](HANDOFF.md) §1.
 
 The half of old G0 that survives. No server of ours: the client talks to Firestore directly.
 
+> **State as of the reveal-scoped first run: item 1 below has shipped, and items 2–3 have not.**
+> The Home Screen prompt is built (`src/features/first-run/`), and the first run is **that prompt and
+> then straight into the app — no sign-in step and no auth-shaped placeholder**, because S is
+> unbuilt. **Items 2, 3 and 5 describe the post-S flow and are not defects while they are missing.**
+> Item 4 shipped in a reduced form: the "use the Home Screen icon, not the Safari tab" advice lives
+> in the Settings card, where it is reference information she can return to, rather than in the
+> one-time prompt.
+
 1. **First run on iPadOS: prompt Share → Add to Home Screen, with a skip.** One friendly screen, a
    screenshot of the Share sheet, and one sentence of why: _"two taps, and it stops your notes from
    being cleared."_ No jargon — not "install", not "PWA". It comes **before** sign-in, because the Home
@@ -631,6 +639,10 @@ Settings  { id: 'app', examDate?, cramThresholdDays, seededAt?, cloudSync,
             // Added by Workflow D. All optional, so a Workflow B settings row reads back
             // unchanged — absent means "use the default", never "zero minutes".
             workMin?, breakMin?, longBreakMin?, cyclesBeforeLongBreak?,
+            // Added by the reveal-scoped first run (Workflow H, part 1). Optional for the same
+            // reason, and absent means "the Add to Home Screen prompt has not been shown".
+            // Set on dismiss OR skip, so a skip is final and there is no second flag.
+            installPromptSeenAt?,
             updatedAt }
 
 // Shipped in Dexie version 2 (Workflow D):

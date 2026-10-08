@@ -228,6 +228,20 @@ export interface AppSettings {
   /** Decision D12: sync is on by default. Unused until Workflow S lands. */
   cloudSync: boolean
   /**
+   * When the Add to Home Screen prompt was dealt with — dismissed or skipped. Added by the
+   * reveal-scoped first run.
+   *
+   * Optional, on the same basis as `examDate?` and `seededAt?`, and the absence means exactly one
+   * thing: **the prompt has not been shown yet.** It is set on *either* exit from the prompt, so a
+   * skip is final and the prompt can never become a repeated wall — which is why there is no
+   * second "skipped" field to disagree with this one. The permanent Settings entry point is a
+   * separate surface and reads no flag at all.
+   *
+   * A number rather than a boolean because the question this record answers later is "how long did
+   * she use the Safari tab before adding it", and a boolean cannot be un-lost.
+   */
+  installPromptSeenAt?: number
+  /**
    * Timer lengths in minutes, added by Workflow D.
    *
    * Optional, so a settings row written by Workflow B reads back unchanged. An absent field
