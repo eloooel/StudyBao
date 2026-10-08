@@ -126,6 +126,12 @@ Path alias: `@` → `./src`.
   before using anything modern: `-AsByteStream` does not exist (use `-Encoding Byte`), the ternary and
   null-coalescing operators are absent, and `Get-ChildItem -File` behaves differently in places. Two
   commands failed on this during Workflow E's review before it was noticed.
+- **Never edit a Markdown file with `(Get-Content -Raw).Replace(...)` + `Set-Content`.** Prettier
+  rewraps prose at ~100 columns, so a literal copied from a chat message or from memory will not match,
+  `Replace` returns the string unchanged, `Set-Content` rewrites the file identically, and **the command
+  reports success while doing nothing**. This silently produced one inaccurate commit message during the
+  ingest work before it was caught by inspecting the file rather than trusting the exit code. Use the
+  edit tool, and confirm the change landed by grepping for it.
 - **In a confined sandbox, `[System.IO.File]::ReadAllBytes(path)` returns `null` rather than throwing**,
   so a check built on .NET static calls fails _silently_ and reports "no match" for every pattern. Use
   cmdlets (`Get-Content`, `Select-String`). Note that `Select-String` reads the file as text, so a

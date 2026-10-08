@@ -32,8 +32,15 @@ against her real study material. So:
 > **Can she actually turn these two PDFs into flashcards, and how much typing does the ingest path
 > actually save her?**
 
-The headline number is the **leftover rate** — the fraction of input lines that become cards versus the
-fraction she has to convert by hand. A pipeline that parses cleanly but leaves 80% of her notes as
+> **Superseded — the leftover rate is not a health number.** It read **6.75%** on the handout below
+> while 80 cards were swallowing whole sections, and **75.58%** after the join fix. The alarming value
+> is the correct one, because a _low_ leftover rate means the parser is absorbing lines into cards
+> rather than parsing them. The measures that actually move for this defect are named in
+> [`docs/ai/write-tests.md`](ai/write-tests.md) under "Verify the metric can move". Report the leftover
+> rate, but never as the headline.
+
+The original framing was: the **leftover rate** — the fraction of input lines that become cards versus
+the fraction she has to convert by hand. A pipeline that parses cleanly but leaves 80% of her notes as
 leftovers does not do its job, and that is a more important finding than any crash. Every other number
 below is context for that one.
 
