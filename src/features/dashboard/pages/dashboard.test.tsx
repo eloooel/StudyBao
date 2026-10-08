@@ -1,10 +1,9 @@
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
+import { Route, Routes } from 'react-router-dom'
 
 import { countDecks } from '@/db/repositories/decks'
-import { ToastProvider } from '@/components/ui/toast'
 import { render, screen } from '@/test/render'
-import { AppRoutes } from '@/router'
 import DashboardPage from './dashboard.page'
 
 /**
@@ -29,6 +28,26 @@ const WAIT = { timeout: 5000 } as const
 
 function renderDashboard() {
   return render(<DashboardPage />, { initialPath: '/' })
+}
+
+/**
+ * The dashboard with a stub `/cards` route beside it, so the click can be asserted **without**
+ * importing the real one.
+ *
+ * `AppRoutes` lazy-loads every page, so mounting `/cards` imports the flashcards chunk and opens
+ * IndexedDB a second time. Measured: 841ms alone, but over 5s under full-suite `--coverage`
+ * contention. That is a slow test rather than a slow route, so the fix is to stop paying for a chunk
+ * this assertion does not examine. What is under test here is whether the button drives the router;
+ * `router.test.tsx` covers the real routes mounting.
+ */
+function renderWithStubDeckRoute() {
+  return render(
+    <Routes>
+      <Route path="/" element={<DashboardPage />} />
+      <Route path="/cards" element={<h1>Cards stub</h1>} />
+    </Routes>,
+    { initialPath: '/' },
+  )
 }
 
 describe('the Today screen is not a dead end', () => {
@@ -88,20 +107,27 @@ describe('the deck count is read, not assumed', () => {
 })
 
 describe('the shell around it', () => {
-  it('navigates from the Today screen into the decks', async () => {
+  /**
+   * This one case carries its own timeout, and it is the only assertion in this file that needs one.
+   *
+   * The runner's default is 5s and `vitest.config.ts` raises it for nobody. Under full-suite
+   * `--coverage` contention — with the parallel export/import work adding IndexedDB traffic to every
+   * file — a read plus a click measured over 5s, so the runner killed the test *before* the `WAIT`
+   * above could apply. A per-test budget is the narrowest fix available: it does not loosen the wait
+   * for the five assertions that are fast, and it does not change global config for one test.
+   *
+   * If this number needs raising again, read it as a finding about suite speed rather than as tuning —
+   * the same note `src/router.test.tsx` carries.
+   */
+  it('navigates from the Today screen into the decks', { timeout: 15000 }, async () => {
     const user = userEvent.setup()
 
-    render(
-      <ToastProvider>
-        <AppRoutes />
-      </ToastProvider>,
-      { initialPath: '/' },
-    )
+    renderWithStubDeckRoute()
 
     await user.click(await screen.findByRole('button', { name: /see your 5 decks/i }, WAIT))
 
     expect(
-      await screen.findByRole('heading', { name: 'Cards', level: 1 }, WAIT),
+      await screen.findByRole('heading', { name: 'Cards stub', level: 1 }, WAIT),
     ).toBeInTheDocument()
   })
 })
