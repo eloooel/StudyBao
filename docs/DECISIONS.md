@@ -225,43 +225,66 @@ complete is worse than none. Export/import is still its own step ahead of the re
 backup that does not depend on Google, the network, or a sync bug
 ([ADR 0007](adr/0007-browser-only-no-install.md)).
 
-### D14. Ingest: the OCR fallback for rasterized PDFs — ✅ **RESOLVED: build it**
+### D14. Ingest: the OCR fallback for rasterized PDFs — ⚠️ **DEFERRED, gated on one test**
+
+**This reverses my own recommendation, and the evidence arrived after I made it.** I proposed building
+the fallback; the watermark test then showed that the path already works without it.
 
 Her material is **digital PDFs and screenshots, and never handwriting.** That one fact invalidates the
 guide's framing of photo OCR as a _last resort_: §3's warning is specifically about handwriting, and
 Tesseract is trained on printed text.
 
-Confirmed: she can select text in **most** of her PDFs, but a watermark-bearing subset — BoardPal among
-them — has **no text layer at all**, so the PDF tab currently reaches nothing for them. Measured on
-BoardPal: 21 pages, 21 full-page images, **zero text operators**.
+Confirmed: a watermark-bearing subset of her PDFs — BoardPal among them — has **no text layer at all**.
+Measured on BoardPal: 21 pages, 21 full-page images, **zero text operators**.
 
-Decisions:
+**What changed the decision.** She ran Select All → Copy on that same file and got the **entire
+document** — all 19 pages — as text. And the output proves it came from **Live Text OCR, not a text
+layer**:
 
-1. **Build the fallback.** When `looksScanned` is true, render pages to canvas with pdfjs and run them
-   through the **existing** OCR pipeline. This is plumbing rather than a new pipeline — every stage
-   except the canvas render already exists and is tested.
-2. **Recalibrate the copy** from "best-effort / last resort" to honest-but-not-self-deprecating, scoped
-   to _printed_ text. The current copy also sends her to "your phone" for Live Text, which is a step she
-   will not take when she is already on the iPad or the laptop.
-3. **Screenshots already work** through the photo tab, so the gap is specifically rasterized PDFs.
-4. **Ordered after the parser join fix**, because OCR text fed into the current parser would multiply the
-   mangling, and it would land in her first week.
+- the same watermark reads **`Marbie Jade`** on one line and **`Marble Jade`** on another;
+- body text carries recognition errors — `four` → `tour`, `before` → `betore`, `feet` → `teet`,
+  `infection` → `intection`;
+- the diagonal watermark comes through letter-spaced (`e j a d e m e n d i o l a @ g m a i l . c o m`)
+  and in a dozen different fragmentations.
 
-**The device is the design constraint.** Her iPad is **9th generation — A13, 3 GB of RAM.** The fitness
-run measured **424 MB peak** for an 82 MB / 133-page PDF in Node, and Safari on a 3 GB device has a much
-tighter budget and will kill a tab. Therefore:
+A PDF text layer cannot render one watermark a dozen ways. So the fitness measurement was right, and the
+reader was doing the OCR — invisibly, with Apple's model.
 
-- **Persist each page's text as it completes** rather than accumulating a 50-page job in memory and
-  writing at the end. A tab killed five minutes in must not lose the work.
-- **Show partial results**, so she can review the first pages while the rest is still being read.
-- Typical maximum is **~50 pages**, so a run is minutes rather than seconds — long enough for the tab to
-  die, which is what makes the two rules above requirements instead of polish.
+**Therefore the decision is: defer the in-app fallback.** The existing app copy already tells her to use
+Live Text and paste into the first tab, and that route **works today, needs no code, and uses a better
+OCR than Tesseract** — which `BUILD_GUIDE` §4 itself argues Live Text does. Building our own would
+re-do, worse and more slowly, something she already has in one action.
 
-**One unresolved thing, and it needs an answer before the fallback is designed:** whether the watermark
-text itself lands in the extracted text. A watermark drawn as _text_ would repeat on every page and
-become a junk card each time — the same failure the fitness run already found as "27 cards are the
-running page header". A repeated-line filter would solve both. Ask whether the watermarked PDFs that
-_are_ selectable produce watermark text when copied.
+**The one test that could un-defer it:** whether the same file is copyable **on the Windows laptop**.
+Live Text is Apple-only; Edge and Chrome do not OCR a PDF. If a rasterized PDF is unreadable there, the
+fallback earns its keep for the laptop specifically — so **run that test before building anything**, and
+note that it is also where the deferred `recordReview` write and sync questions live.
+
+**What survives regardless of that test,** because these were the right calls independent of OCR:
+
+1. **Recalibrate the copy** from "best-effort / last resort" to honest-but-not-self-deprecating, scoped
+   to _printed_ text. The current copy sends her to "your phone" for Live Text, which is a step she will
+   not take when she is already on the iPad or the laptop.
+2. **Screenshots already work** through the photo tab.
+3. **If it is ever built, the device constrains the design.** Her iPad is **9th generation — A13, 3 GB**;
+   the fitness run measured **424 MB peak** for an 82 MB / 133-page PDF in Node, and Safari on 3 GB kills
+   tabs. So each page's text must be **persisted as it completes** and **partial results shown** — a
+   killed tab must not lose a 50-page run. Typical maximum is ~50 pages, so a run is minutes long, which
+   is what makes those requirements rather than polish.
+
+**And the noise problem is now the real one, not OCR.** The paste shows two things no parser rule can
+fix from reading order alone:
+
+- **the watermark is interleaved _within_ body lines**, in a dozen fragmentations per page — so a
+  repeated-**line** filter cannot catch it (it was my earlier proposal, and it is wrong). A
+  token-or-frequency approach is the shape that would work;
+- **multi-column tables are serialised column-wise** — `Point / Why it is called the silent killer /
+Primary (essential) hypertension / …` is a three-column table flattened into a false reading order.
+  PDF.js exposes x and y per item, so the app can beat the reader's own copy here, but only once
+  `contentItemsToLines` looks at x.
+
+**The watermark finding supersedes the open question recorded below** — it is answered: yes, it lands in
+the text, and not as a whole line.
 
 ### D15. The reveal moves to mid-October / early November — and it reorders everything left
 
