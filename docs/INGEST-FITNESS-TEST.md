@@ -57,6 +57,36 @@ the repo. `git status --short` must show no new paths because of this work, ever
 **Do not commit either PDF, or any extracted text from them.** These are commercial board-review notes
 and this repository is on GitHub. The harness stays local and untracked.
 
+### A byte-level pre-check, to confirm or refute first
+
+A whole-file scan for the standard dictionary keys — normally uncompressed, and therefore visible in the
+raw bytes — found:
+
+| Key               | BoardPal   | Sir Rocky | Reading                                                     |
+| ----------------- | ---------- | --------- | ----------------------------------------------------------- |
+| `%PDF-`           | present    | present   | Both are valid PDFs. Neither is encrypted.                  |
+| `/Font`           | present    | present   | Both have fonts, so both should have a text layer.          |
+| `/ToUnicode`      | **absent** | present   | The CMap that maps glyph codes back to Unicode.             |
+| `/Subtype /Image` | present    | present   | Both carry images — normal, and expected for an 82 MB file. |
+
+**BoardPal appears to have no font carrying a `/ToUnicode` CMap.** PDF.js must then fall back to
+built-in encodings and glyph names, and for a subset font with a custom encoding that fallback is
+frequently wrong. So there is a specific prediction on the table:
+
+> **BoardPal extracts garbled or partially-garbled text. Sir Rocky extracts clean text.**
+
+Test that directly. It decides whether these files are exercising the parser or exercising PDF.js's
+encoding fallbacks — very different problems with very different fixes.
+
+**Treat the table as a hypothesis, not a conclusion.** A PDF may store its dictionaries inside compressed
+object streams, in which case this scan cannot see a key that is genuinely present. If BoardPal extracts
+perfectly, the pre-check is wrong, and say so out loud — that would mean the method itself is
+unreliable.
+
+The pair is useful precisely because they look different. **Sir Rocky is probably an OCR'd scan** —
+images plus a real text layer — so its text may carry the _original_ OCR's errors, and 82 MB of images is
+the memory case. BoardPal is probably born-digital with a bad encoding map.
+
 ## What to build
 
 A **local, untracked Node harness** that imports the real modules from `src/features/ingest/lib/` and
