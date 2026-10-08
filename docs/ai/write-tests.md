@@ -186,11 +186,35 @@ These are all in `src/features/ingest/lib/parse.test.ts`:
    - **the leftover queue receives what the join rule rejects**, with the fallback gone, so a capitalised
      line that is not a card start lands there instead of on the card above.
 
+   ### Verify the metric can move before trusting it to guard a defect
+
+   **The invariant above was not the only blind instrument — the counts were too.** After the fix, the
+   two documents read **523 cards / 402 distinct fronts** and **138 cards / 115 distinct fronts — the
+   same before and after**, while the damage went from 80 cards absorbing a mid-span heading to zero and
+   the longest card from 109 lines to 8. The reason is structural:
+
+   > **A join only ever extends an entry's _back_. It cannot change a front.** So every metric derived
+   > from fronts — card count, distinct fronts, duplicates-by-front, "how many became cards" — is
+   > **join-agnostic by construction** and will read identically before and after.
+
+   This is a general rule, not a parser note. **Before trusting any number to guard a defect, ask whether
+   that defect class can move it at all.** A metric that cannot move is worse than no metric, because it
+   reads as evidence of health. The measures that _did_ move here, and are therefore the ones to keep:
+
+   - **the count of joins attributable to the removed rule** (1,475 → 0), which names the mechanism;
+   - **entries absorbing a mid-span heading** (80 → 0), which states the user-visible failure;
+   - **longest span in source lines** (109 → 8), which is the shape of the damage.
+
+   **And the leftover rate is ambiguous, so do not treat it as a health number.** It reads **6.75%
+   before the fix and 75.58% after** on the same document — the alarming-looking value is the correct
+   one. A _low_ leftover rate means the parser is absorbing lines into cards rather than parsing them, so
+   the "healthy" direction depends on which regime you are in. Report it, but never as the headline: it
+   once read 6.75% while 80 cards were swallowing whole sections.
+
    Two tests carry the earlier half: a ten-line definition wrapped at an awkward point becomes **one**
    card, and a lowercase line that genuinely begins a `term: definition` still becomes its **own** card.
    Add the smallest repro of the failure: a `term: definition` followed by `NEXT SECTION HEADING` stays
-   **two** entries. **That test does not exist yet** — the fixture at `parse.test.ts` named for the
-   lowercase-`term:` case is a different scenario, exercises positive evidence, and passes today.
+   **two** entries. (It now exists — written for this fix, red before it.)
 
    **A third correction, unrelated to the defect.** This case previously said "a line ending in a hyphen
    starts the next card". That is backwards: `parse.ts` **holds the hyphenated line back** and appends
