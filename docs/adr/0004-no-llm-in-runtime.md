@@ -1,6 +1,12 @@
 # ADR 0004 — No LLM in the shipped product
 
-- **Status:** Accepted
+- **Status:** Accepted, **amended by [ADR 0009](0009-llm-extraction-from-her-notes.md)** (Proposed) —
+  the LLM prohibition now has **one named exception**: extraction from her own notes, with the source
+  span stored on every card. Everything else here stands, including the ban on generating cards from
+  model knowledge and the hallucination argument behind it. Note that this ADR's alternatives section
+  considered and rejected _"LLM only for parsing structure (not content)"_; ADR 0009 answers that
+  rejection directly, on the ground that its supporting claim — that the parser covers the structured
+  cases that actually occur — is refuted by measurements on her real handouts.
 - **Date:** 2026-02 (planning)
 - **Related:** ADR 0001, `CLAUDE.md` (the "two AI boundaries" section)
 

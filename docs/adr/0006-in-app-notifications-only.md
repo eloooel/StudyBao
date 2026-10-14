@@ -1,6 +1,10 @@
 # ADR 0006 — In-app notifications only: no backend, no push
 
-- **Status:** Accepted
+- **Status:** Accepted, **amended by [ADR 0009](0009-llm-extraction-from-her-notes.md)** (Proposed) —
+  a backend now exists, but only as **one stateless function that proxies an LLM and writes nothing to
+  any database**. This ADR's actual subject — that notifications are in-app only, with no push service,
+  no VAPID key, no subscription, and nothing firing while the app is closed — is **unchanged** and still
+  holds in full.
 - **Date:** 2026-09
 - **Supersedes:** [ADR 0002](0002-push-architecture-and-scheduler.md) (pre-schedule-then-cancel push with our own cron)
 

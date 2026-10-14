@@ -8,11 +8,12 @@ of [`0001-local-first-with-indexeddb.md`](0001-local-first-with-indexeddb.md).
 | [0001](0001-local-first-with-indexeddb.md) | Local-first storage with IndexedDB, optional Firestore sync | Accepted |
 | [0002](0002-push-architecture-and-scheduler.md) | Push architecture: pre-schedule then cancel, with our own cron | Superseded by 0006 |
 | [0003](0003-sm2-scheduler-and-learning-steps.md) | SM-2 with sub-day learning steps, epoch-ms scheduling | Accepted |
-| [0004](0004-no-llm-in-runtime.md) | No LLM in the shipped product | Accepted |
+| [0004](0004-no-llm-in-runtime.md) | No LLM in the shipped product | Accepted, amended by 0009 |
 | [0005](0005-auth-google-single-user.md) | Auth: Google Sign-In, one allow-listed email | Accepted |
-| [0006](0006-in-app-notifications-only.md) | In-app notifications only: no backend, no push | Accepted |
+| [0006](0006-in-app-notifications-only.md) | In-app notifications only: no backend, no push | Accepted, amended by 0009 |
 | [0007](0007-browser-only-no-install.md) | Browser-only, no installation — sync + export as the safety net | Superseded by 0008 |
 | [0008](0008-add-to-home-screen-on-ipad.md) | Add to Home Screen on the iPad (not an app install) | Accepted |
+| [0009](0009-llm-extraction-from-her-notes.md) | LLM extraction from her notes, behind our own endpoint | **Proposed** |
 
 ## When to write one
 
