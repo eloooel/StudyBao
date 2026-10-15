@@ -21,6 +21,7 @@ export function DeckListView({
   onOpenDeck,
   onStartReview,
   onAddFromNotes,
+  onDeleteDeck,
 }: DeckListViewProps) {
   const totalCards = decks.reduce((total, summary) => total + summary.totalCards, 0)
 
@@ -104,9 +105,18 @@ export function DeckListView({
                   <p className="text-xs text-ink-faint">No cards in here yet.</p>
                 )}
 
-                <div>
+                <div className="flex flex-wrap items-center gap-2">
                   <Button variant="secondary" onClick={() => onOpenDeck(deck.id)}>
                     Open deck
+                  </Button>
+                  {/*
+                    The only place a deck is deleted from. `ghost` and small, because it is not a
+                    thing to invite a tap: the common action on this screen is "open". It opens a
+                    confirmation rather than deleting, which is why the handler is named for the
+                    dialog and this view has no way to remove anything by itself.
+                  */}
+                  <Button variant="ghost" size="sm" onClick={() => onDeleteDeck(deck)}>
+                    Delete deck
                   </Button>
                 </div>
               </CardContent>

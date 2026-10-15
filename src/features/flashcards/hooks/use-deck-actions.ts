@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 
-import { listCardsByDeck, resetCardProgress, softDeleteCard } from '@/db/repositories/cards'
+import { resetCardProgress, softDeleteCard } from '@/db/repositories/cards'
 import { softDeleteDeck } from '@/db/repositories/decks'
 import { notifyDataChanged } from '@/lib/use-database-value'
 
@@ -15,8 +15,6 @@ export interface DeckActions {
   deleteDeck: (deckId: string) => Promise<void>
   deleteCard: (cardId: string) => Promise<void>
   resetProgress: (cardId: string) => Promise<void>
-  /** Used by the delete confirmation to say how much is about to be affected. */
-  countCardsInDeck: (deckId: string) => Promise<number>
 }
 
 export function useDeckActions(): DeckActions {
@@ -35,9 +33,5 @@ export function useDeckActions(): DeckActions {
     notifyDataChanged()
   }, [])
 
-  const countCardsInDeck = useCallback(async (deckId: string) => {
-    return (await listCardsByDeck(deckId)).length
-  }, [])
-
-  return { deleteDeck, deleteCard, resetProgress, countCardsInDeck }
+  return { deleteDeck, deleteCard, resetProgress }
 }
