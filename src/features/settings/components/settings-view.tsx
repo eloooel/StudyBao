@@ -1,3 +1,5 @@
+import { useEffect, useId, useRef, useState } from 'react'
+
 import { BowIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -13,10 +15,14 @@ import {
 import type { HomeScreenState } from '@/features/first-run/lib/home-screen'
 import {
   DEFAULT_DURATIONS,
-  sanitizeDurations,
+  MAX_CYCLES_BEFORE_LONG_BREAK,
+  MAX_TIMER_MINUTES,
+  MIN_CYCLES_BEFORE_LONG_BREAK,
+  MIN_TIMER_MINUTES,
   type TimerDurations,
 } from '@/features/timer/lib/timer'
 import type { Theme } from '@/lib/theme'
+import { cn } from '@/lib/cn'
 import { BackupCard, type BackupPanelProps } from './backup-card'
 
 /**
@@ -99,27 +105,17 @@ export function SettingsView({
             </p>
           )}
 
-          <label className="flex flex-col gap-1.5">
-            <span className="font-display text-sm font-semibold text-ink">
-              Start cram mode this many days before
-            </span>
-            <input
-              type="number"
-              min={1}
-              max={180}
-              value={cramThresholdDays}
-              onChange={(event) => {
-                const days = Number(event.target.value)
-                if (Number.isFinite(days) && days >= 1 && days <= 180) {
-                  onCramThresholdChange(Math.round(days))
-                }
-              }}
-              className="min-h-12 w-32 rounded-[var(--radius-control)] border border-line bg-surface px-3.5 text-base text-ink focus-visible:border-accent focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-accent"
-            />
-            <span className="text-xs text-ink-muted">
-              Inside that window, reviews ignore due dates and go to whatever you’ve missed most.
-            </span>
-          </label>
+          {/*
+            The same field the timer lengths use, rather than a second copy of it. It had this
+            defect inline: it committed on every keystroke behind the identical false comment, so
+            this box could not be emptied either.
+          */}
+          <DurationField
+            label="Start cram mode this many days before"
+            minutes={cramThresholdDays}
+            onCommit={onCramThresholdChange}
+            hint="Inside that window, reviews ignore due dates and go to whatever you’ve missed most."
+          />
         </CardContent>
       </Card>
 
@@ -130,10 +126,12 @@ export function SettingsView({
         />
         <CardContent className="flex flex-col gap-4">
           {/*
-            No Save button, deliberately. These commit as she types a valid number, like the cram
-            threshold above — and a number input that refuses invalid keystrokes cannot leave the
-            row in a state the timer has to defend against. `sanitizeDurations` still guards the
-            read path, because a stored value could always have come from somewhere else.
+            No Save button, deliberately. Each field commits when she leaves it (or presses Enter),
+            which is what makes the field clearable — the defect this replaced committed on every
+            keystroke, so an empty box was rejected and React wrote the old value straight back,
+            leaving her unable to delete the last digit. A field that holds raw text while she types
+            can be emptied, and nothing invalid reaches the row because `sanitizeDurations` still
+            guards the read path.
           */}
           <div className="flex flex-wrap gap-4">
             <DurationField
@@ -151,15 +149,17 @@ export function SettingsView({
               minutes={timerDurations.longBreakMin}
               onCommit={(longBreakMin) => onTimerDurationsChange({ longBreakMin })}
             />
+            {/*
+              The cycle count is a count, not minutes, so it does not share the 1–180 bounds: its
+              own range is the one `clampCycles` already enforces on every read.
+            */}
             <DurationField
               label="Blocks to a long break"
               minutes={timerDurations.cyclesBeforeLongBreak}
-              // The cycle count is a count, not minutes, so the guard differs.
+              min={MIN_CYCLES_BEFORE_LONG_BREAK}
+              max={MAX_CYCLES_BEFORE_LONG_BREAK}
               onCommit={(cyclesBeforeLongBreak) =>
-                onTimerDurationsChange({
-                  cyclesBeforeLongBreak: sanitizeDurations({ cyclesBeforeLongBreak })
-                    .cyclesBeforeLongBreak,
-                })
+                onTimerDurationsChange({ cyclesBeforeLongBreak })
               }
             />
           </div>
@@ -269,39 +269,198 @@ export function SettingsView({
 }
 
 /**
- * One number field for a timer length.
+ * One number field, for a timer length, the cycle count and the cram threshold.
  *
- * Commits on change rather than on blur or via a Save button. That is the pattern the cram
- * threshold above already uses, and it is the right one here for the same reason: there is no
- * partial value worth protecting. A number input that will not accept `0` or `abc` cannot leave a
- * state the timer has to defend against, and `sanitizeDurations` still guards the read path because
- * a stored row could have come from anywhere.
+ * ## Why it holds text rather than a number
+ *
+ * This is a **controlled** input, and the version this replaced committed on every keystroke behind
+ * a comment claiming that an empty field was ignored. It was not: clearing the box made
+ * `event.target.value` `''`, `Number('')` is `0`, the range guard rejected it, `onCommit` never ran,
+ * the stored value never changed, and React wrote the old value straight back into the DOM. **So the
+ * field could not be emptied, and the last remaining digit reappeared as soon as she deleted it.**
+ * That is the whole bug report — "it does not remove the first number in the text" — and the false
+ * comment is why it survived.
+ *
+ * Holding the raw string while she types is what makes an empty box representable. The value only
+ * reaches the database when she leaves the field or presses Enter, so `"2"` on the way to `"25"` is
+ * never written as 2.
+ *
+ * ## It does not silently revert, and that is deliberate
+ *
+ * Reverting to the last valid value on blur would be the same silence in a different coat, so an
+ * out-of-range entry keeps what she typed, writes nothing, and **says what the range is**. The range
+ * is also shown when she leaves the box empty, because an empty box that still shows 25 on the next
+ * screen is confusing unless the field tells her why.
+ *
+ * `lastCommitted` deserves its name to be read carefully: it is the last value this field
+ * *committed or displayed*, not the last value she typed. Without it the sync effect below would
+ * fight her own edit — an out-of-range `200` never reaches the prop, so the prop would look
+ * "unchanged" and an effect keyed only on the prop would have nothing to compare against.
+ */
+function NumberField({
+  label,
+  value,
+  min,
+  max,
+  onCommit,
+  hint,
+  className,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  onCommit: (value: number) => void
+  /** Optional line shown under the field. The empty-on-blur message is generated from the range. */
+  hint?: string
+  /** Extra classes for the wrapper. The input is always `w-28`, so the row stays aligned. */
+  className?: string
+}) {
+  const [text, setText] = useState(String(value))
+  const [error, setError] = useState<string | undefined>(undefined)
+  const lastCommitted = useRef(value)
+  // Ties the label to the input across the sibling split described below.
+  const inputId = useId()
+
+  // Adopt a value that changed from outside — the "Back to 25 / 5 / 15" button, or a different
+  // screen's write. Comparing against `lastCommitted` rather than against `text` is what stops this
+  // overwriting what she is currently typing.
+  useEffect(() => {
+    if (value === lastCommitted.current) return
+    lastCommitted.current = value
+    setText(String(value))
+    setError(undefined)
+  }, [value])
+
+  const range = `between ${String(min)} and ${String(max)}`
+
+  function commit(): void {
+    const trimmed = text.trim()
+
+    // Empty is a real state, not a mistake: she cleared it. Keep the stored value rather than
+    // guessing at a replacement, and say where the valid range is.
+    if (trimmed === '') {
+      setText(String(value))
+      setError(`Give it a number ${range}.`)
+      return
+    }
+
+    const parsed = Number(trimmed)
+    if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
+      // Her text stays on screen. Nothing is written, and nothing is silently changed.
+      setError(`Give it a whole number ${range}.`)
+      return
+    }
+
+    const rounded = Math.round(parsed)
+    setError(undefined)
+    setText(String(rounded))
+    lastCommitted.current = rounded
+    onCommit(rounded)
+  }
+
+  return (
+    <div className={cn('flex flex-col gap-1.5', className)}>
+      {/*
+        The input is wrapped by the label, but the range message is NOT: it is a sibling of the
+        label, and the label points at the input by id.
+        That is not layout tidiness. A message inside a `<label>` becomes part of the label's text,
+        so the control's accessible name changes the moment validation fires — "Focus" becomes
+        "FocusGive it a whole number between 1 and 180." — which breaks voice control and makes the
+        field unaddressable by the name it had a second earlier. Measured, not assumed: it is what a
+        `getByLabelText('Focus')` does on either side of a blur.
+      */}
+      <label className="flex flex-col gap-1.5" htmlFor={inputId}>
+        <span className="font-display text-sm font-semibold text-ink">{label}</span>
+        <input
+          id={inputId}
+          type="number"
+          inputMode="numeric"
+          min={min}
+          max={max}
+          value={text}
+          aria-invalid={error === undefined ? undefined : true}
+          onChange={(event) => {
+            setText(event.target.value)
+            setError(undefined)
+          }}
+          onBlur={commit}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              commit()
+            }
+          }}
+          className={cn(
+            'min-h-12 rounded-[var(--radius-control)] border bg-surface px-3.5 text-base text-ink',
+            'focus-visible:border-accent focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-accent',
+            error === undefined ? 'border-line' : 'border-accent',
+            'w-28',
+          )}
+        />
+      </label>
+      <FieldMessage error={error} fallback={hint} visible={hint !== undefined} />
+    </div>
+  )
+}
+
+/**
+ * One line under the field: the error if there is one, otherwise the fallback.
+ *
+ * Extracted from `NumberField` for the same reason `NumberField` itself is a component: two nested
+ * ternaries in JSX is where a wrong condition hides.
+ */
+function FieldMessage({
+  error,
+  fallback,
+  visible,
+}: {
+  error: string | undefined
+  fallback: string | undefined
+  visible: boolean
+}) {
+  if (error !== undefined) {
+    return (
+      <span role="alert" className="text-xs font-semibold text-accent">
+        {error}
+      </span>
+    )
+  }
+  if (!visible || fallback === undefined) return null
+  return <span className="text-xs text-ink-muted">{fallback}</span>
+}
+
+/**
+ * A timer length in minutes.
+ *
+ * Thin wrapper over `NumberField` so the four call sites keep their own vocabulary — `minutes` —
+ * and the shared bounds are stated once, in `timer.ts`, next to the clamps that enforce them.
+ * `sanitizeDurations` still guards the read path, because a stored row could have come from an
+ * older build or a hand-edited database.
  */
 function DurationField({
   label,
   minutes,
   onCommit,
+  hint,
+  min = MIN_TIMER_MINUTES,
+  max = MAX_TIMER_MINUTES,
 }: {
   label: string
   minutes: number
   onCommit: (value: number) => void
+  hint?: string
+  min?: number
+  max?: number
 }) {
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="font-display text-sm font-semibold text-ink">{label}</span>
-      <input
-        type="number"
-        min={1}
-        max={180}
-        value={minutes}
-        onChange={(event) => {
-          const parsed = Number(event.target.value)
-          // Ignore an empty field or an out-of-range value rather than writing it: the input keeps
-          // showing what she typed, and nothing invalid reaches the database.
-          if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 180) onCommit(Math.round(parsed))
-        }}
-        className="min-h-12 w-28 rounded-[var(--radius-control)] border border-line bg-surface px-3.5 text-base text-ink focus-visible:border-accent focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-accent"
-      />
-    </label>
+    <NumberField
+      label={label}
+      value={minutes}
+      min={min}
+      max={max}
+      onCommit={onCommit}
+      {...(hint === undefined ? {} : { hint })}
+    />
   )
 }
