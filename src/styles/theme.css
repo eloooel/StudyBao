@@ -97,6 +97,33 @@
   --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.24), 0 8px 24px rgba(0, 0, 0, 0.28);
 }
 
+/*
+ * Which palette the BROWSER draws its own controls in. This is not a design token, so it lives
+ * outside `@theme` — and outside `@layer base`, so no utility can outrank it on layer order.
+ *
+ * Every colour we control already differs between the two themes. A native control does not: the
+ * calendar indicator inside `<input type="date">`, and that field's own text, are painted by the
+ * UA. With no `color-scheme` declared they are painted in light-mode UA styling whatever the theme
+ * is, so the glyph reads black in both — and no `color:` on the element can reach it, which is why
+ * her report is right and why theming the icon appeared to do nothing.
+ *
+ * Concrete values rather than `light dark`, deliberately: `light dark` follows the OPERATING
+ * SYSTEM's setting, so the app in night mode on a light-appearance iPad would still be handed
+ * light UA styling — the exact bug. Our theme is an app setting, so this pair is what ties the
+ * UA's palette to it. `:root[data-theme='night']` is (0,2,0) and outranks `:root` (0,1,0), so this
+ * does not depend on source order.
+ *
+ * This corrects the whole class, not one glyph: the date picker's popup and text, scrollbars,
+ * autofill styling, and the native `<dialog>` backdrop that src/components/ui/modal.tsx relies on.
+ */
+:root {
+  color-scheme: light;
+}
+
+:root[data-theme='night'] {
+  color-scheme: dark;
+}
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
