@@ -10,8 +10,11 @@ import {
 } from '@/components/icons'
 import { HomeScreenPrompt } from '@/features/first-run/components/home-screen-prompt'
 import { useHomeScreenSetup } from '@/features/first-run/hooks/use-home-screen-setup'
-import { useTheme } from '@/lib/theme-store'
 import { cn } from '@/lib/cn'
+import { useTheme } from '@/lib/theme-store'
+import { useAppUpdate } from '@/lib/use-app-update'
+
+import { UpdatePrompt } from './update-prompt'
 
 interface NavItem {
   to: string
@@ -35,6 +38,9 @@ export function AppShell() {
   // path: the prompt has to appear once on the first open whichever screen she lands on, and the
   // index route is not the only way in (a deck bookmark opens straight to a review).
   const { promptOpen, markSeen } = useHomeScreenSetup()
+  // A deploy cannot reach a browser that already has the app, because the service worker precaches
+  // the whole shell. This is what offers it instead — see `update-prompt.tsx`.
+  const update = useAppUpdate()
 
   return (
     <div className="flex min-h-dvh flex-col bg-canvas">
@@ -86,6 +92,17 @@ export function AppShell() {
             )}
           </button>
         </div>
+
+        {/*
+          Inside the sticky header rather than in the scrolling content, so it cannot be scrolled
+          past and forgotten: the point of this bar is that a deploy reaches her at all. See
+          `update-prompt.tsx` for why it is a prompt and not an automatic reload.
+        */}
+        <UpdatePrompt
+          needRefresh={update.needRefresh}
+          onUpdate={update.update}
+          onDismiss={update.dismiss}
+        />
       </header>
 
       <main id="main" className="mx-auto w-full max-w-3xl flex-1 px-4 py-6">

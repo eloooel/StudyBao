@@ -11,7 +11,23 @@
 import type { VitePWAOptions } from 'vite-plugin-pwa'
 
 export const pwaOptions: Partial<VitePWAOptions> = {
-  registerType: 'autoUpdate',
+  /**
+   * `prompt`, not `autoUpdate`.
+   *
+   * `autoUpdate` generated a bare `navigator.serviceWorker.register('/sw.js')` and added
+   * `skipWaiting` — so a new worker activated immediately and took control of the page, **while the
+   * page carried on running the previous JavaScript.** Nothing reloaded it, so a deploy was
+   * invisible to a browser that already had the app: the user saw the whole old version and reported
+   * shipped fixes as missing.
+   *
+   * `prompt` leaves the new worker **waiting**, which is what raises `needRefresh`, and
+   * `UpdatePrompt` offers it. Taking it calls `updateServiceWorker(true)`, which activates the
+   * waiting worker and reloads onto the new build — on her tap, not mid-card.
+   *
+   * This means the app must import `virtual:pwa-register/react`; see `src/lib/use-app-update.ts`.
+   * Under `injectRegister: 'auto'` the plugin then stops injecting its own registration script.
+   */
+  registerType: 'prompt',
   injectRegister: 'auto',
   includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
 
