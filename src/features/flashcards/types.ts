@@ -24,6 +24,11 @@ export interface DeckListViewProps {
   onStartReview: () => void
   /** Opens the ingest screen — the input path for the whole product. */
   onAddFromNotes: () => void
+  /**
+   * Opens the confirmation for deleting this deck. Deliberately not a delete: the whole point is
+   * that the destructive step costs more than one tap, so this view cannot delete anything itself.
+   */
+  onDeleteDeck: (deck: Deck) => void
 }
 
 export interface DeckDetailViewProps {

@@ -1,7 +1,14 @@
 import Dexie from 'dexie'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { DEFAULT_CRAM_THRESHOLD_DAYS, SETTINGS_ID, StudyBaoDb, seedInitialData } from './schema'
+import {
+  DEFAULT_CRAM_THRESHOLD_DAYS,
+  SETTINGS_ID,
+  StudyBaoDb,
+  getDb,
+  seedInitialData,
+} from './schema'
+import { countDecks, listDecks, softDeleteDeck } from './repositories/decks'
 import { deckIdForPart } from './seed-data'
 import type { Card, Lesson } from './types'
 
@@ -541,5 +548,34 @@ describe('seeding the five PRC decks', () => {
     expect((await db.decks.get(target))?.name).toBe('Community Health')
 
     db.close()
+  })
+
+  it('does not re-seed when every deck has been deleted', async () => {
+    // The shared test database, not a unique one: `softDeleteDeck` resolves the app's singleton, so
+    // using it means using the database the repositories actually talk to. The global `afterEach`
+    // resets it, and every deck here is seeded by the time this runs.
+    const db = await getDb()
+    expect(await countDecks()).toBe(5)
+
+    // Delete all five through the real path, so this also dies if the card cascade breaks.
+    for (const deck of await listDecks()) {
+      await softDeleteDeck(deck.id, 1_800_000_100_000)
+    }
+
+    // The state that makes a "seed if there are no decks" check look correct — and the reason the
+    // gate is `settings.seededAt` instead. Five rows, zero live decks.
+    expect(await countDecks()).toBe(0)
+    expect(await db.decks.count()).toBe(5)
+
+    // Next launch.
+    await seedInitialData(db, 1_800_000_200_000)
+
+    expect(await db.decks.count()).toBe(5)
+    expect(await countDecks()).toBe(0)
+    // Every one is still a tombstone. The rows must stay: a hard delete is what the other device
+    // resurrects, and a re-seed would make her deletion silently optional.
+    const decks = await db.decks.toArray()
+    expect(decks.every((deck) => deck.deletedAt === 1_800_000_100_000)).toBe(true)
+    expect((await db.settings.get(SETTINGS_ID))?.seededAt).toBeDefined()
   })
 })

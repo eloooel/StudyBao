@@ -68,6 +68,7 @@ describe('DeckListView', () => {
         onOpenDeck={vi.fn()}
         onStartReview={onStartReview}
         onAddFromNotes={vi.fn()}
+        onDeleteDeck={vi.fn()}
       />,
     )
 
@@ -84,6 +85,7 @@ describe('DeckListView', () => {
         onOpenDeck={vi.fn()}
         onStartReview={onStartReview}
         onAddFromNotes={vi.fn()}
+        onDeleteDeck={vi.fn()}
       />,
     )
 
@@ -103,6 +105,7 @@ describe('DeckListView', () => {
         onOpenDeck={vi.fn()}
         onStartReview={vi.fn()}
         onAddFromNotes={onAddFromNotes}
+        onDeleteDeck={vi.fn()}
       />,
     )
 
@@ -119,6 +122,7 @@ describe('DeckListView', () => {
         onOpenDeck={vi.fn()}
         onStartReview={vi.fn()}
         onAddFromNotes={vi.fn()}
+        onDeleteDeck={vi.fn()}
       />,
     )
 
@@ -134,6 +138,7 @@ describe('DeckListView', () => {
         onOpenDeck={vi.fn()}
         onStartReview={vi.fn()}
         onAddFromNotes={vi.fn()}
+        onDeleteDeck={vi.fn()}
       />,
     )
 
@@ -153,11 +158,37 @@ describe('DeckListView', () => {
         onOpenDeck={onOpenDeck}
         onStartReview={vi.fn()}
         onAddFromNotes={vi.fn()}
+        onDeleteDeck={vi.fn()}
       />,
     )
 
     await user.click(screen.getByRole('button', { name: 'Open deck' }))
     expect(onOpenDeck).toHaveBeenCalledWith('deck-practice-i')
+  })
+
+  it('reports which deck to delete rather than deleting anything itself', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event')
+    const user = userEvent.setup()
+    const onDeleteDeck = vi.fn()
+    const target = summary({ totalCards: 12 })
+
+    render(
+      <DeckListView
+        decks={[target]}
+        loading={false}
+        totalDue={0}
+        onOpenDeck={vi.fn()}
+        onStartReview={vi.fn()}
+        onAddFromNotes={vi.fn()}
+        onDeleteDeck={onDeleteDeck}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Delete deck' }))
+
+    // The view hands the deck back and stops. It has no delete of its own, which is what makes the
+    // confirmation in the page the only path to a deletion.
+    expect(onDeleteDeck).toHaveBeenCalledWith(target.deck)
   })
 })
 
