@@ -6,16 +6,15 @@ decided and why, what is one-way, and what to do next.
 **Read order:** [`CLAUDE.md`](../CLAUDE.md) (constraints and the two AI boundaries) → this file → the
 runbook for whatever you were asked to do in [`docs/ai/`](ai/README.md).
 
-**State of the tree:** everything through Workflow D is **committed. Workflow E (the lesson tracker) is
-implemented in the working tree and is not committed yet** — it is awaiting review, so `git status`
-showing it is expected rather than half-finished work. Everything in §1 below was measured on that
-working tree.
+**State of the tree:** everything through **Workflow E is committed**, and the tree is clean. **Do not
+state tree state in this file — check it.** This paragraph previously claimed Workflow E was "implemented
+in the working tree and is not committed yet", which was wrong for weeks.
 
-Do not trust a commit hash written in a document — including this one. The first version of this
-paragraph named a checkpoint that went stale within four commits and claimed the work on top of it was
-uncommitted when it had in fact been committed, which sent a reader looking for work that did not exist.
-Run `git log --oneline -6` and `git status` instead. The Workflow B checkpoint is the commit whose
-message begins `feat: Workflow B`.
+That is the **second** time this has happened, and the paragraph below predicted it. The first version
+named a checkpoint that went stale within four commits while claiming the work on top of it was
+uncommitted; this version did the same thing to Workflow E. **So the fix is not a more careful sentence,
+it is to stop writing the sentence.** Run `git log --oneline -6` and `git status` instead — they cannot
+go stale. The Workflow B checkpoint is the commit whose message begins `feat: Workflow B`.
 
 What Workflow B deliberately left open is in
 [`docs/WORKFLOW-B-REMAINING.md`](WORKFLOW-B-REMAINING.md) — read it alongside this file.

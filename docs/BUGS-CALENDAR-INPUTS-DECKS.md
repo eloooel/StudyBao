@@ -44,8 +44,11 @@ I checked the obvious causes and **eliminated all of them**. Do not go hunting i
 - The night token block at `src/styles/theme.css:77` overrides `--color-ink`, `--color-ink-muted`,
   `--color-ink-faint`, `--color-line`, `--color-canvas` and `--color-surface`. Nothing is missing.
 - The nav icon at `src/components/layout/app-shell.tsx:114` is
-  `cn('size-6', isActive ? 'text-accent' : 'text-ink-faint')`. `--color-ink-faint` on night's
-  `--color-surface` computes to about **4.7:1**, which is visible.
+  `cn('size-6', isActive ? 'text-accent' : 'text-ink-faint')`. It is visible in both themes: night's
+  `#a98d93` on `#35262c` is about **4.7:1**, and light's `#9c7c82` on white is **3.59:1** — the figure
+  the token's own comment in `theme.css` records, and enough for a non-text graphic (3:1). _(An earlier
+  version of this brief quoted only the 4.7 figure, which is the night number, as though it settled both.
+  Corrected.)_
 - The empty-state icon at `src/features/tracker/components/tracker-view.tsx:94` sits in a slot that is
   explicitly `text-ink`, and night's `--color-ink` is `#f6e7ea`. Also visible.
 
@@ -60,6 +63,14 @@ lessons tab) and `src/features/settings/components/settings-view.tsx:84` — and
 `color-scheme` declared, WebKit renders that control in its **light-mode user-agent styling**, so the
 glyph comes out dark **no matter which theme is active**, and `color: var(--color-ink)` cannot reach it.
 That is exactly "black in dark mode _and_ light mode", and exactly why she cannot fix it by theming.
+
+**And one decisive point the eliminations above do not make on their own.** Every element _we_ colour is
+**different in the two themes** — all of them are checked above. **Only a control the browser draws itself
+can come out black in both**, and the only calendar glyph the browser draws is the picker indicator
+inside a date input. Both date inputs are in scope: the lesson form, which is a **modal over the lessons
+tab** (`tracker.page.tsx:64` renders `LessonFormView` with `open={formTarget !== null}`), and Settings'
+exam date. So "in the lessons tab" is satisfied — she taps _Add a lesson_ and the form appears over it,
+along with the date field's own text, which is UA-drawn too and therefore also stays dark.
 
 ### The fix
 
