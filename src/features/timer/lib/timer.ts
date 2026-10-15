@@ -70,6 +70,24 @@ export const DEFAULT_DURATIONS: TimerDurations = {
   cyclesBeforeLongBreak: 4,
 }
 
+/**
+ * The bounds, exported so the Settings fields and the clamps below cannot drift apart.
+ *
+ * These live here rather than in the form because the clamps below are the thing that actually
+ * enforces them, on every read: a field that accepted a wider range than the read path allows would
+ * be a field whose value silently changes on the next read, which is the defect this change is
+ * fixing. One statement of each bound, used by both sides.
+ */
+export const MIN_TIMER_MINUTES = 1
+export const MAX_TIMER_MINUTES = 180
+/** At least 1: zero would mean "long break after no work blocks", which is not a cycle. */
+export const MIN_CYCLES_BEFORE_LONG_BREAK = 1
+/**
+ * Twelve work blocks, not 180. The cycle count is a count, not a duration, so it does not share the
+ * minutes ceiling by default — and the read path has always clamped it to 12.
+ */
+export const MAX_CYCLES_BEFORE_LONG_BREAK = 12
+
 /** Minutes for a phase. `idle` has no length of its own. */
 export function minutesFor(phase: TimerPhase, durations: TimerDurations): number {
   switch (phase) {
@@ -103,15 +121,17 @@ export function sanitizeDurations(durations: Partial<TimerDurations>): TimerDura
 
 function clampMinutes(value: number | undefined, fallback: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
-  return Math.min(180, Math.max(1, Math.round(value)))
+  return Math.min(MAX_TIMER_MINUTES, Math.max(MIN_TIMER_MINUTES, Math.round(value)))
 }
 
 function clampCycles(value: number | undefined): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return DEFAULT_DURATIONS.cyclesBeforeLongBreak
   }
-  // At least 1: zero would mean "long break after no work blocks", which is not a cycle.
-  return Math.min(12, Math.max(1, Math.round(value)))
+  return Math.min(
+    MAX_CYCLES_BEFORE_LONG_BREAK,
+    Math.max(MIN_CYCLES_BEFORE_LONG_BREAK, Math.round(value)),
+  )
 }
 
 /** The state before anything has started. */
