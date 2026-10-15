@@ -8,6 +8,19 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      /**
+       * `virtual:pwa-register/react` is resolved by the PWA plugin, and this config deliberately
+       * uses only `@vitejs/plugin-react`. Tests that render `AppShell` pull in
+       * `src/lib/use-app-update.ts`, which imports it, so without this alias that import cannot
+       * resolve and those tests fail to collect.
+       *
+       * The stub is a no-op rather than a fake: it reports "nothing to update" and does nothing when
+       * asked, so it cannot make a test pass that would otherwise fail. The behaviour worth asserting
+       * lives in `UpdatePrompt`, which takes props and knows nothing about service workers.
+       */
+      'virtual:pwa-register/react': fileURLToPath(
+        new URL('./src/test/pwa-register-stub.ts', import.meta.url),
+      ),
     },
   },
   test: {
@@ -44,6 +57,15 @@ export default defineConfig({
         'src/**/*.d.ts',
         'src/test/**',
         'src/**/*.test.{ts,tsx}',
+        /*
+         * The one module that imports `virtual:pwa-register/react`. Excluded for the same reason
+         * `main.tsx` and `pwa.config.ts` are: it is integration with the build rather than logic.
+         * Its eight lines pass the plugin's values through, and a test could only assert that the
+         * stub aliased above returns what that stub was written to return — which would raise the
+         * number without testing anything. The behaviour worth pinning is in `UpdatePrompt`, which
+         * takes props, and is covered.
+         */
+        'src/lib/use-app-update.ts',
       ],
       // The floor, not the goal. It tracks the actual enforced value — do not
       // restate this number in prose anywhere; see docs/adr and CLAUDE.md.

@@ -293,6 +293,18 @@ during that work, each then confirmed to fail against its reintroduced bug; the 
   `/ocr/*` are immutable by name, so `max-age=31536000, immutable` is safe and is what makes her
   _second_ use of the PDF or photo tab offline-capable. They are deliberately **absent** from the
   service worker's precache — see `src/pwa.config.ts`'s `globIgnores` comment.
+- **A deploy does not reach a browser that already has the app — until she accepts it.** The worker
+  precaches the whole shell, so a new build is invisible to any client that already has one. That is
+  not theoretical: it was diagnosed from a report of _"I can't see any of the three fixes"_, where the
+  truth was that the whole previous version of the app was being served. `registerType` is therefore
+  **`prompt`, not `autoUpdate`** — under `autoUpdate` the new worker activated, took control, and the
+  page carried on running the **previous JavaScript** indefinitely, because nothing reloaded it.
+  `UpdatePrompt` offers the new version and `updateServiceWorker(true)` activates and reloads on her
+  tap rather than mid-card. Two consequences worth knowing: `src/lib/use-app-update.ts` is the only
+  module that imports `virtual:pwa-register/react` (so only it needs the stub alias in
+  `vitest.config.ts`), and the plugin stops injecting its own `registerSW.js`. **So when a change looks
+  like it did not deploy, check the client's worker before you check the server** — and remember
+  Safari and the Home Screen app are separate containers with separate workers.
 - **Nothing ingest-related is precached.** Zero PDF or OCR assets are in the precache, verified by
   `node scripts/report-precache.mjs`, which reads the generated manifest rather than trusting the
   config. The worker and language data are runtime-cached instead, so the
