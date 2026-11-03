@@ -44,7 +44,7 @@ function renderTracker(
     onSelectFilter: vi.fn(),
     onAddLesson: vi.fn(),
     onEditLesson: vi.fn(),
-    onToggleMastered: vi.fn(),
+    onAdvance: vi.fn(),
   }
 
   const groups: LessonGroup[] = lessonGroups(lessons, filter, NOW)
@@ -118,28 +118,48 @@ describe('TrackerView', () => {
     expect(within(rowFor('Undated topic')).getByText(/No date yet/)).toBeInTheDocument()
   })
 
-  it('marks a row with its status and offers the opposite of it in one tap', async () => {
+  it('steps a mastered row back to reviewing in one tap', async () => {
     const user = userEvent.setup()
     const done = lesson({ id: 'done', topic: 'Finished it', status: 'mastered' })
 
-    const { onToggleMastered } = renderTracker([done], 'mastered')
+    const { onAdvance } = renderTracker([done], 'mastered')
 
     expect(within(rowFor('Finished it')).getByText('Mastered')).toBeInTheDocument()
 
     await user.click(
       within(rowFor('Finished it')).getByRole('button', { name: 'Back to reviewing' }),
     )
-    expect(onToggleMastered).toHaveBeenCalledWith(done)
+    expect(onAdvance).toHaveBeenCalledWith(done)
   })
 
-  it('offers Mark mastered on a lesson that is not finished', async () => {
+  it('offers the NEXT step, not the last one, on a lesson that has not started', async () => {
+    // The reported bug, and why the old test name mattered: this row was offered "Mark mastered",
+    // so the Reviewing state — the one she is in for as long as she is actually working on a topic —
+    // could only be reached by opening the form. The test used to assert "the opposite of status in
+    // one tap", which is what made a two-state toggle look correct.
     const user = userEvent.setup()
     const open = lesson({ id: 'open', topic: 'Still open', status: 'not-started' })
 
-    const { onToggleMastered } = renderTracker([open])
+    const { onAdvance } = renderTracker([open])
 
-    await user.click(within(rowFor('Still open')).getByRole('button', { name: 'Mark mastered' }))
-    expect(onToggleMastered).toHaveBeenCalledWith(open)
+    expect(
+      within(rowFor('Still open')).queryByRole('button', { name: 'Mark mastered' }),
+    ).not.toBeInTheDocument()
+
+    await user.click(
+      within(rowFor('Still open')).getByRole('button', { name: 'Mark as reviewing' }),
+    )
+    expect(onAdvance).toHaveBeenCalledWith(open)
+  })
+
+  it('offers Mark mastered from reviewing, which is the second step', async () => {
+    const user = userEvent.setup()
+    const mid = lesson({ id: 'mid', topic: 'Halfway', status: 'reviewing' })
+
+    const { onAdvance } = renderTracker([mid])
+
+    await user.click(within(rowFor('Halfway')).getByRole('button', { name: 'Mark mastered' }))
+    expect(onAdvance).toHaveBeenCalledWith(mid)
   })
 
   it('sends the tapped chip up, and reports which one is showing', async () => {
@@ -277,7 +297,7 @@ describe('LessonFormView', () => {
     const { onSubmit } = renderForm({ mode: 'create' })
 
     await user.type(screen.getByLabelText('Topic'), 'Endocrine')
-    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-09-24' } })
+    fireEvent.change(screen.getByLabelText(/like it done by/i), { target: { value: '2026-09-24' } })
     await user.click(screen.getByRole('button', { name: 'Add lesson' }))
 
     // 04:00 local, not midnight — a lesson due today must not flip to overdue at 00:30.
@@ -312,7 +332,10 @@ describe('LessonFormView', () => {
     expect(screen.getByLabelText('Topic')).toHaveValue('Growth and development')
     expect(screen.getByLabelText('Which part?')).toHaveValue('practice-ii')
     expect(screen.getByLabelText('Where is it up to?')).toHaveValue('reviewing')
-    expect(screen.getByLabelText('Date')).toHaveValue('2026-09-24')
+    // The label is "When you'd like it done by" — matched as a regex so the exact apostrophe glyph
+    // is not part of the assertion. It used to say just "Date", which told her nothing about what
+    // the date was for; this is the field the report asked for more context on.
+    expect(screen.getByLabelText(/like it done by/i)).toHaveValue('2026-09-24')
     expect(screen.getByLabelText(/Notes/)).toHaveValue('Chapter 4')
   })
 
@@ -321,7 +344,7 @@ describe('LessonFormView', () => {
     const target = lesson({ topic: 'Was dated', deadline: at4(2026, 8, 24) })
     const { onSubmit } = renderForm({ mode: 'edit', lesson: target })
 
-    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '' } })
+    fireEvent.change(screen.getByLabelText(/like it done by/i), { target: { value: '' } })
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
 
     expect(Object.hasOwn(submittedValues(onSubmit), 'deadline')).toBe(false)

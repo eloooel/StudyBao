@@ -6,10 +6,12 @@ import {
   LESSON_FILTERS,
   LESSON_STATUSES,
   isLessonFilter,
+  lessonAdvanceLabel,
   lessonCounts,
   lessonFilterLabel,
   lessonStatusLabel,
   matchesFilter,
+  nextLessonStatus,
   parseLessonFilter,
 } from './status'
 
@@ -156,5 +158,43 @@ describe('FILTER_EMPTY', () => {
     // Distinct on purpose: tapping Mastered and reading "Nothing on your list yet" would be worse
     // than a blank region, because it reads as the wrong screen rather than as a broken one.
     expect(new Set(titles).size).toBe(LESSON_FILTERS.length)
+  })
+})
+
+describe('nextLessonStatus', () => {
+  it('advances exactly one step along the workflow', () => {
+    // The reported bug: a lesson added as Not started was offered "Mark mastered", so Reviewing —
+    // the state she is in while actually working on a topic — was unreachable without the form.
+    expect(nextLessonStatus('not-started')).toBe('reviewing')
+    expect(nextLessonStatus('reviewing')).toBe('mastered')
+  })
+
+  it('steps a mastered lesson back to reviewing, because there is nothing after it', () => {
+    expect(nextLessonStatus('mastered')).toBe('reviewing')
+  })
+
+  it('never skips a step, from any state', () => {
+    // A property rather than three literals, so it still holds if a state is ever added: one step
+    // forward, or one step back from the last state, and nothing else.
+    for (const status of LESSON_STATUSES) {
+      const from = LESSON_STATUSES.indexOf(status)
+      const to = LESSON_STATUSES.indexOf(nextLessonStatus(status))
+
+      expect(to === from + 1 || (status === 'mastered' && to === from - 1)).toBe(true)
+    }
+  })
+})
+
+describe('lessonAdvanceLabel', () => {
+  it('names the transition it actually performs, for every state', () => {
+    // The label and the transition live side by side so a button cannot promise one move and take
+    // another, which is what "Mark mastered" on a Not started lesson did.
+    expect(lessonAdvanceLabel('not-started')).toBe('Mark as reviewing')
+    expect(lessonAdvanceLabel('reviewing')).toBe('Mark mastered')
+    expect(lessonAdvanceLabel('mastered')).toBe('Back to reviewing')
+  })
+
+  it('never offers "Mark mastered" from the first state', () => {
+    expect(lessonAdvanceLabel('not-started')).not.toBe('Mark mastered')
   })
 })

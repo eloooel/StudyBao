@@ -8,7 +8,7 @@ import { LessonFormView } from '../components/lesson-form-view'
 import { TrackerView } from '../components/tracker-view'
 import { useLessonActions } from '../hooks/use-lesson-actions'
 import { useLessonsData } from '../hooks/use-lessons-data'
-import { parseLessonFilter } from '../lib/status'
+import { nextLessonStatus, parseLessonFilter } from '../lib/status'
 import type { LessonFormTarget } from '../types'
 
 /**
@@ -53,11 +53,13 @@ export default function TrackerPage() {
           clearError()
           setFormTarget({ mode: 'edit', lesson })
         }}
-        onToggleMastered={(lesson) => {
-          // The one-tap route to done, and back. There is no stored "previous status" to restore,
-          // so a lesson that turns out not to be solid goes to Reviewing — which is what the button
-          // says it will do.
-          void moveStatus(lesson.id, lesson.status === 'mastered' ? 'reviewing' : 'mastered')
+        onAdvance={(lesson) => {
+          // One step, not a jump to the end. The old handler treated the row as a mastered/not-mastered
+          // toggle, so a lesson added as Not started was offered "Mark mastered" as its next action and
+          // Reviewing was unreachable without opening the form. `nextLessonStatus` owns the transition
+          // and `lessonAdvanceLabel` owns the wording, so the button cannot promise one move and take
+          // another.
+          void moveStatus(lesson.id, nextLessonStatus(lesson.status))
         }}
       />
 

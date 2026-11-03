@@ -59,7 +59,8 @@ export interface TrackerViewProps extends LessonsView {
   onSelectFilter: (filter: LessonFilter) => void
   onAddLesson: () => void
   onEditLesson: (lesson: Lesson) => void
-  onToggleMastered: (lesson: Lesson) => void
+  /** Moves a lesson one step along `not-started → reviewing → mastered`, or back from mastered. */
+  onAdvance: (lesson: Lesson) => void
 }
 
 export interface LessonFormViewProps {
