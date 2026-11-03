@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
+import { DeckFormView } from '../components/deck-form-view'
 import { DeckListView } from '../components/deck-list-view'
 import { useDeckActions } from '../hooks/use-deck-actions'
 import { useDecksData } from '../hooks/use-decks-data'
@@ -30,7 +31,13 @@ import type { DeckSummary } from '../types'
 export default function FlashcardsPage() {
   const navigate = useNavigate()
   const { decks, totalDue, loading } = useDecksData()
-  const { deleteDeck } = useDeckActions()
+  const { deleteDeck, createDeck } = useDeckActions()
+
+  /**
+   * Whether the "new deck" form is open. Separate from `pendingDelete` because they are opposite
+   * acts and must never be able to appear together.
+   */
+  const [creating, setCreating] = useState(false)
 
   /**
    * The deck whose deletion is being confirmed, with the counts it was opened at so the dialog
@@ -52,6 +59,18 @@ export default function FlashcardsPage() {
           // Only what is actually on screen can be deleted, so a stale row cannot open a dialog
           // describing a deck the list no longer shows.
           if (summary) setPendingDelete(summary)
+        }}
+        onNewDeck={() => setCreating(true)}
+      />
+
+      <DeckFormView
+        open={creating}
+        onClose={() => setCreating(false)}
+        onSubmit={(values) => {
+          void createDeck(values)
+          // She stays on the list, where the new deck appears as the shared change signal
+          // re-reads. No navigation to lose her, and no second dialog to dismiss.
+          setCreating(false)
         }}
       />
 
