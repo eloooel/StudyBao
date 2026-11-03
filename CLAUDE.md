@@ -135,6 +135,16 @@ Path alias: `@` → `./src`.
   "restores it byte-identical" can both become no-ops that report success. Use the edit tool, or
   `-replace` for regex, and **confirm the change landed by reading the file**, never by the exit code.
   This class has now cost three attempts.
+- **A failed build leaves the previous `dist/` in place**, so anything you grep out of `dist/` after a
+  red build answers the **previous** question while looking like a current answer. This produced a
+  confidently wrong report during the PWA update work: the bundle checks "proved" the old
+  `registerSW.js` and the old `skipWaiting` were still shipping, when in fact the build had simply
+  failed. Delete `dist/` (or check the build's exit code) before reading anything out of it.
+- **`Get-ChildItem -Include` silently returns nothing without `-Recurse`** (or a trailing `\*` on the
+  path). It does not error and it does not warn, so a file search written that way looks like "no
+  matches exist". This happened twice in one session — once while looking for her sample documents and
+  once while looking for hardcoded icon colours, where the empty result was briefly read as evidence.
+  Prefer the glob tool, or `-Filter`, or add `-Recurse`.
 - **`$env:TEMP` is not the same directory under the confined and elevated sandboxes.** Each command is a
   fresh process and the session temp path differs, so a file written to `$env:TEMP` in one command is
   **not found** by the next — and the failure looks like the file was never created. This silently
