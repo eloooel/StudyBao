@@ -69,6 +69,7 @@ describe('DeckListView', () => {
         onStartReview={onStartReview}
         onAddFromNotes={vi.fn()}
         onDeleteDeck={vi.fn()}
+        onNewDeck={vi.fn()}
       />,
     )
 
@@ -86,6 +87,7 @@ describe('DeckListView', () => {
         onStartReview={onStartReview}
         onAddFromNotes={vi.fn()}
         onDeleteDeck={vi.fn()}
+        onNewDeck={vi.fn()}
       />,
     )
 
@@ -106,6 +108,7 @@ describe('DeckListView', () => {
         onStartReview={vi.fn()}
         onAddFromNotes={onAddFromNotes}
         onDeleteDeck={vi.fn()}
+        onNewDeck={vi.fn()}
       />,
     )
 
@@ -123,6 +126,7 @@ describe('DeckListView', () => {
         onStartReview={vi.fn()}
         onAddFromNotes={vi.fn()}
         onDeleteDeck={vi.fn()}
+        onNewDeck={vi.fn()}
       />,
     )
 
@@ -139,6 +143,7 @@ describe('DeckListView', () => {
         onStartReview={vi.fn()}
         onAddFromNotes={vi.fn()}
         onDeleteDeck={vi.fn()}
+        onNewDeck={vi.fn()}
       />,
     )
 
@@ -159,6 +164,7 @@ describe('DeckListView', () => {
         onStartReview={vi.fn()}
         onAddFromNotes={vi.fn()}
         onDeleteDeck={vi.fn()}
+        onNewDeck={vi.fn()}
       />,
     )
 
@@ -181,6 +187,7 @@ describe('DeckListView', () => {
         onStartReview={vi.fn()}
         onAddFromNotes={vi.fn()}
         onDeleteDeck={onDeleteDeck}
+        onNewDeck={vi.fn()}
       />,
     )
 

@@ -18,7 +18,8 @@
 export type PrcPart = 'practice-i' | 'practice-ii' | 'practice-iii' | 'practice-iv' | 'practice-v'
 
 /**
- * A deck. One per Nursing Practice part (decision #7).
+ * A deck. The five **seeded** decks are one per Nursing Practice part (decision #7); she may add
+ * more within a part, so `subject` is **not** unique — see ADR 0010.
  *
  * `subject` is the stable key (`PrcPart`) and `name` is the display title, so a
  * renamed deck does not break a query that was written against the part it belongs to.

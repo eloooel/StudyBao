@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { ToastProvider } from '@/components/ui/toast'
 import { listAllCards, listCardsByDeck, listDeletedCards } from '@/db/repositories/cards'
-import { listDecks } from '@/db/repositories/decks'
+import { listDecks, softDeleteDeck } from '@/db/repositories/decks'
 import { countReviewLogs, listReviewLogsByDeck } from '@/db/repositories/review-logs'
 import { deckIdForPart } from '@/db/seed-data'
 import { getDb, seedInitialData } from '@/db/schema'
@@ -97,16 +97,26 @@ async function deckRow(name: string): Promise<HTMLElement> {
  * alone. It waits for the `open` attribute, which is what makes a role query inside it safe.
  */
 async function confirmDialog(deckName: string): Promise<HTMLElement> {
-  await waitFor(() => {
-    const dialog = [...document.querySelectorAll('dialog')].find((element) =>
-      element.textContent?.includes(deckName),
+  /*
+   * Two dialogs can be mounted at once: this screen also has the "new deck" form, and that form's
+   * part `<select>` contains **every** PRC part name — including the deck under test. So "the first
+   * dialog whose text mentions this deck" is no longer necessarily the delete confirmation; it was
+   * the closed form, and the assertion then waited ten seconds for a dialog that was open all along
+   * one element later.
+   *
+   * Waiting for an **open** dialog that names the deck is the assumption-free version: the form is
+   * closed unless she opened it, and the delete confirmation always names the deck it is asking about.
+   */
+  const findOpen = () =>
+    [...document.querySelectorAll('dialog')].find(
+      (element) => element.hasAttribute('open') && element.textContent?.includes(deckName) === true,
     )
-    expect(dialog?.hasAttribute('open')).toBe(true)
+
+  await waitFor(() => {
+    expect(findOpen()).toBeDefined()
   }, WAIT)
 
-  const dialog = [...document.querySelectorAll('dialog')].find((element) =>
-    element.textContent?.includes(deckName),
-  )
+  const dialog = findOpen()
   if (!dialog) throw new Error('The delete confirmation is not showing.')
   return dialog
 }
@@ -170,7 +180,15 @@ describe('deleting a deck from the deck list', () => {
     // 1. Gone from the deck list, and the other four are not.
     await waitFor(async () => expect(await listDecks()).toHaveLength(4), WAIT)
     expect((await listDecks()).map((deck) => deck.id)).not.toContain(TARGET)
-    expect(screen.queryByRole('heading', { name: TARGET_NAME, level: 2 })).toBeNull()
+    /*
+     * The DOM assertion needs its own `waitFor`, and this is not belt-and-braces: `deleteDeck` fires
+     * `notifyDataChanged()`, which re-reads **asynchronously**, so the database is up to date a
+     * render before the list is. Asserting straight after the database check was a race that passed
+     * until parallel load made it lose — it is what made this test flake.
+     */
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: TARGET_NAME, level: 2 })).toBeNull()
+    }, WAIT)
 
     // 2. Its cards stop appearing, and the rows are still there as tombstones rather than deleted.
     const db = await getDb()
@@ -250,5 +268,75 @@ describe('deleting a deck from the deck list', () => {
     // The row is still there — a tombstone, not a removal — which is what stops the other device
     // resurrecting it once Workflow S exists.
     expect(await db.decks.count()).toBe(5)
+  })
+})
+
+/**
+ * The order the screen offers things in: a deck first, then cards from notes.
+ *
+ * "Add from your notes" files cards **into a deck**, so offering it with no deck to file them into
+ * is a dead end. That dead end only became reachable when deck deletion shipped, because before it
+ * the five seeded decks always existed.
+ */
+describe('a deck first, then cards from notes', () => {
+  /** The form is a `<dialog>`: wait for `open` before any role query inside it. */
+  function openDialog(marker: string): HTMLElement {
+    const dialog = [...document.querySelectorAll('dialog')].find(
+      (element) => element.hasAttribute('open') && element.textContent?.includes(marker) === true,
+    )
+    if (!dialog) throw new Error(`No open dialog containing "${marker}".`)
+    return dialog
+  }
+
+  it('offers making a deck, and not the notes path, when there are no decks left', async () => {
+    for (const deck of await listDecks()) await softDeleteDeck(deck.id, Date.now())
+    renderPage()
+
+    expect(await screen.findByRole('button', { name: 'New deck' }, WAIT)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add from your notes' })).toBeNull()
+    expect(screen.getByText(/Start with a deck/)).toBeInTheDocument()
+  })
+
+  it('offers both, once a deck exists', async () => {
+    renderPage()
+
+    expect(
+      await screen.findByRole('button', { name: 'Add from your notes' }, WAIT),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New deck' })).toBeInTheDocument()
+  })
+
+  it('makes a deck with the name she typed, in the part she chose', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'New deck' }, WAIT))
+    const dialog = openDialog('New deck')
+
+    await user.type(within(dialog).getByLabelText('Deck name'), 'Fluid and electrolytes')
+    await user.selectOptions(within(dialog).getByLabelText('Which part is it for?'), 'practice-i')
+    await user.click(within(dialog).getByRole('button', { name: 'Make the deck' }))
+
+    await waitFor(async () => {
+      const created = (await listDecks()).find((deck) => deck.name === 'Fluid and electrolytes')
+      expect(created?.subject).toBe('practice-i')
+    }, WAIT)
+  })
+
+  it('files a second deck into a part that already has one', async () => {
+    // The point of ADR 0010: the seeded deck for a part is not a reason to refuse a new one.
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'New deck' }, WAIT))
+    const dialog = openDialog('New deck')
+    await user.type(within(dialog).getByLabelText('Deck name'), 'Second in part five')
+    await user.selectOptions(within(dialog).getByLabelText('Which part is it for?'), 'practice-v')
+    await user.click(within(dialog).getByRole('button', { name: 'Make the deck' }))
+
+    await waitFor(async () => {
+      const inPartV = (await listDecks()).filter((deck) => deck.subject === 'practice-v')
+      expect(inPartV.length).toBe(2)
+    }, WAIT)
   })
 })

@@ -22,8 +22,10 @@ export function DeckListView({
   onStartReview,
   onAddFromNotes,
   onDeleteDeck,
+  onNewDeck,
 }: DeckListViewProps) {
   const totalCards = decks.reduce((total, summary) => total + summary.totalCards, 0)
+  const hasDecks = decks.length > 0
 
   return (
     <div className="flex flex-col gap-5">
@@ -38,14 +40,21 @@ export function DeckListView({
       </header>
 
       {/*
-        Primary, and above the fold, because typing every card by hand is the thing that stops
-        her using this at all. Ingest is a screen rather than a sixth bottom-nav item: the bar is
-        already five, which is the practical ceiling on an iPad, and "add cards" is something she
-        looks for where the decks are.
+        **Deck first, notes second.** "Add from your notes" files cards into a deck, so offering it
+        with no deck to file them into is a dead end — which became reachable the moment a deck could
+        be deleted. With no decks this screen offers making one instead; the notes path appears only
+        once there is somewhere for the cards to land.
       */}
-      <Button size="lg" fullWidth onClick={onAddFromNotes}>
-        Add from your notes
-      </Button>
+      {hasDecks ? (
+        <div className="flex flex-col gap-3">
+          <Button size="lg" fullWidth onClick={onAddFromNotes}>
+            Add from your notes
+          </Button>
+          <Button variant="secondary" fullWidth onClick={onNewDeck}>
+            New deck
+          </Button>
+        </div>
+      ) : null}
 
       {totalDue > 0 ? (
         <Card elevated>
@@ -63,11 +72,20 @@ export function DeckListView({
         </Card>
       ) : null}
 
-      {!loading && totalCards === 0 ? (
+      {!loading && !hasDecks ? (
+        <EmptyState
+          icon={<CardsIcon className="size-6" />}
+          title="Start with a deck"
+          message="A deck is where your cards live. Make one for a topic you’re working through, and then you can bring cards in from your notes."
+          action={<Button onClick={onNewDeck}>New deck</Button>}
+        />
+      ) : null}
+
+      {!loading && hasDecks && totalCards === 0 ? (
         <EmptyState
           icon={<CardsIcon className="size-6" />}
           title="Your decks are ready"
-          message="Open a part below and add your first card. Nothing is due yet, so there's no rush — a handful a day adds up fast."
+          message="Open a part below and add your first card. Nothing is due yet, so there’s no rush — a handful a day adds up fast."
         />
       ) : null}
 

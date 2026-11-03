@@ -309,6 +309,15 @@ during that work, each then confirmed to fail against its reintroduced bug; the 
   `vitest.config.ts`), and the plugin stops injecting its own `registerSW.js`. **So when a change looks
   like it did not deploy, check the client's worker before you check the server** — and remember
   Safari and the Home Screen app are separate containers with separate workers.
+- **A deck's `subject` is no longer unique, and anything that assumed it was is now wrong.** The five
+  seeded decks are one per Nursing Practice part, but she can add more within a part (ADR 0010), so a
+  part may hold any number of decks. What still holds: `subject` is required, `prcPartOrder` still
+  orders everything in exam order, and inside a part the tiebreak is **name** — which matters because
+  a deck she made has a random UUID for an id, so without it two decks in one part would swap places
+  between loads. Two consequences worth remembering: **copy must never state a deck count** (the
+  "Five decks" strings did, and went false the moment delete shipped), and the cross-cutting knowledge
+  areas are still **tags, not decks** — a deck _inside_ a part crosses nothing, which is why ADR 0010
+  does not weaken that rule.
 - **`color-scheme` in `theme.css` is load-bearing, and it looks misplaced on purpose.** Native control
   chrome — the calendar indicator inside `<input type="date">`, that field's own text, scrollbars, the
   date-picker popup, the `<dialog>` backdrop — is painted by the browser, **not by our CSS**. With no

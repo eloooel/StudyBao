@@ -29,6 +29,11 @@ export interface DeckListViewProps {
    * that the destructive step costs more than one tap, so this view cannot delete anything itself.
    */
   onDeleteDeck: (deck: Deck) => void
+  /**
+   * Opens the "new deck" form. A deck is where cards go, so this is also the route out of having
+   * none — `onAddFromNotes` is not offered until one exists.
+   */
+  onNewDeck: () => void
 }
 
 export interface DeckDetailViewProps {
