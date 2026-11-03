@@ -153,7 +153,7 @@ function LessonFormFields({ initial, editing, onSubmit, onClose }: LessonFormFie
         label="When you’d like it done by"
         type="date"
         value={dateInput}
-        hint="Optional, and a rough guess is fine. If the day passes while it’s still open, the row will say how long ago. Leave it empty and it waits in No date yet."
+        hint="A day to aim for — leave it empty and it waits in No date yet. It only decides where the lesson sits in your list, and how long ago something slipped; change or clear it whenever."
         onChange={(event) => {
           setDateInput(event.target.value)
           setError(undefined)
