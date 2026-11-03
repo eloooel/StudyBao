@@ -30,7 +30,10 @@ export function DeckListView({
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl">Cards</h1>
         <p className="text-sm text-ink-muted">
-          Five decks, one for each Nursing Practice part you&rsquo;ll sit.
+          {/* The count is deliberately not stated: a deck can be deleted now, so "five" is a claim
+              the screen can stop being true about. The *structure* — one deck per exam part — is the
+              part worth saying, and it survives a deletion. */}
+          One deck for each Nursing Practice part you&rsquo;ll sit.
         </p>
       </header>
 
