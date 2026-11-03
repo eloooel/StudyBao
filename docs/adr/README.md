@@ -14,6 +14,7 @@ of [`0001-local-first-with-indexeddb.md`](0001-local-first-with-indexeddb.md).
 | [0007](0007-browser-only-no-install.md) | Browser-only, no installation — sync + export as the safety net | Superseded by 0008 |
 | [0008](0008-add-to-home-screen-on-ipad.md) | Add to Home Screen on the iPad (not an app install) | Accepted |
 | [0009](0009-llm-extraction-from-her-notes.md) | LLM extraction from her notes, behind our own endpoint | **Proposed** |
+| [0010](0010-several-decks-per-part.md) | Several decks per Nursing Practice part, and decks she can make | Accepted |
 
 ## When to write one
 

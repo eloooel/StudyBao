@@ -1,6 +1,6 @@
 import { prcPartOrder } from '../seed-data'
 import { getDb } from '../schema'
-import type { Deck } from '../types'
+import type { Deck, PrcPart } from '../types'
 
 /**
  * Decks. Read paths filter tombstones; the only delete is a soft delete.
@@ -8,11 +8,20 @@ import type { Deck } from '../types'
  * Every list here is returned in **official PRC exam order**, not alphabetically and not by
  * creation. She sits Nursing Practice I first, so the app should show it first; an
  * alphabetised list would put V in the middle for no reason she could explain.
+ *
+ * Since ADR 0010 a part may hold more than one deck, so part order alone no longer decides the
+ * whole list. Ties inside a part break on **name**: without that the order falls back to the primary
+ * key, which for a deck she made is a random UUID, and two decks in one part would swap places
+ * between loads for no reason she could see.
  */
 export async function listDecks(): Promise<Deck[]> {
   const db = await getDb()
-  const decks = await db.decks.orderBy('subject').toArray()
-  return decks.filter(isLive).sort((a, b) => prcPartOrder(a.subject) - prcPartOrder(b.subject))
+  const decks = await db.decks.toArray()
+  return decks
+    .filter(isLive)
+    .sort(
+      (a, b) => prcPartOrder(a.subject) - prcPartOrder(b.subject) || a.name.localeCompare(b.name),
+    )
 }
 
 /** Live decks only — a tombstoned deck is not counted on any screen. */
@@ -24,6 +33,38 @@ export async function getDeck(id: string): Promise<Deck | undefined> {
   const db = await getDb()
   const deck = await db.decks.get(id)
   return deck && isLive(deck) ? deck : undefined
+}
+
+/**
+ * Make a deck inside one of the five parts.
+ *
+ * The part is still required and still what orders everything (ADR 0010); what changed is that a part
+ * may now hold any number of decks, so this does not check for an existing deck in `subject`.
+ *
+ * **Scope is optional and free text.** The verbatim-PRC rule covers the five seeded decks, which quote
+ * the program — a deck she names is not a quotation of anything and must not pretend to be one, so an
+ * empty scope is the normal case rather than a missing value.
+ *
+ * Ids are `crypto.randomUUID()`, like every other record the app creates. That is deliberate: the
+ * seeded decks keep stable `deck-practice-i`-style ids so they can be reasoned about and re-seeded,
+ * and a deck she makes has no such identity to preserve.
+ */
+export async function createDeck(
+  input: { name: string; subject: PrcPart; scope?: string },
+  now = Date.now(),
+): Promise<Deck> {
+  const db = await getDb()
+
+  const deck: Deck = {
+    id: crypto.randomUUID(),
+    subject: input.subject,
+    name: input.name.trim(),
+    scope: input.scope?.trim() ?? '',
+    updatedAt: now,
+  }
+
+  await db.decks.add(deck)
+  return deck
 }
 
 export async function updateDeck(
