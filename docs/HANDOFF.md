@@ -300,11 +300,28 @@ during that work, each then confirmed to fail against its reintroduced bug; the 
   **`prompt`, not `autoUpdate`** — under `autoUpdate` the new worker activated, took control, and the
   page carried on running the **previous JavaScript** indefinitely, because nothing reloaded it.
   `UpdatePrompt` offers the new version and `updateServiceWorker(true)` activates and reloads on her
-  tap rather than mid-card. Two consequences worth knowing: `src/lib/use-app-update.ts` is the only
+  tap rather than mid-card. **Observed in production:** the prompt appeared on 2026-10-15, and that is
+  the half that matters most — it proves the new worker _waited_ instead of taking control, and that
+  the client noticed. The other half, `SKIP_WAITING` → activate → reload on her tap, had not been
+  exercised as of 2026-11-03; do not record it as verified until someone has pressed the button. Two
+  consequences worth knowing: `src/lib/use-app-update.ts` is the only
   module that imports `virtual:pwa-register/react` (so only it needs the stub alias in
   `vitest.config.ts`), and the plugin stops injecting its own `registerSW.js`. **So when a change looks
   like it did not deploy, check the client's worker before you check the server** — and remember
   Safari and the Home Screen app are separate containers with separate workers.
+- **`color-scheme` in `theme.css` is load-bearing, and it looks misplaced on purpose.** Native control
+  chrome — the calendar indicator inside `<input type="date">`, that field's own text, scrollbars, the
+  date-picker popup, the `<dialog>` backdrop — is painted by the browser, **not by our CSS**. With no
+  `color-scheme` declared, WebKit paints all of it in light-mode styling whatever our theme is, so the
+  glyph reads black in _both_ themes and `color: var(--ink)` cannot reach it. That was the reported
+  bug, and it survived diagnosis for a while because every element we colour was correctly
+  themed — **the diagnostic that settled it: only a control the browser draws itself can be wrong in
+  both themes at once.** The declaration must stay **outside `@theme`** (it is not a token) and
+  **outside `@layer base`** (unlayered rules outrank every layer, so nothing can override it). Values
+  are concrete rather than `light dark`, because `light dark` follows the _operating system_ and would
+  re-introduce the bug on a night-mode app over a light-appearance iPad. **Confirmed on a real screen
+  on 2026-11-03**: the glyph she meant was the date field in the add-a-lesson form, so this fix was
+  the right one and the nav-icon/empty-state contrast leads were correctly ruled out.
 - **Nothing ingest-related is precached.** Zero PDF or OCR assets are in the precache, verified by
   `node scripts/report-precache.mjs`, which reads the generated manifest rather than trusting the
   config. The worker and language data are runtime-cached instead, so the
