@@ -261,7 +261,7 @@ export function SettingsView({
             <span className="font-display font-bold text-ink">StudyBao</span>
             <Tag tone="attention">v0.1.0</Tag>
           </div>
-          <p>Made for the PNLE. Five decks, one for each Nursing Practice part.</p>
+          <p>Made for the PNLE. One deck for each Nursing Practice part.</p>
         </CardContent>
       </Card>
     </div>

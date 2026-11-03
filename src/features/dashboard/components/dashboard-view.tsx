@@ -112,7 +112,7 @@ export function DashboardView({
           title={hasDecks ? 'Ready when you are' : 'Start here'}
           description={
             hasDecks
-              ? `Five decks are ready, one for each Nursing Practice part.`
+              ? `Your decks are ready, one for each Nursing Practice part.`
               : `Bring your notes in and StudyBao turns them into cards.`
           }
         />
