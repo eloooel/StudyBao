@@ -5,7 +5,13 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Tag, type TagTone } from '@/components/ui/tag'
 import type { Lesson, LessonStatus } from '@/db/types'
 import { formatDeadline } from '../lib/deadline'
-import { FILTER_EMPTY, LESSON_FILTERS, lessonFilterLabel, lessonStatusLabel } from '../lib/status'
+import {
+  FILTER_EMPTY,
+  LESSON_FILTERS,
+  lessonAdvanceLabel,
+  lessonFilterLabel,
+  lessonStatusLabel,
+} from '../lib/status'
 import { subjectLabel } from '../lib/subject'
 import type { TrackerViewProps } from '../types'
 
@@ -45,7 +51,7 @@ export function TrackerView({
   onSelectFilter,
   onAddLesson,
   onEditLesson,
-  onToggleMastered,
+  onAdvance,
 }: TrackerViewProps) {
   const empty = FILTER_EMPTY[filter]
 
@@ -127,7 +133,7 @@ export function TrackerView({
                       lesson={lesson}
                       now={now}
                       onEdit={onEditLesson}
-                      onToggleMastered={onToggleMastered}
+                      onAdvance={onAdvance}
                     />
                   </li>
                 ))}
@@ -144,12 +150,10 @@ interface LessonRowProps {
   lesson: Lesson
   now: number
   onEdit: (lesson: Lesson) => void
-  onToggleMastered: (lesson: Lesson) => void
+  onAdvance: (lesson: Lesson) => void
 }
 
-function LessonRow({ lesson, now, onEdit, onToggleMastered }: LessonRowProps) {
-  const mastered = lesson.status === 'mastered'
-
+function LessonRow({ lesson, now, onEdit, onAdvance }: LessonRowProps) {
   return (
     <Card>
       <CardContent className="flex flex-col gap-3">
@@ -174,12 +178,14 @@ function LessonRow({ lesson, now, onEdit, onToggleMastered }: LessonRowProps) {
             Edit
           </Button>
           {/*
-            The one-tap route to "done", which is what makes the definition of done reachable
-            without opening the form. Reversible in the same place: a topic that turns out not to be
-            solid goes back to Reviewing from the Mastered chip.
+            One step along the workflow, not a jump to the end. The label and the transition both come
+            from `lib/status`, because the bug this replaced was a row offered "Mark mastered" while
+            sitting in Not started — a leap that left Reviewing, the state she is in for as long as she
+            is actually working on a topic, reachable only by opening the form. A mastered topic steps
+            back to Reviewing from here; there is deliberately no route back to Not started.
           */}
-          <Button variant="ghost" size="sm" onClick={() => onToggleMastered(lesson)}>
-            {mastered ? 'Back to reviewing' : 'Mark mastered'}
+          <Button variant="ghost" size="sm" onClick={() => onAdvance(lesson)}>
+            {lessonAdvanceLabel(lesson.status)}
           </Button>
         </div>
       </CardContent>

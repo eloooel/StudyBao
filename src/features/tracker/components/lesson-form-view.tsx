@@ -150,10 +150,10 @@ function LessonFormFields({ initial, editing, onSubmit, onClose }: LessonFormFie
       />
 
       <Input
-        label="Date"
+        label="When you’d like it done by"
         type="date"
         value={dateInput}
-        hint="Optional. Leave it empty and it waits in No date yet until you’re ready."
+        hint="Optional, and a rough guess is fine. If the day passes while it’s still open, the row will say how long ago. Leave it empty and it waits in No date yet."
         onChange={(event) => {
           setDateInput(event.target.value)
           setError(undefined)

@@ -24,6 +24,40 @@ export function lessonStatusLabel(status: LessonStatus): string {
 }
 
 /**
+ * The status one tap on a row moves it to.
+ *
+ * `not-started → reviewing → mastered` is the workflow the form offers, in that order, so the
+ * one-tap action has to advance **exactly one step**. It used to jump straight to `mastered` from
+ * either open state, which skipped `reviewing` entirely — the state she is in for as long as she is
+ * actually working on a topic, and therefore the one the app should mostly be recording. A lesson
+ * added as Not started was offered "Mark mastered" as its very next action, which makes the middle
+ * state reachable only by opening the form.
+ *
+ * A **mastered** lesson steps back to `reviewing` instead of forward: there is nothing after it, and
+ * un-mastering is the only undo worth having. There is deliberately no way to go back to
+ * Not started — that is a state nobody means once they have picked a topic up.
+ */
+export function nextLessonStatus(status: LessonStatus): LessonStatus {
+  if (status === 'mastered') return 'reviewing'
+
+  const forward = LESSON_STATUSES[LESSON_STATUSES.indexOf(status) + 1]
+
+  // `?? status` rather than a non-null assertion: if a state is ever added without being placed in
+  // `LESSON_STATUSES`, the row offers no move rather than crashing or silently wrapping to the first.
+  return forward ?? status
+}
+
+/**
+ * The label for that one tap. Kept beside `nextLessonStatus` so the words and the stored transition
+ * cannot disagree — the bug this replaced was a button labelled for one destination that wrote
+ * another.
+ */
+export function lessonAdvanceLabel(status: LessonStatus): string {
+  if (status === 'mastered') return 'Back to reviewing'
+  return status === 'not-started' ? 'Mark as reviewing' : 'Mark mastered'
+}
+
+/**
  * The chips, in the order she meets them.
  *
  * `active` is the default for one reason: a finished topic must never render as outstanding. That
