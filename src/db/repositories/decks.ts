@@ -100,6 +100,52 @@ export async function softDeleteDeck(id: string, now = Date.now()): Promise<void
 }
 
 /**
+ * Undo a `softDeleteDeck`.
+ *
+ * Restoring the deck alone would give her an **empty** deck, because `softDeleteDeck` tombstones the
+ * cards too — so this brings them back as well, in the same transaction.
+ *
+ * ## Matching on the tombstone timestamp is the whole correctness argument
+ *
+ * The cards this delete took all carry **exactly** the `deletedAt` the deck carries, because
+ * `softDeleteDeck` writes one timestamp to both. Cards she had already deleted *individually* keep
+ * their **own, earlier** timestamps and must stay deleted — restoring them would resurrect something
+ * she removed on purpose days before. So the filter is `deletedAt === deck.deletedAt`, never "every
+ * card in this deck".
+ *
+ * The one case this cannot distinguish: a card deleted individually in the **same millisecond** as the
+ * deck. That is not reachable by tapping — the two are separate dialogs — so it is a known boundary
+ * rather than a hole worth code.
+ *
+ * Returns whether it restored anything, so a caller can tell "nothing to do" from "done".
+ */
+export async function restoreDeck(id: string, now = Date.now()): Promise<boolean> {
+  const db = await getDb()
+
+  return db.transaction('rw', [db.decks, db.cards], async () => {
+    const deck = await db.decks.get(id)
+
+    if (deck === undefined || deck.deletedAt === undefined) return false
+
+    // Captured before the update, because the update is what removes it.
+    const tombstone = deck.deletedAt
+
+    await db.decks.update(id, { deletedAt: undefined, updatedAt: now })
+
+    const cards = await db.cards.where('deckId').equals(id).toArray()
+    const takenByThisDelete = cards.filter((card) => card.deletedAt === tombstone)
+
+    if (takenByThisDelete.length > 0) {
+      await db.cards.bulkPut(
+        takenByThisDelete.map((card) => ({ ...card, deletedAt: undefined, updatedAt: now })),
+      )
+    }
+
+    return true
+  })
+}
+
+/**
  * Tombstones only. Not used by the UI; this is what Workflow S will push.
  *
  * Uses the `deletedAt` index rather than reading the whole table and filtering in JS — that is what

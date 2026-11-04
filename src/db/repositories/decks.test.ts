@@ -6,8 +6,15 @@ import {
   getDeck,
   listDecks,
   listDeletedDecks,
+  restoreDeck,
   softDeleteDeck,
 } from '@/db/repositories/decks'
+import {
+  createCard,
+  listCardsByDeck,
+  listDeletedCards,
+  softDeleteCard,
+} from '@/db/repositories/cards'
 import { prcPartOrder } from '@/db/seed-data'
 
 /**
@@ -75,6 +82,52 @@ describe('createDeck', () => {
     expect((await listDeletedDecks()).some((row) => row.id === deck.id)).toBe(true)
     // And the tombstone is not "live", so `getDeck` refuses it — a detail page cannot resolve it.
     expect(await getDeck(deck.id)).toBeUndefined()
+  })
+})
+
+describe('restoreDeck', () => {
+  it('brings back the deck AND the cards the delete took', async () => {
+    const deck = await createDeck({ name: 'To be restored', subject: 'practice-i' })
+    await createCard({ deckId: deck.id, front: 'sodium', back: '135–145' })
+    await createCard({ deckId: deck.id, front: 'potassium', back: '3.5–5.0' })
+
+    await softDeleteDeck(deck.id, 5_000)
+    expect((await listDecks()).some((row) => row.id === deck.id)).toBe(false)
+
+    expect(await restoreDeck(deck.id, 6_000)).toBe(true)
+
+    expect((await listDecks()).some((row) => row.id === deck.id)).toBe(true)
+    expect((await listDeletedDecks()).some((row) => row.id === deck.id)).toBe(false)
+    // The point of the timestamp match: an empty deck would satisfy "restored" and be useless.
+    expect(await listCardsByDeck(deck.id)).toHaveLength(2)
+  })
+
+  it('does NOT resurrect a card she had already deleted herself', async () => {
+    /*
+     * The correctness case, and the reason this matches on the timestamp rather than on `deckId`.
+     * `softDeleteDeck` stamps its own cards with its own `deletedAt`; a card she deleted days earlier
+     * carries that earlier stamp and must stay gone. Restoring "every card in this deck" would bring
+     * back something she removed deliberately.
+     */
+    const deck = await createDeck({ name: 'Mixed', subject: 'practice-ii' })
+    const kept = await createCard({ deckId: deck.id, front: 'kept', back: 'a' })
+    const alreadyGone = await createCard({ deckId: deck.id, front: 'gone', back: 'b' })
+
+    await softDeleteCard(alreadyGone.id, 1_000)
+    await softDeleteDeck(deck.id, 5_000)
+    await restoreDeck(deck.id, 6_000)
+
+    const live = await listCardsByDeck(deck.id)
+
+    expect(live.map((card) => card.id)).toEqual([kept.id])
+    expect((await listDeletedCards()).some((card) => card.id === alreadyGone.id)).toBe(true)
+  })
+
+  it('says when there is nothing to do', async () => {
+    const deck = await createDeck({ name: 'Still here', subject: 'practice-iii' })
+
+    expect(await restoreDeck(deck.id)).toBe(false)
+    expect(await restoreDeck('no-such-deck')).toBe(false)
   })
 })
 
