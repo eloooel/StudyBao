@@ -63,6 +63,42 @@ improvement: a plausible but wrong card is memorised, and on a licensure exam th
 missing one. So the metric is **cards she would keep**, measured the same way on the same input — and
 the LLM path has to win on that, not on volume.
 
+## BoardPal is a class, not an outlier — and it has _two_ problems, not one
+
+Three more BoardPal handouts were measured on **2026-11-04**, this time through the PDF path:
+
+| File                                              | Pages | Text layer      | Lines | Cards |
+| ------------------------------------------------- | ----- | --------------- | ----- | ----- |
+| Respiratory A — Upper Airway, Asthma & COPD       | 16    | **NONE (scan)** | 0     | **0** |
+| Diabetes Mellitus & Endocrine Emergencies         | 14    | **NONE (scan)** | 0     | **0** |
+| Immunization, Maternal & Child Health & Nutrition | 25    | **NONE (scan)** | 0     | **0** |
+
+**Four BoardPal files out of four have no text layer.** The PDF path does not read them _badly_ — it
+reads nothing at all, because there is nothing to read. So BoardPal is not the outlier that
+[`INGEST-FITNESS-RESULTS.md`](INGEST-FITNESS-RESULTS.md)'s 6.75% Sir Rocky figure made it look; it is a
+whole class of her material, at least 76 pages so far.
+
+**That means there are two separate failures, and ADR 0009 only addresses the second:**
+
+1. **No text at all.** A watermarked scan has the words in pixels. No parser and no model can fix this;
+   it needs OCR. On her iPad the reader's **Live Text** does it invisibly (Select All → Copy), which is
+   how the paste below exists. On the laptop nothing does it.
+2. **Poor text into the parser.** Once Live Text has produced text, the watermark is interleaved within
+   body lines and the tables are flattened, so the parser yields 138 cards from 1,717 lines — the 86.78%
+   figure above.
+
+**ADR 0009 is a fix for (2) and is silent about (1).** Anything built from it must not be described as
+solving the BoardPal problem, because the paste step she does by hand remains — and on the laptop there
+is no paste step available at all.
+
+### Still not measured, and why it cannot be faked
+
+The 86.78% figure comes from **one** BoardPal paste. The three files above have no paste yet, and they
+cannot be substituted with Tesseract output: D14 established that Apple's Live Text reads these better
+than Tesseract does, so OCR-ing them here would measure a _different input_ from the one she actually
+produces. **The paste step is hers to do**, and until it exists this document says 4/4 documents fail
+the PDF path and exactly one of them has a measured paste.
+
 ## Two things this run incidentally re-confirmed
 
 - **Front-derived metrics are join-agnostic.** An earlier ad-hoc run of this same input recorded **1,434**
