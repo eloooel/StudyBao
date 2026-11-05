@@ -15,6 +15,7 @@ of [`0001-local-first-with-indexeddb.md`](0001-local-first-with-indexeddb.md).
 | [0008](0008-add-to-home-screen-on-ipad.md) | Add to Home Screen on the iPad (not an app install) | Accepted |
 | [0009](0009-llm-extraction-from-her-notes.md) | LLM extraction from her notes, behind our own endpoint | **Proposed** |
 | [0010](0010-several-decks-per-part.md) | Several decks per Nursing Practice part, and decks she can make | Accepted |
+| [0011](0011-purge-only-without-cloud-sync.md) | Purge a deck, but only in a build without cloud sync | Accepted |
 
 ## When to write one
 

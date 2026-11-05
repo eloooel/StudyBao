@@ -6,6 +6,7 @@ import {
   getDeck,
   listDecks,
   listDeletedDecks,
+  purgeDeck,
   restoreDeck,
   softDeleteDeck,
 } from '@/db/repositories/decks'
@@ -15,6 +16,7 @@ import {
   listDeletedCards,
   softDeleteCard,
 } from '@/db/repositories/cards'
+import { appendReviewLog, countReviewLogs } from '@/db/repositories/review-logs'
 import { prcPartOrder } from '@/db/seed-data'
 
 /**
@@ -128,6 +130,61 @@ describe('restoreDeck', () => {
 
     expect(await restoreDeck(deck.id)).toBe(false)
     expect(await restoreDeck('no-such-deck')).toBe(false)
+  })
+})
+
+describe('purgeDeck', () => {
+  it('removes the deck AND its tombstoned cards', async () => {
+    /*
+     * The case this must never get wrong: filtering to *live* cards would leave the tombstones behind,
+     * and those are exactly the rows a restore would have brought back — a deck she cannot reach but
+     * that is still on disk.
+     */
+    const deck = await createDeck({ name: 'Purge me', subject: 'practice-ii' })
+    const live = await createCard({ deckId: deck.id, front: 'live', back: 'a' })
+    const gone = await createCard({ deckId: deck.id, front: 'gone', back: 'b' })
+
+    await softDeleteCard(gone.id, 1_000)
+    await softDeleteDeck(deck.id, 5_000)
+
+    const removed = await purgeDeck(deck.id)
+
+    expect(removed).toBe(3) // two cards and the deck
+    expect(await getDeck(deck.id)).toBeUndefined()
+    expect(await listCardsByDeck(deck.id)).toHaveLength(0)
+
+    const tombstoned = await listDeletedCards()
+    expect(tombstoned.some((card) => card.id === live.id)).toBe(false)
+    expect(tombstoned.some((card) => card.id === gone.id)).toBe(false)
+  })
+
+  it('leaves other decks alone, and leaves her review history intact', async () => {
+    const doomed = await createDeck({ name: 'Doomed', subject: 'practice-iii' })
+    const doomedCard = await createCard({ deckId: doomed.id, front: 'x', back: 'y' })
+    await appendReviewLog({
+      id: 'log-purge',
+      cardId: doomedCard.id,
+      deckId: doomed.id,
+      reviewedAt: 900,
+      grade: 0,
+      msSpent: 1_000,
+    })
+
+    const survivor = await createDeck({ name: 'Survivor', subject: 'practice-iv' })
+    await createCard({ deckId: survivor.id, front: 'p', back: 'q' })
+    const logsBefore = await countReviewLogs()
+
+    await purgeDeck(doomed.id)
+
+    expect(await getDeck(survivor.id)).toBeDefined()
+    expect(await listCardsByDeck(survivor.id)).toHaveLength(1)
+    // Append-only, and the thing a careless cascade would take with it: her lapses and her streak.
+    expect(await countReviewLogs()).toBe(logsBefore)
+  })
+
+  it('reports nothing for an unknown id rather than throwing', async () => {
+    // A double tap must not surface an error: "there was nothing there" is not a failure.
+    expect(await purgeDeck('no-such-deck')).toBe(0)
   })
 })
 

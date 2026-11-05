@@ -8,8 +8,9 @@ import {
   listDeletedCards,
   softDeleteCard,
 } from '@/db/repositories/cards'
-import { listDecks, softDeleteDeck } from '@/db/repositories/decks'
+import { getDeck, listDecks, softDeleteDeck } from '@/db/repositories/decks'
 import { countReviewLogs, listReviewLogsByDeck } from '@/db/repositories/review-logs'
+import { getSettings, updateSettings } from '@/db/repositories/settings'
 import { deckIdForPart } from '@/db/seed-data'
 import { getDb, seedInitialData } from '@/db/schema'
 import type { Card, ReviewLog } from '@/db/types'
@@ -422,6 +423,92 @@ describe('restoring a deck from the deck list', () => {
  * is a dead end. That dead end only became reachable when deck deletion shipped, because before it
  * the five seeded decks always existed.
  */
+describe('collapsing the restore row, and deleting a deck forever', () => {
+  it('collapses to one line, and remembers it', async () => {
+    const user = userEvent.setup()
+    await seedCardsInTargetDeck()
+    renderPage()
+
+    await deleteDeckFromList(user, TARGET_NAME, 'Delete 3 cards')
+    await user.click(await screen.findByRole('button', { name: 'Hide' }, WAIT))
+
+    expect(await screen.findByText('1 deck deleted', {}, WAIT)).toBeInTheDocument()
+    expect(screen.queryByText('You deleted 1 deck.')).toBeNull()
+
+    // A timestamp, not a click-local flag: this is what the hook re-derives from on the next mount.
+    await waitFor(async () => {
+      expect((await getSettings()).restoreRowCollapsedAt).toBeTypeOf('number')
+    }, WAIT)
+  })
+
+  it('comes back when she presses Show, and clears the dismissal with it', async () => {
+    const user = userEvent.setup()
+    await seedCardsInTargetDeck()
+    renderPage()
+
+    await deleteDeckFromList(user, TARGET_NAME, 'Delete 3 cards')
+    await user.click(await screen.findByRole('button', { name: 'Hide' }, WAIT))
+    await screen.findByText('1 deck deleted', {}, WAIT)
+
+    await user.click(screen.getByRole('button', { name: 'Show' }))
+
+    expect(await screen.findByText('You deleted 1 deck.', {}, WAIT)).toBeInTheDocument()
+    // Cleared rather than left at the old moment, so a later deletion is never measured against it.
+    await waitFor(async () => {
+      expect((await getSettings()).restoreRowCollapsedAt).toBeUndefined()
+    }, WAIT)
+  })
+
+  it('expands again by itself when a deck is deleted after she hid it', async () => {
+    const user = userEvent.setup()
+    await seedCardsInTargetDeck()
+    renderPage()
+
+    await deleteDeckFromList(user, TARGET_NAME, 'Delete 3 cards')
+    await user.click(await screen.findByRole('button', { name: 'Hide' }, WAIT))
+    await screen.findByText('1 deck deleted', {}, WAIT)
+
+    /*
+     * Age the dismissal before the second deletion. The real gap is human latency, which this test
+     * cannot wait for, and `Date.now()` equality would otherwise make the assertion a coin flip — the
+     * comparison is deliberately strict, so an equal stamp counts as "not newer" and stays collapsed.
+     */
+    await updateSettings({ restoreRowCollapsedAt: Date.now() - 60_000 })
+
+    await deleteDeckFromList(user, 'Nursing Practice IV', 'Delete this deck')
+
+    // The point of the whole timestamp: a deletion newer than the dismissal cannot be hidden by it.
+    expect(await screen.findByText('You deleted 2 decks.', {}, WAIT)).toBeInTheDocument()
+  })
+
+  it('deletes a deck forever, and keeps her review history', async () => {
+    const user = userEvent.setup()
+    await seedCardsInTargetDeck()
+    renderPage()
+
+    const logsBefore = await countReviewLogs()
+
+    await deleteDeckFromList(user, TARGET_NAME, 'Delete 3 cards')
+    await user.click(
+      await screen.findByRole('button', { name: `Delete ${TARGET_NAME} forever` }, WAIT),
+    )
+
+    // Destructive, so it costs a confirmation — the asymmetry with Restore is the point.
+    const dialog = await confirmDialog(TARGET_NAME)
+    await user.click(within(dialog).getByRole('button', { name: `Delete ${TARGET_NAME} forever` }))
+
+    await waitFor(async () => expect(await getDeck(TARGET)).toBeUndefined(), WAIT)
+    expect(await listCardsByDeck(TARGET)).toHaveLength(0)
+    // Including the tombstones: those are the rows a "live cards only" cascade would have left behind.
+    expect(await listDeletedCards()).toHaveLength(0)
+    // Append-only, and the one thing a careless cascade would take with it.
+    expect(await countReviewLogs()).toBe(logsBefore)
+
+    // And the row goes with it, because there is nothing left to restore.
+    await waitFor(() => expect(screen.queryByText(/You deleted/)).toBeNull(), WAIT)
+  })
+})
+
 describe('a deck first, then cards from notes', () => {
   /** The form is a `<dialog>`: wait for `open` before any role query inside it. */
   function openDialog(marker: string): HTMLElement {

@@ -7,6 +7,7 @@ import {
   listRestorableDecks,
   type RestorableDeck,
 } from '@/db/repositories/decks'
+import { getSettings } from '@/db/repositories/settings'
 import type { Card, Deck } from '@/db/types'
 import { useDatabaseValue } from '@/lib/use-database-value'
 import { selectDueCards } from '../lib/queue'
@@ -28,20 +29,34 @@ export interface DecksData {
    * why the view can render the affordance only when it is non-empty.
    */
   restorable: RestorableDeck[]
+  /**
+   * Whether that row should render **collapsed**.
+   *
+   * Computed here rather than passed as a timestamp so the view makes no policy decision: it receives a
+   * boolean and renders one of two shapes.
+   *
+   * The rule is a comparison, not a flag. The row collapses when the newest deletion is **not newer** than
+   * the moment she hid it — so a deck deleted afterwards re-expands the row by itself, with no event
+   * handler and no "have I shown this yet" state to keep in sync. That is why `restoreRowCollapsedAt` is
+   * a timestamp: a boolean could not tell an old dismissal from a new deletion.
+   */
+  restoreCollapsed: boolean
   totalDue: number
   loading: boolean
 }
 
 async function loadDeckSummaries(): Promise<DecksData> {
   /*
-   * One pass, one subscription. `restorable` is read here rather than by a second live query so
-   * that the deck list and the restore row can never disagree about the same change: both re-read
-   * on the same signal, which is what makes the row go the instant a restore succeeds.
+   * One pass, one subscription. `restorable` and the settings row are read here rather than by a second
+   * live query so that the deck list, the restore row and its collapsed state can never disagree about the
+   * same change: all of it re-reads on the same signal, which is what makes the row go the instant a
+   * restore succeeds.
    */
-  const [decks, cards, restorable] = await Promise.all([
+  const [decks, cards, restorable, settings] = await Promise.all([
     listDecks(),
     listAllCards(),
     listRestorableDecks(),
+    getSettings(),
   ])
   const now = Date.now()
 
@@ -55,15 +70,28 @@ async function loadDeckSummaries(): Promise<DecksData> {
     }
   })
 
+  const newestDeletedAt = restorable.reduce(
+    (newest, entry) => Math.max(newest, entry.deck.deletedAt ?? 0),
+    0,
+  )
+
   return {
     decks: summaries,
     restorable,
+    restoreCollapsed:
+      restorable.length > 0 && newestDeletedAt <= (settings.restoreRowCollapsedAt ?? 0),
     totalDue: summaries.reduce((total, summary) => total + summary.dueCards, 0),
     loading: false,
   }
 }
 
-const EMPTY_DECKS: DecksData = { decks: [], restorable: [], totalDue: 0, loading: true }
+const EMPTY_DECKS: DecksData = {
+  decks: [],
+  restorable: [],
+  restoreCollapsed: false,
+  totalDue: 0,
+  loading: true,
+}
 
 export function useDecksData(): DecksData {
   const load = useCallback(() => loadDeckSummaries(), [])
