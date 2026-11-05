@@ -136,7 +136,9 @@ No ADR: a UI default is not an architecturally expensive decision.
 - Do not migrate or delete the old `restoreRowCollapsedAt` value.
 - Do not add a Dexie version bump.
 - Do not keep `newestDeletedAt` "in case it is useful".
-- Do not change the `"1 deck deleted"` / `"You deleted 1 deck."` wording — a separate brief owns that.
+- Do not change the `"1 deck deleted"` / `"You deleted 1 deck."` wording. **The owner has read it and
+  settled it as correct** — this is not a deferred question, so do not soften it, do not add a cushion,
+  and do not flag it as pending. Leave both strings exactly as they are.
 - Do not make expanding session-only state.
 
 ## Verify
