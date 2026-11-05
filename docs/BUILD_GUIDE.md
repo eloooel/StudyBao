@@ -499,8 +499,11 @@ The half of old G0 that survives. No server of ours: the client talks to Firesto
 2. **Then one tap and nothing else: a single Google sign-in**, framed with a reason (_"sign in so your
    notes are safe and show up on your laptop too"_), straight into reviewing pre-seeded cards. No
    permissions, no tutorial wall, no empty-state that asks her to create something first.
-3. **Firebase Auth** (Google provider), allow-listed to her one email. Do not hardcode the email in
-   source — it comes from `VITE_ALLOWED_EMAIL` and is mirrored in the rules file.
+3. **Firebase Auth** (Google provider), allow-listed to her one email. The address is a **constant in
+   `firestore.rules`**: rules cannot authorise against a value they do not contain, so it is committed
+   there deliberately — an email address is not a credential, and the protection is the rule logic plus
+   `email_verified`, not secrecy (D2). `VITE_ALLOWED_EMAIL` mirrors it for the client's own sign-in check
+   and carries **no authority**; it stays empty in `.env.example`.
 4. **After she installs, tell her to use the Home Screen icon** rather than the Safari tab — separate
    containers mean two local copies that only sync reconciles, and the Safari one is the one that gets
    deleted.
