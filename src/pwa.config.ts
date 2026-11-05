@@ -85,16 +85,25 @@ export const pwaOptions: Partial<VitePWAOptions> = {
      *   demand instead.
      * - `ocr/**` — the Tesseract worker, its WebAssembly core, and the language data.
      *   Fetched only when the photo tab is opened.
+     * - `assets/sync/**` — the cloud-sync chunks, including the whole Firebase SDK. They are reached
+     *   only through the single dynamic `import()` behind `VITE_ENABLE_CLOUD_SYNC` in `src/sync/index.ts`,
+     *   and the flag ships **off**. Precaching them would put ~750 KB of Firestore on the first load for
+     *   every user, for a feature that is currently disabled — the same "precaching a lazy chunk defeats
+     *   the laziness" failure the pdfjs entry above records. Measured: the precache stays at 88 entries
+     *   (1214 KiB, the app entry grew ~0.4 KB); without this ignore the build precached 5 extra chunks
+     *   (93 entries, 1949 KiB), which `scripts/check-sync-inert.mjs` now fails the build over.
      *
      * Verified with `node scripts/report-precache.mjs`, which reads the generated manifest
      * rather than trusting this list. Re-run it after touching the PWA config.
      *
      * Everything ignored here is covered instead by runtime caching (`runtimeCaching` below),
      * so it becomes offline-capable **after** first use. That is the honest trade: her first
-     * photo or PDF import needs the network, and every one after it does not.
+     * photo or PDF import needs the network, and every one after it does not. The sync chunks are
+     * deliberately not in runtime caching either: when the feature is switched on, a failed sync must
+     * be visible rather than silently served from a cache.
      * ─────────────────────────────────────────────────────────────────────────────
      */
-    globIgnores: ['**/pdfjs/**', '**/ocr/**', '**/assets/pdf-*.js'],
+    globIgnores: ['**/pdfjs/**', '**/ocr/**', '**/assets/pdf-*.js', '**/assets/sync/**'],
 
     /*
      * Runtime caching for the same assets, so a deliberate ignore does not mean "never

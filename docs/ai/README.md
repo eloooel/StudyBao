@@ -16,7 +16,8 @@ any AI assistant, or follow them by hand.
 > **Status.** Workflows **A (scaffold + design system), B (flashcards + SM-2), C (ingest) and
 > D (timer) and E (lesson tracker) are complete** — the app shell builds, installs and runs offline;
 > cards can be created, edited, graded and scheduled; notes become cards three ways; study blocks are
-> timed and logged; and her plan has a home of its own. Workflows F (dashboard), S (sync),
+> timed and logged; and her plan has a home of its own. **S (sync) is in progress**: the merge unit and
+> the Firestore transport exist, but the feature ships off and has no UI yet. F (dashboard),
 > G (nudges) and H (polish) are not started.
 >
 > Runbooks that name a canonical example mark it `(pending Workflow X)`. Treat a marked file as the

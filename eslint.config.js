@@ -120,6 +120,36 @@ export default tseslint.config(
     },
   },
 
+  // src/sync/ IS the one place firebase may be imported — the rule above says so ("outside src/sync/"),
+  // but without this carve-out it also blocked src/sync/ itself and made its own instruction unsatisfiable.
+  // The rule is not switched off wholesale: the dexie restriction and the fake-indexeddb restriction are
+  // restated, because a module that writes to Dexie must still go through src/db/ and tests must not leak
+  // test infrastructure into the bundle.
+  {
+    files: ['src/sync/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'dexie',
+              message:
+                'Only src/db/ may import dexie, including inside src/sync/. Use the database handle from @/db/schema. See docs/ai/change-data-model.md and ADR 0001.',
+            },
+          ],
+          patterns: [
+            {
+              group: ['fake-indexeddb', 'fake-indexeddb/*'],
+              message:
+                'fake-indexeddb is test-only and must not be imported by app code, including src/sync/. Import it once in src/test/setup.ts, or use @/test/render in a test file.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   // The service worker registration is the one place a bare fetch-shaped global is fine.
   {
     files: ['src/lib/**/*.ts'],

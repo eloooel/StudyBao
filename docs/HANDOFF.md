@@ -303,6 +303,27 @@ during that work, each then confirmed to fail against its reintroduced bug; the 
   And **a tombstone is not a separate rule**, just a record with `deletedAt` set carried by the same
   `updatedAt` comparison, so a genuinely newer edit beats an older delete; that is pinned by a test so
   nobody "fixes" it into "a delete always wins", which would make a mistaken deletion permanent.
+- **The Firestore transport exists, and cloud sync is still switched off.** Milestone 2a added
+  `src/sync/firestore/`: one dynamic `import()` for the whole SDK (`client.ts`, reached only through
+  `startCloudSync()` in `src/sync/index.ts`), validation of every pulled row before it can reach a
+  repository (`validate.ts`), the transport seam (`transport.ts` — 500-write batches, per-batch results,
+  no clock), the Dexie read/write (`local-store.ts`) and the merge application (`sync.ts` — it calls the
+  merge unit and resolves nothing itself). `src/sync/lib/tables.test.ts` asserts the synced-table list
+  equals the **open schema**, the same guard `BACKUP_TABLES` has.
+  `firestore.rules` is the security boundary: one allow-listed email constant (**not**
+  `VITE_ALLOWED_EMAIL`), the token uid must match the path, a document's body `id` must match its path,
+  and `delete` is denied because a synced record is tombstoned rather than hard-deleted. The rules are
+  tested against the emulator with
+  `firebase emulators:exec --only firestore "npm run test:rules"` — **not in CI, deliberately**: it
+  needs Java and would add minutes to a gate that has been green for twenty-odd PRs. The security
+  boundary is therefore verified locally, not by the pipeline, and that stays true until someone
+  decides the trade differently.
+  With `VITE_ENABLE_CLOUD_SYNC=false` (the shipped value) `startCloudSync()` returns before importing
+  anything. `npm run build` now runs `scripts/check-sync-inert.mjs`, which fails the build if the entry
+  chunk contains the SDK or if any SDK-carrying chunk is in the precache. The SDK ships as one lazy
+  **750 kB** chunk under `assets/sync/` (223 kB gzip), ignored by `src/pwa.config.ts`; the precache stays
+  at **88 entries**. **Replace the placeholder email in `firestore.rules` before any deploy** — the
+  rules file is what authorises, and the placeholder locks everyone out.
 - **A deploy does not reach a browser that already has the app — until she accepts it.** The worker
   precaches the whole shell, so a new build is invisible to any client that already has one. That is
   not theoretical: it was diagnosed from a report of _"I can't see any of the three fixes"_, where the
