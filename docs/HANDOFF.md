@@ -293,6 +293,16 @@ during that work, each then confirmed to fail against its reintroduced bug; the 
   `/ocr/*` are immutable by name, so `max-age=31536000, immutable` is safe and is what makes her
   _second_ use of the PDF or photo tab offline-capable. They are deliberately **absent** from the
   service worker's precache — see `src/pwa.config.ts`'s `globIgnores` comment.
+- **The sync merge exists as a pure unit, and `seededAt` is write-once through it.**
+  `src/sync/lib/merge.ts` is the whole of Workflow S so far — no Firebase, no transport, no network —
+  and [`SYNC-MERGE.md`](SYNC-MERGE.md) enumerates the "six cases" `BUILD_GUIDE.md` §9 refers to but
+  never lists. Two rules matter to anyone touching it. **`settings.seededAt` must survive whichever row
+  wins, as the earliest defined value from either side**: `seedInitialData` is gated on that marker
+  "because a deck she deleted must stay deleted", so a plain last-write-wins merge that dropped it would
+  re-seed five decks she may have deleted — the local-first bug arriving through sync instead of the UI.
+  And **a tombstone is not a separate rule**, just a record with `deletedAt` set carried by the same
+  `updatedAt` comparison, so a genuinely newer edit beats an older delete; that is pinned by a test so
+  nobody "fixes" it into "a delete always wins", which would make a mistaken deletion permanent.
 - **A deploy does not reach a browser that already has the app — until she accepts it.** The worker
   precaches the whole shell, so a new build is invisible to any client that already has one. That is
   not theoretical: it was diagnosed from a report of _"I can't see any of the three fixes"_, where the
