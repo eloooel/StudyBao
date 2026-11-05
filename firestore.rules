@@ -11,7 +11,9 @@ rules_version = '2';
 //   1. **One allow-listed email.** Not "any authenticated user", not a wildcard. The email is a
 //      constant here and is NOT read from `VITE_ALLOWED_EMAIL`: a client value cannot authorise
 //      anything, and reading authorisation from the client is the mistake this file exists to prevent.
-//      Replace the placeholder below before any deploy.
+//      The address below is the real one, committed deliberately: authorisation is not a secret, and
+//      hiding it would mean the rules could not state who is allowed. `email_verified` is checked too,
+//      so an unverified claim cannot satisfy this.
 //   2. **The path must be her own.** The token's uid has to match the `{uid}` segment, so an
 //      allow-listed account cannot be talked into reading another user's tree.
 //   3. **The body id must match the document id**, so a record cannot be written under an identity it
@@ -27,7 +29,7 @@ service cloud.firestore {
 
     function isOwner() {
       return request.auth != null
-        && request.auth.token.email == 'REPLACE-ME@example.com'
+        && request.auth.token.email == 'dacayoraphael@gmail.com'
         && request.auth.token.email_verified == true;
     }
 

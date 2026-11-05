@@ -56,10 +56,16 @@ bundle.
 Anonymous auth is rejected: the identity is per-install, so a reinstall or a cleared browser silently
 orphans her data — and on iOS, reinstalling is a routine event.
 
-**Still needed from you:** **her email address.** Put it in `.env` as `VITE_ALLOWED_EMAIL` and mirror
-it in the Firestore rules file — do not send it to me, and do not commit it. Both files will carry a
-placeholder and a one-line instruction. (`VITE_ALLOWED_EMAIL` ends up in the client bundle either way,
-which is fine; the _protection_ is the rules file, not secrecy.)
+**✅ Now set.** The address is the allow-list constant in [`firestore.rules`](../firestore.rules), and
+that is the only place it needs to be. `VITE_ALLOWED_EMAIL` in `.env` is a client-side convenience for
+2b's sign-in check and carries **no authority** — the rules file is the boundary.
+
+This **supersedes what this section used to say** (“mirror it in the Firestore rules file … do not
+commit it”), because those two instructions cannot both be followed. Mirroring it in the rules _is_
+committing it: rules cannot authorise against a value they do not contain, and there is no secret store
+for them to read one from. So the address is public, in a public repository. That is acceptable — an
+email address is not a credential, and the protection is the rule logic plus `email_verified`, not the
+address's obscurity — but it is a consequence worth stating rather than discovering.
 
 ### D3. Her exam date — ✅ **RESOLVED: Friday, February 26, 2027**
 
