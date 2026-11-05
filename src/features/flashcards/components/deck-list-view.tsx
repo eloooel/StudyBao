@@ -92,8 +92,14 @@ export function DeckListView({
                   ? 'You deleted 1 deck.'
                   : `You deleted ${String(restorable.length)} decks.`}
               </p>
+              {/*
+                "Nothing is gone for good" was here, and it is false: a card deleted on its own has no
+                restore path, and a backup import rewrites every table. The agent that wrote this
+                screen established both facts two paragraphs apart and then wrote the absolute
+                anyway — so the line now claims only what the screen can actually deliver.
+              */}
               <p className="text-sm leading-relaxed text-ink-muted">
-                Nothing is gone for good — bring a deck back whenever you want.
+                You can bring a deck back whenever you want.
               </p>
             </div>
 
