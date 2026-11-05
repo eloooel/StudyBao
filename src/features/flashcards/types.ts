@@ -46,6 +46,23 @@ export interface DeckListViewProps {
    * none — `onAddFromNotes` is not offered until one exists.
    */
   onNewDeck: () => void
+  /**
+   * Whether the restore row renders collapsed. Computed in the hook — a deletion newer than the moment
+   * she hid it re-expands the row — so this view makes no policy decision about it.
+   */
+  restoreCollapsed: boolean
+  /** Collapse or expand the restore row. Writes the settings timestamp; the hook re-derives. */
+  onToggleRestoreRow: () => void
+  /**
+   * Whether a permanent delete is allowed **in this build**. False whenever cloud sync is compiled in,
+   * because the other device would push the record straight back.
+   */
+  canPurge: boolean
+  /**
+   * Opens the confirmation for deleting this deck forever. Deliberately not the delete: a hard delete
+   * has no undo, so the destructive step costs a confirmation just as the soft one does.
+   */
+  onPurgeDeck: (deck: Deck) => void
 }
 
 export interface DeckDetailViewProps {

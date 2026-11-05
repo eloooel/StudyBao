@@ -247,6 +247,12 @@ Full model in `BUILD_GUIDE.md` §6. The parts that are easy to get wrong:
   `ReviewLog`, which is **append-only** and therefore has neither field: it is never mutated after it
   is written, and Workflow S must merge it **union-only** — a last-write-wins merge on an append-only
   table is silent history loss. Do not "fix" it by adding the fields back.
+- **The second named exception is a deck purge, and it is gated on the build.** `purgeDeck` really does
+  delete a deck and its cards, because a tombstone that can never be removed turns the restore row into a
+  permanent list. It is reachable only when cloud sync is **not compiled in** (`canPurgeDecks`, reading
+  `VITE_ENABLE_CLOUD_SYNC`), so the day a build has a second copy the control stops existing. Never call it
+  outside that guard, and never let it touch `ReviewLog`. See
+  [ADR 0011](docs/adr/0011-purge-only-without-cloud-sync.md).
 - SM-2 grades map Again=0, Hard=3, Good=4, Easy=5. Ease factor updates on _every_ grade and is
   floored at **1.3**. `q < 3` resets repetitions, records a lapse, and re-enters learning steps.
 - A streak day rolls over at **04:00 local**, not midnight.

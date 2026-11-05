@@ -72,6 +72,10 @@ describe('DeckListView', () => {
         onDeleteDeck={vi.fn()}
         onRestoreDeck={vi.fn()}
         onNewDeck={vi.fn()}
+        restoreCollapsed={false}
+        onToggleRestoreRow={vi.fn()}
+        canPurge={false}
+        onPurgeDeck={vi.fn()}
       />,
     )
 
@@ -92,6 +96,10 @@ describe('DeckListView', () => {
         onDeleteDeck={vi.fn()}
         onRestoreDeck={vi.fn()}
         onNewDeck={vi.fn()}
+        restoreCollapsed={false}
+        onToggleRestoreRow={vi.fn()}
+        canPurge={false}
+        onPurgeDeck={vi.fn()}
       />,
     )
 
@@ -115,6 +123,10 @@ describe('DeckListView', () => {
         onDeleteDeck={vi.fn()}
         onRestoreDeck={vi.fn()}
         onNewDeck={vi.fn()}
+        restoreCollapsed={false}
+        onToggleRestoreRow={vi.fn()}
+        canPurge={false}
+        onPurgeDeck={vi.fn()}
       />,
     )
 
@@ -135,6 +147,10 @@ describe('DeckListView', () => {
         onDeleteDeck={vi.fn()}
         onRestoreDeck={vi.fn()}
         onNewDeck={vi.fn()}
+        restoreCollapsed={false}
+        onToggleRestoreRow={vi.fn()}
+        canPurge={false}
+        onPurgeDeck={vi.fn()}
       />,
     )
 
@@ -154,6 +170,10 @@ describe('DeckListView', () => {
         onDeleteDeck={vi.fn()}
         onRestoreDeck={vi.fn()}
         onNewDeck={vi.fn()}
+        restoreCollapsed={false}
+        onToggleRestoreRow={vi.fn()}
+        canPurge={false}
+        onPurgeDeck={vi.fn()}
       />,
     )
 
@@ -177,6 +197,10 @@ describe('DeckListView', () => {
         onDeleteDeck={vi.fn()}
         onRestoreDeck={vi.fn()}
         onNewDeck={vi.fn()}
+        restoreCollapsed={false}
+        onToggleRestoreRow={vi.fn()}
+        canPurge={false}
+        onPurgeDeck={vi.fn()}
       />,
     )
 
@@ -202,6 +226,10 @@ describe('DeckListView', () => {
         onDeleteDeck={onDeleteDeck}
         onRestoreDeck={vi.fn()}
         onNewDeck={vi.fn()}
+        restoreCollapsed={false}
+        onToggleRestoreRow={vi.fn()}
+        canPurge={false}
+        onPurgeDeck={vi.fn()}
       />,
     )
 
@@ -598,5 +626,85 @@ describe('CardFormView', () => {
     )
 
     expect(screen.getByText('Currently in 6 days')).toBeInTheDocument()
+  })
+})
+
+describe('the restore row', () => {
+  const deletedDeck = {
+    id: 'deck-deleted',
+    subject: 'practice-v' as const,
+    name: 'Nursing Practice V',
+    scope: '',
+    updatedAt: NOW,
+    deletedAt: NOW,
+  }
+
+  function restoreRow(
+    overrides: { restoreCollapsed?: boolean; canPurge?: boolean; cardCount?: number } = {},
+  ) {
+    const onRestoreDeck = vi.fn()
+    const onPurgeDeck = vi.fn()
+    const onToggleRestoreRow = vi.fn()
+
+    render(
+      <DeckListView
+        decks={[summary()]}
+        loading={false}
+        totalDue={0}
+        restorable={[{ deck: deletedDeck, cardCount: overrides.cardCount ?? 2 }]}
+        onOpenDeck={vi.fn()}
+        onStartReview={vi.fn()}
+        onAddFromNotes={vi.fn()}
+        onDeleteDeck={vi.fn()}
+        onRestoreDeck={onRestoreDeck}
+        onNewDeck={vi.fn()}
+        restoreCollapsed={overrides.restoreCollapsed ?? false}
+        onToggleRestoreRow={onToggleRestoreRow}
+        canPurge={overrides.canPurge ?? true}
+        onPurgeDeck={onPurgeDeck}
+      />,
+    )
+
+    return { onRestoreDeck, onPurgeDeck, onToggleRestoreRow }
+  }
+
+  it('collapses to one line, with a way back', () => {
+    const { onToggleRestoreRow } = restoreRow({ restoreCollapsed: true })
+
+    expect(screen.getByText('1 deck deleted')).toBeInTheDocument()
+    // Collapsed is not a dead end: the restore is one tap away, behind Show.
+    expect(screen.queryByRole('button', { name: /Restore Nursing Practice V/ })).toBeNull()
+
+    screen.getByRole('button', { name: 'Show' }).click()
+    expect(onToggleRestoreRow).toHaveBeenCalledOnce()
+  })
+
+  it('offers Hide when expanded, and restores in one tap', () => {
+    const { onRestoreDeck } = restoreRow()
+
+    expect(screen.getByText('You deleted 1 deck.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Hide' })).toBeInTheDocument()
+
+    // One tap, no confirmation: undoing is not destructive, and the asymmetry with delete is the point.
+    screen.getByRole('button', { name: 'Restore Nursing Practice V and its 2 cards' }).click()
+    expect(onRestoreDeck).toHaveBeenCalledOnce()
+  })
+
+  it('hides the permanent delete when this build has cloud sync', () => {
+    /*
+     * The guard that makes a hard delete safe. With a second copy the other device pushes the record
+     * straight back, so the control must not exist rather than merely be discouraged — and this is the
+     * assertion that would catch someone deciding `canPurge` is noise and hardcoding `true`.
+     */
+    restoreRow({ canPurge: false })
+
+    expect(screen.queryByRole('button', { name: /forever/ })).toBeNull()
+  })
+
+  it('offers it when there is no second copy', () => {
+    const { onPurgeDeck } = restoreRow({ canPurge: true })
+
+    screen.getByRole('button', { name: 'Delete Nursing Practice V forever' }).click()
+    expect(onPurgeDeck).toHaveBeenCalledOnce()
   })
 })

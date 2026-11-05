@@ -243,6 +243,17 @@ export interface AppSettings {
    */
   installPromptSeenAt?: number
   /**
+   * When she last collapsed the "you deleted a deck" row on the Cards screen.
+   *
+   * A **timestamp, not a boolean**, for the same reason as `installPromptSeenAt`: a boolean cannot be
+   * un-lost. Here the timestamp does real work — the row re-expands by itself when a deck is deleted
+   * *after* this moment, so a new deletion cannot be hidden behind an old dismissal. Absent means
+   * "never collapsed", which is also how a settings row written before this field reads back.
+   *
+   * Not indexed, so adding it needs no Dexie version bump; `settings` is indexed on `id` only.
+   */
+  restoreRowCollapsedAt?: number
+  /**
    * Timer lengths in minutes, added by Workflow D.
    *
    * Optional, so a settings row written by Workflow B reads back unchanged. An absent field

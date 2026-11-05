@@ -25,6 +25,10 @@ export function DeckListView({
   onDeleteDeck,
   onRestoreDeck,
   onNewDeck,
+  restoreCollapsed,
+  onToggleRestoreRow,
+  canPurge,
+  onPurgeDeck,
 }: DeckListViewProps) {
   const totalCards = decks.reduce((total, summary) => total + summary.totalCards, 0)
   const hasDecks = decks.length > 0
@@ -75,59 +79,97 @@ export function DeckListView({
       ) : null}
 
       {/*
-        **Restore, only when there is something to restore.** In normal use this renders nothing, so
-        the Cards screen is unchanged.
+        **Restore, only when there is something to restore, and collapsible.**
 
-        It sits above the empty states on purpose: when every deck has been deleted, the screen
-        would otherwise lead with "Start with a deck" while a deck she can get back sits below it.
-        And it is a row rather than an Undo toast because a toast is time-limited — a missed one
-        would be the same permanent loss this exists to close.
+        It renders nothing in normal use. When something *is* deleted it stays until every deck is
+        brought back, which is why it can be collapsed: one unwanted deletion should not nag forever. The
+        collapsed state is computed in the hook — a deck deleted *after* she hid it re-expands the row by
+        itself — so this view only chooses between two shapes.
+
+        It sits above the empty states on purpose: when every deck has been deleted, the screen would
+        otherwise lead with "Start with a deck" while a deck she can get back sits below it. And it is a
+        row rather than an Undo toast because a toast is time-limited — a missed one would be the same
+        permanent loss this exists to close.
       */}
       {restorable.length > 0 ? (
-        <Card>
-          <CardContent className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <p className="font-display text-base font-semibold text-ink">
-                {restorable.length === 1
-                  ? 'You deleted 1 deck.'
-                  : `You deleted ${String(restorable.length)} decks.`}
-              </p>
-              {/*
-                "Nothing is gone for good" was here, and it is false: a card deleted on its own has no
-                restore path, and a backup import rewrites every table. The agent that wrote this
-                screen established both facts two paragraphs apart and then wrote the absolute
-                anyway — so the line now claims only what the screen can actually deliver.
-              */}
-              <p className="text-sm leading-relaxed text-ink-muted">
-                You can bring a deck back whenever you want.
-              </p>
-            </div>
-
-            <ul className="flex flex-col gap-2">
-              {restorable.map(({ deck, cardCount }) => (
-                <li key={deck.id}>
+        restoreCollapsed ? (
+          <div className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] border border-line bg-surface px-4 py-2.5">
+            <p className="text-sm text-ink-muted">
+              {restorable.length === 1
+                ? '1 deck deleted'
+                : `${String(restorable.length)} decks deleted`}
+            </p>
+            <Button variant="ghost" size="sm" onClick={onToggleRestoreRow}>
+              Show
+            </Button>
+          </div>
+        ) : (
+          <Card>
+            <CardContent className="flex flex-col gap-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-1">
+                  <p className="font-display text-base font-semibold text-ink">
+                    {restorable.length === 1
+                      ? 'You deleted 1 deck.'
+                      : `You deleted ${String(restorable.length)} decks.`}
+                  </p>
                   {/*
-                    One tap, no confirmation: undoing is not destructive, and the asymmetry with
-                    delete is the point. The card count is the one the repository promised the
-                    restore would deliver, not "everything in the deck".
+                    "Nothing is gone for good" was here, and it is false: a card deleted on its own has no
+                    restore path, and a backup import rewrites every table. The agent that wrote this
+                    screen established both facts two paragraphs apart and then wrote the absolute
+                    anyway — so the line now claims only what the screen can actually deliver.
                   */}
-                  <Button
-                    variant="secondary"
-                    fullWidth
-                    className="justify-start text-left"
-                    onClick={() => onRestoreDeck(deck)}
-                  >
-                    {`Restore ${deck.name}${
-                      cardCount > 0
-                        ? ` and its ${String(cardCount)} card${cardCount === 1 ? '' : 's'}`
-                        : ''
-                    }`}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+                  <p className="text-sm leading-relaxed text-ink-muted">
+                    You can bring a deck back whenever you want.
+                  </p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={onToggleRestoreRow}>
+                  Hide
+                </Button>
+              </div>
+
+              <ul className="flex flex-col gap-2">
+                {restorable.map(({ deck, cardCount }) => (
+                  <li key={deck.id} className="flex flex-col gap-1.5">
+                    {/*
+                      One tap, no confirmation: undoing is not destructive, and the asymmetry with delete
+                      is the point. The card count is the one the repository promised the restore would
+                      deliver, not "everything in the deck".
+                    */}
+                    <Button
+                      variant="secondary"
+                      fullWidth
+                      className="justify-start text-left"
+                      onClick={() => onRestoreDeck(deck)}
+                    >
+                      {`Restore ${deck.name}${
+                        cardCount > 0
+                          ? ` and its ${String(cardCount)} card${cardCount === 1 ? '' : 's'}`
+                          : ''
+                      }`}
+                    </Button>
+
+                    {/*
+                      The opposite act, and the only hard delete in the app. It is rendered only when
+                      `canPurge` says this build has no cloud sync — a second device would push the record
+                      straight back — and even then it costs a confirmation, because there is no undo.
+                    */}
+                    {canPurge ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="justify-start text-left"
+                        onClick={() => onPurgeDeck(deck)}
+                      >
+                        {`Delete ${deck.name} forever`}
+                      </Button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )
       ) : null}
 
       {!loading && !hasDecks ? (

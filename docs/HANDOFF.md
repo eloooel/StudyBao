@@ -303,6 +303,20 @@ during that work, each then confirmed to fail against its reintroduced bug; the 
   And **a tombstone is not a separate rule**, just a record with `deletedAt` set carried by the same
   `updatedAt` comparison, so a genuinely newer edit beats an older delete; that is pinned by a test so
   nobody "fixes" it into "a delete always wins", which would make a mistaken deletion permanent.
+- **The only hard delete in the app is a deck purge, and it is gated on the build.** `purgeDeck` removes a
+  tombstoned deck and all of its cards, because a tombstone that can never be removed turns the restore row
+  into a permanent list. It is reachable **only** when cloud sync is not compiled in — `canPurgeDecks()`
+  reads `VITE_ENABLE_CLOUD_SYNC`, so a build with sync has no control and no path to it. It never touches
+  `ReviewLog`. Do not add a second caller, do not call it outside that guard, and do not "simplify" the
+  guard to `settings.cloudSync` (that field defaults to `true` and is unused until 2b). See
+  [ADR 0011](adr/0011-purge-only-without-cloud-sync.md).
+- **The restore row collapses, and a new deletion re-expands it.** `settings.restoreRowCollapsedAt` is a
+  **timestamp, not a flag**, for exactly that reason: `useDecksData` compares it against the newest
+  tombstone's `deletedAt`, so a deck deleted after she hid the row brings it back on its own. The
+  comparison is deliberately **strict** — `newestDeletedAt <= collapsedAt` means collapsed — so an equal
+  millisecond counts as "not newer" and a hide is never undone by the click that caused it. A settings
+  write must be followed by `notifyDataChanged()`: the toggle was a silent no-op until that line existed,
+  which is what the page test caught.
 - **The Firestore transport exists, and cloud sync is still switched off.** Milestone 2a added
   `src/sync/firestore/`: one dynamic `import()` for the whole SDK (`client.ts`, reached only through
   `startCloudSync()` in `src/sync/index.ts`), validation of every pulled row before it can reach a

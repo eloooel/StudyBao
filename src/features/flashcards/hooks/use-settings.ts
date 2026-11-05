@@ -31,6 +31,14 @@ export interface SettingsActions {
     longBreakMin?: number
     cyclesBeforeLongBreak?: number
   }) => Promise<void>
+  /**
+   * Collapse or expand the "you deleted a deck" row on the Cards screen.
+   *
+   * Takes a boolean and does the timestamping here, because the value stored is a **moment**, not a
+   * flag: `useDecksData` compares it against the newest deletion so a deck deleted after she hid the
+   * row re-expands it by itself. There is no other caller, so the conversion lives in one place.
+   */
+  setRestoreRowCollapsed: (collapsed: boolean) => Promise<void>
 }
 
 const EMPTY: AppSettings = {
@@ -69,5 +77,21 @@ export function useSettings(): { settings: AppSettings; loading: boolean } & Set
     [],
   )
 
-  return { settings: value, loading, setExamDate, setCloudSync, setTimerDurations }
+  const setRestoreRowCollapsed = useCallback(async (collapsed: boolean) => {
+    // `undefined` removes the field rather than storing a past moment, so expanding is final until she
+    // collapses again. Clearing it with a stale value would let an old dismissal hide a new deletion.
+    await updateSettings({ restoreRowCollapsedAt: collapsed ? Date.now() : undefined })
+    // Without the signal the row does not re-read: `updateSettings` writes and this hook is the only
+    // thing that tells the screen. The toggle was a silent no-op until this line existed.
+    notifyDataChanged()
+  }, [])
+
+  return {
+    settings: value,
+    loading,
+    setExamDate,
+    setCloudSync,
+    setTimerDurations,
+    setRestoreRowCollapsed,
+  }
 }

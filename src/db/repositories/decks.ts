@@ -181,6 +181,54 @@ export async function listRestorableDecks(): Promise<RestorableDeck[]> {
 }
 
 /**
+ * Remove a tombstoned deck — and its cards — for good.
+ *
+ * ## The one place a synced record is hard-deleted, and the caller owns the guard
+ *
+ * `CLAUDE.md` says *never hard-delete a synced record*, because **a hard delete is resurrected by the
+ * other device** on its next pull. That is a statement about a second copy, so this is safe exactly when
+ * there is no second copy — and `canPurgeDecks` in `src/sync/lib/can-purge.ts` is what decides that. **Do
+ * not call this unless that function says yes.** In a build where cloud sync is compiled in, the control
+ * does not exist and this must not either.
+ *
+ * A hard delete is not unprecedented here: `importBackup` already clears all six tables. The rule was
+ * always about normal record operations, not about a deliberate full replace.
+ *
+ * ## The cards go, including the tombstoned ones
+ *
+ * Both kinds are removed. Filtering to live cards is the bug this must never have: the tombstoned ones
+ * are precisely what a restore would have brought back, so leaving them would be a deck she cannot reach
+ * but that is still on disk.
+ *
+ * **`ReviewLog` is not touched.** It is append-only, and it carries her lapse counts, streak and
+ * weak-spot history. Those rows keep pointing at a card that no longer exists — already true of any
+ * tombstoned record, and the reason the dashboard reads logs rather than resolving cards.
+ *
+ * Returns how many rows went, so a caller can say what happened. An unknown id returns `0` rather than
+ * throwing: "there was nothing there" is not an error, and a double tap must not surface one.
+ *
+ * No `now` parameter, unlike `softDeleteDeck`: a hard delete writes no timestamp, so one would be a
+ * parameter nobody reads.
+ */
+export async function purgeDeck(id: string): Promise<number> {
+  const db = await getDb()
+
+  return db.transaction('rw', [db.decks, db.cards], async () => {
+    const deck = await db.decks.get(id)
+
+    if (deck === undefined) return 0
+
+    const cardIds = (await db.cards.where('deckId').equals(id).toArray()).map((card) => card.id)
+
+    // Deck first, so a failed bulk delete leaves nothing behind that describes cards already gone.
+    await db.decks.delete(id)
+    if (cardIds.length > 0) await db.cards.bulkDelete(cardIds)
+
+    return cardIds.length + 1
+  })
+}
+
+/**
  * Tombstones only. Not used by the UI; this is what Workflow S will push.
  *
  * Uses the `deletedAt` index rather than reading the whole table and filtering in JS — that is what

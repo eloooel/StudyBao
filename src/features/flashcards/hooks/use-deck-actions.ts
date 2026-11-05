@@ -3,6 +3,7 @@ import { useCallback } from 'react'
 import { resetCardProgress, softDeleteCard } from '@/db/repositories/cards'
 import {
   createDeck as createDeckRecord,
+  purgeDeck as purgeDeckRecord,
   restoreDeck as restoreDeckRecord,
   softDeleteDeck,
 } from '@/db/repositories/decks'
@@ -26,6 +27,14 @@ export interface DeckActions {
    * already deleted individually stay deleted — the timestamp match lives in the repository.
    */
   restoreDeck: (deckId: string) => Promise<void>
+  /**
+   * Remove a tombstoned deck and its cards for good, returning how many rows went.
+   *
+   * **The caller must check `canPurgeDecks` first.** That function is the guard, not this one: a hard
+   * delete is only safe in a build with no cloud sync, and the check lives beside the flag so there is
+   * one place to read rather than a rule at every call site.
+   */
+  purgeDeck: (deckId: string) => Promise<number>
   deleteCard: (cardId: string) => Promise<void>
   resetProgress: (cardId: string) => Promise<void>
 }
@@ -52,6 +61,12 @@ export function useDeckActions(): DeckActions {
     notifyDataChanged()
   }, [])
 
+  const purgeDeck = useCallback(async (deckId: string) => {
+    const removed = await purgeDeckRecord(deckId)
+    notifyDataChanged()
+    return removed
+  }, [])
+
   const deleteCard = useCallback(async (cardId: string) => {
     await softDeleteCard(cardId)
     notifyDataChanged()
@@ -62,5 +77,5 @@ export function useDeckActions(): DeckActions {
     notifyDataChanged()
   }, [])
 
-  return { createDeck, deleteDeck, restoreDeck, deleteCard, resetProgress }
+  return { createDeck, deleteDeck, restoreDeck, purgeDeck, deleteCard, resetProgress }
 }
