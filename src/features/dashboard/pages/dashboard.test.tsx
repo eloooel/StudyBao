@@ -19,6 +19,10 @@ import DashboardPage from './dashboard.page'
  * 2. The "Coming together" card is gone. Its copy said decks, reviews, the timer and the tracker
  *    "arrive next" — all four had already shipped, so on first open it told her the app's contents did
  *    not exist while she held them one tap away. That read as broken, not unfinished.
+ * 3. The "Study streak" card is gone too, for a sharper reason: it printed a hardcoded `Day 0` and a
+ *    `0 / 1` "Cards mastered" bar. Honest as a pre-first-review placeholder, and **false** from her
+ *    first graded card onward — a wrong number sitting beside a real history. Removing it is pinned as
+ *    an absence, so a future "helpful" re-add has to delete an assertion on purpose.
  *
  * The prompt is asserted absent, not mocked away: `HomeScreenPrompt` reads the environment through
  * `useHomeScreenSetup`, jsdom is not an iPad, so the real shell renders without it. That keeps this
@@ -83,15 +87,29 @@ describe('the Today screen is not a dead end', () => {
     expect(screen.queryByText(/arrive next/i)).not.toBeInTheDocument()
   })
 
-  it('keeps the honest parts of the placeholder it replaced', async () => {
+  it('no longer prints a streak, or a mastery bar, that it cannot compute', async () => {
     renderDashboard()
 
     // Gated on the action, which only renders once `countDecks()` has resolved — the "Today" heading
     // is static markup and appears before the deck count does, so waiting on it would race.
     await screen.findByRole('button', { name: /see your 5 decks/i }, WAIT)
 
-    // Still refuses to invent a streak or a percentage, which is the part that was always right.
-    expect(screen.getByText(/Streaks start counting from your first review/i)).toBeInTheDocument()
+    // These four are the streak card's whole surface. Absence is the assertion: a number nobody can
+    // compute must not be on screen, because "unknown" and "0" look identical to her and only one of
+    // them is a lie.
+    expect(screen.queryByText(/study streak/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/day 0/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/cards mastered/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/streaks start counting/i)).not.toBeInTheDocument()
+  })
+
+  it('keeps the honest parts of the placeholder it replaced', async () => {
+    renderDashboard()
+
+    await screen.findByRole('button', { name: /see your 5 decks/i }, WAIT)
+
+    // Still refuses to invent anything: these say what is true *now*, which is that there is not
+    // enough history yet — and what the screen will fill in.
     expect(screen.getByText('Not enough history yet')).toBeInTheDocument()
     expect(screen.getByText(/Your review queue will show up here/i)).toBeInTheDocument()
   })

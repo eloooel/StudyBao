@@ -1,36 +1,37 @@
-import { BowIcon, CardsIcon, SparkleIcon } from '@/components/icons'
+import { CardsIcon, SparkleIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { ProgressBar } from '@/components/ui/progress-bar'
-import { Tag } from '@/components/ui/tag'
 
 /**
  * Layer 3 — a pure view. Typed props, no hooks, no data access. See CLAUDE.md.
  *
- * Nothing here is wired to real data yet beyond the deck count: the dashboard aggregate is Workflow
- * F, which needs review history from Workflow B. Rather than show invented numbers (a streak of 0
- * that is really "unknown" is a lie she would act on), this screen says plainly what will appear and
- * when.
+ * ## There is no streak or mastery number here, on purpose
  *
- * `deckCount` is real and is the one number here that is not F's: it is a fact about what is on the
- * device, not an aggregate over history, and the empty state below cannot say anything honest without
- * it. A hardcoded 0 made this view render the *wrong branch* — telling her to get her notes into
- * cards while five seeded PRC decks sat one tap away.
+ * This screen used to carry a "Study streak" card: a `Day 0` tag, a `0 / 1` "Cards mastered" bar, and
+ * the line *"Streaks start counting from your first review."* As a **pre-first-review placeholder** it
+ * was honest. The moment she graded a card it became the opposite: `Day 0` was a **false number printed
+ * beside a real review history**, and the sentence explaining it stopped being true.
+ *
+ * So it is gone rather than made conditional. The aggregate is Workflow F, F needs history, and a
+ * number nobody can compute should not be on screen at all — "unknown" and "0" look identical to her
+ * and only one of them is a lie. It comes back the day it can be computed.
+ *
+ * What remains is checkable: the deck count is a **fact about the device**, not an aggregate over
+ * history, and the two placeholders left say only what is true — "Not enough history yet", and the
+ * empty state that names what will fill in.
+ *
+ * `deckCount` being real is itself a fixed bug: a hardcoded `0` made this view take the
+ * `hasDecks === false` branch on every launch, telling her to get her notes into cards while five
+ * seeded PRC decks sat one tap away.
  */
 export interface DashboardViewProps {
   deckCount: number
-  reviewedToday: number
   onSeeDecks: () => void
   onAddFromNotes: () => void
 }
 
-export function DashboardView({
-  deckCount,
-  reviewedToday,
-  onSeeDecks,
-  onAddFromNotes,
-}: DashboardViewProps) {
+export function DashboardView({ deckCount, onSeeDecks, onAddFromNotes }: DashboardViewProps) {
   const hasDecks = deckCount > 0
   const deckLabel = `See ${deckCount > 0 ? `your ${String(deckCount)} deck${deckCount === 1 ? '' : 's'}` : 'your decks'}`
 
@@ -44,40 +45,6 @@ export function DashboardView({
             : "Let's get your notes into cards first."}
         </p>
       </header>
-
-      <Card elevated>
-        <CardHeader
-          title="Study streak"
-          description="A day counts once you've reviewed a card or finished a session."
-          action={
-            <Tag tone="success" dot>
-              Day 0
-            </Tag>
-          }
-        />
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex items-center gap-3">
-            <BowIcon className="size-7 text-primary" />
-            <p className="text-sm text-ink-muted">
-              Streaks start counting from your first review. Nothing to lose yet 💗
-            </p>
-          </div>
-
-          <ProgressBar label="Cards mastered" value={0} max={1} showValue={false} />
-
-          {/*
-            `reviewedToday` reaches a real screen again: the old card used it for a "no reviews
-            logged today" line, and deleting that card silently dropped the prop. It stays 0 until
-            Workflow F can derive it from `ReviewLog`, so the only honest thing it can say is nothing.
-            The line comes back the day the number is real.
-          */}
-          {reviewedToday > 0 ? (
-            <p className="text-sm text-ink-muted">
-              {reviewedToday} review{reviewedToday === 1 ? '' : 's'} logged today. Nice.
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
 
       {hasDecks ? (
         <Card>
