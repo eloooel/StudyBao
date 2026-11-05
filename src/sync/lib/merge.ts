@@ -42,6 +42,29 @@ import type { AppSettings, ReviewLog } from '@/db/types'
  * "the sync did something weird once".
  */
 
+/**
+ * Every table sync moves, in one list.
+ *
+ * It lives beside the merge because the merge is what decides how each table is written, and because
+ * `src/sync/lib/tables.test.ts` asserts it equals the tables the Dexie schema declares. `sessions` and
+ * `lessons` were added to this database after `BACKUP_TABLES` was written, and the backup grew a guard
+ * test for exactly that drift; sync is the other consumer with the same failure mode, so it gets the
+ * same guard rather than a second list that can rot. A seventh table added to `schema.ts` without being
+ * added here turns the suite red instead of being silently left out of sync.
+ *
+ * The order is the backup's order so a push batches tables predictably.
+ */
+export const SYNCED_TABLES = [
+  'decks',
+  'cards',
+  'reviewLogs',
+  'settings',
+  'sessions',
+  'lessons',
+] as const
+
+export type SyncedTable = (typeof SYNCED_TABLES)[number]
+
 /** Anything that merges by last-write-wins. Satisfied by Deck, Card, Session and Lesson. */
 export interface SyncableRecord {
   id: string

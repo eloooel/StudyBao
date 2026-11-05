@@ -1,0 +1,77 @@
+rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// The entire security boundary for cloud sync.
+//
+// `apiKey` in the Firebase web config is not a secret — it ships in the browser bundle by design — so
+// this file, not secrecy, is what stops anyone else reading or writing her notes (ADR 0005).
+//
+// Three properties are load-bearing and each is tested against the emulator:
+//
+//   1. **One allow-listed email.** Not "any authenticated user", not a wildcard. The email is a
+//      constant here and is NOT read from `VITE_ALLOWED_EMAIL`: a client value cannot authorise
+//      anything, and reading authorisation from the client is the mistake this file exists to prevent.
+//      Replace the placeholder below before any deploy.
+//   2. **The path must be her own.** The token's uid has to match the `{uid}` segment, so an
+//      allow-listed account cannot be talked into reading another user's tree.
+//   3. **The body id must match the document id**, so a record cannot be written under an identity it
+//      does not carry. `pull` rejects that shape too; this stops it being stored in the first place.
+//
+// `delete` is deliberately NOT granted. `CLAUDE.md` says a synced record is never hard-deleted: a
+// tombstone (`deletedAt`) is how a record disappears, because a hard delete is resurrected by the
+// other device on its next sync. Removing a document here would look like a fix and behave like a bug.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner() {
+      return request.auth != null
+        && request.auth.token.email == 'REPLACE-ME@example.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    function mayWrite(uid, recordId) {
+      return isOwner()
+        && request.auth.uid == uid
+        && request.resource.data.id == recordId;
+    }
+
+    match /users/{uid}/decks/{recordId} {
+      allow read: if isOwner() && request.auth.uid == uid;
+      allow create, update: if mayWrite(uid, recordId);
+    }
+
+    match /users/{uid}/cards/{recordId} {
+      allow read: if isOwner() && request.auth.uid == uid;
+      allow create, update: if mayWrite(uid, recordId);
+    }
+
+    match /users/{uid}/reviewLogs/{recordId} {
+      allow read: if isOwner() && request.auth.uid == uid;
+      allow create, update: if mayWrite(uid, recordId);
+    }
+
+    match /users/{uid}/sessions/{recordId} {
+      allow read: if isOwner() && request.auth.uid == uid;
+      allow create, update: if mayWrite(uid, recordId);
+    }
+
+    match /users/{uid}/lessons/{recordId} {
+      allow read: if isOwner() && request.auth.uid == uid;
+      allow create, update: if mayWrite(uid, recordId);
+    }
+
+    // Settings is the singleton, and `pull` reads it as a **collection query** — a query needs a rule
+    // that matches the collection path, which a rule for `/settings/app` alone does not provide. So read
+    // is granted on the collection (owner-only, and there is one document in it) while writes are
+    // restricted to the one known id.
+    match /users/{uid}/settings/{recordId} {
+      allow read: if isOwner() && request.auth.uid == uid;
+    }
+
+    match /users/{uid}/settings/app {
+      allow create, update: if mayWrite(uid, 'app');
+    }
+  }
+}
