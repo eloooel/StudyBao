@@ -2,7 +2,12 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { ToastProvider } from '@/components/ui/toast'
-import { listAllCards, listCardsByDeck, listDeletedCards } from '@/db/repositories/cards'
+import {
+  listAllCards,
+  listCardsByDeck,
+  listDeletedCards,
+  softDeleteCard,
+} from '@/db/repositories/cards'
 import { listDecks, softDeleteDeck } from '@/db/repositories/decks'
 import { countReviewLogs, listReviewLogsByDeck } from '@/db/repositories/review-logs'
 import { deckIdForPart } from '@/db/seed-data'
@@ -13,14 +18,16 @@ import { render, screen, waitFor, within } from '@/test/render'
 import FlashcardsPage from './flashcards.page'
 
 /**
- * Deleting a deck, through the screen that offers it.
+ * Deleting and restoring a deck, through the screen that offers both.
  *
  * ## Why this is a page test and not a repository one
  *
- * `softDeleteDeck` is already tested. What was missing is the **path**: a control that opens a
- * confirmation, a confirmation that actually deletes, and a deck that then leaves every surface
- * while her history survives. Those are Layer 1 and Layer 3 facts, and the assertion that matters
- * most — that `reviewLogs` is untouched — is the one a careless cascade would break silently.
+ * `softDeleteDeck` and `restoreDeck` are already tested. What was missing is the **path**: a control
+ * that opens a confirmation, a confirmation that actually deletes, and a deck that then leaves every
+ * surface while her history survives — and, in the other direction, an affordance that appears only
+ * when something is actually deleted, and one tap that brings the deck and its cards back. Those are
+ * Layer 1 and Layer 3 facts, and the assertion that matters most on the delete side — that
+ * `reviewLogs` is untouched — is the one a careless cascade would break silently.
  *
  * ## The `<dialog>` trap, which this file has to respect
  *
@@ -121,6 +128,23 @@ async function confirmDialog(deckName: string): Promise<HTMLElement> {
   return dialog
 }
 
+/** Delete a deck the way she would, and wait until the list has re-read without it. */
+async function deleteDeckFromList(
+  user: ReturnType<typeof userEvent.setup>,
+  deckName: string,
+  confirm: string,
+): Promise<void> {
+  const row = await deckRow(deckName)
+  await user.click(within(row).getByRole('button', { name: 'Delete deck' }))
+
+  const dialog = await confirmDialog(deckName)
+  await user.click(within(dialog).getByRole('button', { name: confirm }))
+
+  await waitFor(() => {
+    expect(screen.queryByRole('heading', { name: deckName, level: 2 })).toBeNull()
+  }, WAIT)
+}
+
 describe('deleting a deck from the deck list', () => {
   beforeEach(async () => {
     await seedCardsInTargetDeck()
@@ -137,6 +161,11 @@ describe('deleting a deck from the deck list', () => {
 
     // The count is the point: "delete" on a deck of 400 is not the same act as on a deck of one.
     expect(dialog).toHaveTextContent(/Its 3 cards go with it/)
+    /*
+     * And it must not claim the delete is permanent. The restore row appears on this very screen, so
+     * "This can’t be undone from here" would be false — the sentence this feature made obsolete.
+     */
+    expect(dialog).toHaveTextContent(/You can bring it back from here/)
     // Named, not "this deck".
     expect(within(dialog).getByRole('heading', { level: 2 })).toHaveTextContent(
       `Delete ${TARGET_NAME}?`,
@@ -268,6 +297,121 @@ describe('deleting a deck from the deck list', () => {
     // The row is still there — a tombstone, not a removal — which is what stops the other device
     // resurrecting it once Workflow S exists.
     expect(await db.decks.count()).toBe(5)
+  })
+})
+
+/**
+ * Restoring a deck, through the affordance that offers it.
+ *
+ * `restoreDeck` is already tested. What these assert is the **screen**: that the row appears only
+ * when something is actually deleted, that the number on it is the number the restore will deliver
+ * (not "every card in the deck"), and that one tap puts the deck back with no dialog to dismiss
+ * afterwards.
+ */
+describe('restoring a deck from the deck list', () => {
+  beforeEach(async () => {
+    await seedCardsInTargetDeck()
+  })
+
+  it('says nothing about restoring when nothing has been deleted', async () => {
+    renderPage()
+
+    // Wait for the list itself, so "no restore row" is a fact about a loaded screen.
+    await screen.findByRole('heading', { name: TARGET_NAME, level: 2 }, WAIT)
+    expect(screen.queryByText(/You deleted/)).toBeNull()
+  })
+
+  it('appears after a deck is deleted, naming the deck and its cards', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await deleteDeckFromList(user, TARGET_NAME, 'Delete 3 cards')
+
+    expect(await screen.findByText('You deleted 1 deck.', {}, WAIT)).toBeInTheDocument()
+    expect(
+      await screen.findByRole(
+        'button',
+        { name: 'Restore Nursing Practice V and its 3 cards' },
+        WAIT,
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('brings the deck and the cards that delete took back, in one tap', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await deleteDeckFromList(user, TARGET_NAME, 'Delete 3 cards')
+    await user.click(
+      await screen.findByRole('button', { name: /Restore Nursing Practice V/ }, WAIT),
+    )
+
+    await waitFor(async () => expect(await listDecks()).toHaveLength(5), WAIT)
+    expect((await listDecks()).map((deck) => deck.id)).toContain(TARGET)
+    // The cards came with it, which is the difference between a restored deck and an empty one.
+    await waitFor(async () => expect(await listCardsByDeck(TARGET)).toHaveLength(3), WAIT)
+    expect(
+      await screen.findByRole('heading', { name: TARGET_NAME, level: 2 }, WAIT),
+    ).toBeInTheDocument()
+  })
+
+  it('counts only the cards the delete took, not one she had already deleted herself', async () => {
+    const user = userEvent.setup()
+    /*
+     * card-0 goes first, on its own, with an earlier stamp — the same shape as the repository test.
+     * A count of "every card in this deck" would offer 3 cards and the restore would deliver 2,
+     * which is the promise this test exists to stop.
+     */
+    await softDeleteCard('card-0', 1_700_000_000_000)
+    renderPage()
+
+    await deleteDeckFromList(user, TARGET_NAME, 'Delete 2 cards')
+
+    const restore = await screen.findByRole(
+      'button',
+      { name: 'Restore Nursing Practice V and its 2 cards' },
+      WAIT,
+    )
+    // Two, not three: the count matches the timestamp the delete wrote to both records.
+    expect(
+      screen.queryByRole('button', { name: 'Restore Nursing Practice V and its 3 cards' }),
+    ).toBeNull()
+
+    await user.click(restore)
+
+    await waitFor(async () => expect(await listCardsByDeck(TARGET)).toHaveLength(2), WAIT)
+    // And the card she deleted herself is still deleted. Restoring "everything in this deck" would
+    // bring it back — the bug the repository guards, asserted here through the screen she uses.
+    expect((await listDeletedCards()).map((card) => card.id)).toEqual(['card-0'])
+  })
+
+  it('takes the row away once restored, and leaves the deck on the list', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await deleteDeckFromList(user, TARGET_NAME, 'Delete 3 cards')
+    await user.click(
+      await screen.findByRole('button', { name: /Restore Nursing Practice V/ }, WAIT),
+    )
+
+    await waitFor(() => expect(screen.queryByText(/You deleted/)).toBeNull(), WAIT)
+    expect(
+      await screen.findByRole('heading', { name: TARGET_NAME, level: 2 }, WAIT),
+    ).toBeInTheDocument()
+  })
+
+  it('names only the deck when the restore would bring back no cards', async () => {
+    const user = userEvent.setup()
+    const db = await getDb()
+    await db.cards.clear()
+    renderPage()
+
+    await deleteDeckFromList(user, TARGET_NAME, 'Delete this deck')
+
+    // "and its 0 cards" would be a sentence about nothing; this deck restores empty.
+    expect(
+      await screen.findByRole('button', { name: 'Restore Nursing Practice V' }, WAIT),
+    ).toBeInTheDocument()
   })
 })
 

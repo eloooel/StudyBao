@@ -1,3 +1,4 @@
+import type { RestorableDeck } from '@/db/repositories/decks'
 import type { Card, Deck, Grade } from '@/db/types'
 
 /**
@@ -20,6 +21,11 @@ export interface DeckListViewProps {
   loading: boolean
   /** Live count of cards due right now, across every deck. */
   totalDue: number
+  /**
+   * Decks she has deleted, with the cards a restore would bring back. Empty in normal use, and the
+   * view then renders no restore card at all.
+   */
+  restorable: RestorableDeck[]
   onOpenDeck: (deckId: string) => void
   onStartReview: () => void
   /** Opens the ingest screen — the input path for the whole product. */
@@ -29,6 +35,12 @@ export interface DeckListViewProps {
    * that the destructive step costs more than one tap, so this view cannot delete anything itself.
    */
   onDeleteDeck: (deck: Deck) => void
+  /**
+   * Brings a deleted deck back, with the cards that delete took. Deliberately **not** a
+   * confirmation: undoing is not destructive, so a single tap is right. Same framing as
+   * `onDeleteDeck` — the handler is called, and this view cannot touch the database itself.
+   */
+  onRestoreDeck: (deck: Deck) => void
   /**
    * Opens the "new deck" form. A deck is where cards go, so this is also the route out of having
    * none — `onAddFromNotes` is not offered until one exists.

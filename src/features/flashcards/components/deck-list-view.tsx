@@ -18,10 +18,12 @@ export function DeckListView({
   decks,
   loading,
   totalDue,
+  restorable,
   onOpenDeck,
   onStartReview,
   onAddFromNotes,
   onDeleteDeck,
+  onRestoreDeck,
   onNewDeck,
 }: DeckListViewProps) {
   const totalCards = decks.reduce((total, summary) => total + summary.totalCards, 0)
@@ -68,6 +70,62 @@ export function DeckListView({
             <Button size="lg" fullWidth onClick={onStartReview}>
               Review now
             </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {/*
+        **Restore, only when there is something to restore.** In normal use this renders nothing, so
+        the Cards screen is unchanged.
+
+        It sits above the empty states on purpose: when every deck has been deleted, the screen
+        would otherwise lead with "Start with a deck" while a deck she can get back sits below it.
+        And it is a row rather than an Undo toast because a toast is time-limited — a missed one
+        would be the same permanent loss this exists to close.
+      */}
+      {restorable.length > 0 ? (
+        <Card>
+          <CardContent className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <p className="font-display text-base font-semibold text-ink">
+                {restorable.length === 1
+                  ? 'You deleted 1 deck.'
+                  : `You deleted ${String(restorable.length)} decks.`}
+              </p>
+              {/*
+                "Nothing is gone for good" was here, and it is false: a card deleted on its own has no
+                restore path, and a backup import rewrites every table. The agent that wrote this
+                screen established both facts two paragraphs apart and then wrote the absolute
+                anyway — so the line now claims only what the screen can actually deliver.
+              */}
+              <p className="text-sm leading-relaxed text-ink-muted">
+                You can bring a deck back whenever you want.
+              </p>
+            </div>
+
+            <ul className="flex flex-col gap-2">
+              {restorable.map(({ deck, cardCount }) => (
+                <li key={deck.id}>
+                  {/*
+                    One tap, no confirmation: undoing is not destructive, and the asymmetry with
+                    delete is the point. The card count is the one the repository promised the
+                    restore would deliver, not "everything in the deck".
+                  */}
+                  <Button
+                    variant="secondary"
+                    fullWidth
+                    className="justify-start text-left"
+                    onClick={() => onRestoreDeck(deck)}
+                  >
+                    {`Restore ${deck.name}${
+                      cardCount > 0
+                        ? ` and its ${String(cardCount)} card${cardCount === 1 ? '' : 's'}`
+                        : ''
+                    }`}
+                  </Button>
+                </li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
       ) : null}

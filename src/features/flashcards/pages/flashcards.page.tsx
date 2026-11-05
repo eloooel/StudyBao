@@ -27,11 +27,20 @@ import type { DeckSummary } from '../types'
  * transaction, and `ReviewLog` is not touched. That is not an implementation detail she should have
  * to know, but it is why the dialog says her review history stays — the alternative sentence, that
  * everything about the deck is gone, would be false.
+ *
+ * ## Restoring one
+ *
+ * `onRestoreDeck` goes straight to the action: one tap, no dialog. Undoing is not destructive, so
+ * making it cost a confirmation would be the wrong asymmetry. She stays on this screen — the deck
+ * reappears in the list as the shared change signal re-reads, and there is nothing left to dismiss.
+ *
+ * The delete dialog says the deck can be brought back from here, because it can: "This can’t be
+ * undone from here" stopped being true the moment this affordance shipped.
  */
 export default function FlashcardsPage() {
   const navigate = useNavigate()
-  const { decks, totalDue, loading } = useDecksData()
-  const { deleteDeck, createDeck } = useDeckActions()
+  const { decks, totalDue, loading, restorable } = useDecksData()
+  const { deleteDeck, createDeck, restoreDeck } = useDeckActions()
 
   /**
    * Whether the "new deck" form is open. Separate from `pendingDelete` because they are opposite
@@ -51,6 +60,7 @@ export default function FlashcardsPage() {
         decks={decks}
         loading={loading}
         totalDue={totalDue}
+        restorable={restorable}
         onOpenDeck={(deckId) => void navigate(`/cards/${deckId}`)}
         onStartReview={() => void navigate('/cards/review')}
         onAddFromNotes={() => void navigate('/cards/ingest')}
@@ -60,6 +70,7 @@ export default function FlashcardsPage() {
           // describing a deck the list no longer shows.
           if (summary) setPendingDelete(summary)
         }}
+        onRestoreDeck={(deck) => void restoreDeck(deck.id)}
         onNewDeck={() => setCreating(true)}
       />
 
@@ -82,8 +93,8 @@ export default function FlashcardsPage() {
           pendingDelete && pendingDelete.totalCards > 0
             ? `Its ${String(pendingDelete.totalCards)} card${
                 pendingDelete.totalCards === 1 ? '' : 's'
-              } go with it. This can’t be undone from here.`
-            : 'It’s empty, so nothing goes with it. This can’t be undone from here.'
+              } go with it. You can bring it back from here if you change your mind.`
+            : 'It’s empty, so nothing goes with it. You can bring it back from here if you change your mind.'
         }
         footer={
           <>
