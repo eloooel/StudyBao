@@ -17,11 +17,7 @@ import type { Deck, PrcPart } from '../types'
 export async function listDecks(): Promise<Deck[]> {
   const db = await getDb()
   const decks = await db.decks.toArray()
-  return decks
-    .filter(isLive)
-    .sort(
-      (a, b) => prcPartOrder(a.subject) - prcPartOrder(b.subject) || a.name.localeCompare(b.name),
-    )
+  return decks.filter(isLive).sort(inPrcOrder)
 }
 
 /** Live decks only — a tombstoned deck is not counted on any screen. */
@@ -145,6 +141,45 @@ export async function restoreDeck(id: string, now = Date.now()): Promise<boolean
   })
 }
 
+export interface RestorableDeck {
+  deck: Deck
+  /** How many cards this restore would actually bring back. */
+  cardCount: number
+}
+
+/**
+ * Deleted decks she can bring back, with the number of cards the restore would actually deliver.
+ *
+ * **The count lives here, beside `restoreDeck`, because it has to use the same predicate the restore
+ * uses:** `card.deletedAt === deck.deletedAt`. Not "every card in the deck" — `softDeleteDeck`
+ * tombstones only the cards that were live, and a card she deleted herself carries an earlier stamp
+ * and stays gone. A count computed in the view could drift into counting the cards she removed on
+ * purpose, and would then promise cards the restore will not deliver. If the predicate ever changes,
+ * `restoreDeck` above is the one it must change with.
+ *
+ * Ordered like `listDecks`: PRC part order, then name, so a restored deck goes back to the place on
+ * the list she expects rather than wherever the index happens to put it.
+ */
+export async function listRestorableDecks(): Promise<RestorableDeck[]> {
+  const db = await getDb()
+  const decks = await db.decks.where('deletedAt').above(0).toArray()
+
+  if (decks.length === 0) return []
+
+  // One read of the tombstoned cards rather than one read per deck. The `deletedAt` index is what
+  // keeps this small: live cards are never read, and at her scale the tombstone set is tiny.
+  const tombstones = await db.cards.where('deletedAt').above(0).toArray()
+
+  return decks
+    .map((deck) => ({
+      deck,
+      cardCount: tombstones.filter(
+        (card) => card.deckId === deck.id && card.deletedAt === deck.deletedAt,
+      ).length,
+    }))
+    .sort((a, b) => inPrcOrder(a.deck, b.deck))
+}
+
 /**
  * Tombstones only. Not used by the UI; this is what Workflow S will push.
  *
@@ -155,6 +190,11 @@ export async function listDeletedDecks(): Promise<Deck[]> {
   const db = await getDb()
   // Epoch ms is always positive, so `above(0)` means "has a deletion timestamp".
   return db.decks.where('deletedAt').above(0).toArray()
+}
+
+/** The list order every deck list uses: official PRC part order, then name inside a part. */
+function inPrcOrder(a: Deck, b: Deck): number {
+  return prcPartOrder(a.subject) - prcPartOrder(b.subject) || a.name.localeCompare(b.name)
 }
 
 function isLive(record: { deletedAt?: number }): boolean {

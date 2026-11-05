@@ -65,10 +65,12 @@ describe('DeckListView', () => {
         decks={[summary({ dueCards: 3 })]}
         loading={false}
         totalDue={3}
+        restorable={[]}
         onOpenDeck={vi.fn()}
         onStartReview={onStartReview}
         onAddFromNotes={vi.fn()}
         onDeleteDeck={vi.fn()}
+        onRestoreDeck={vi.fn()}
         onNewDeck={vi.fn()}
       />,
     )
@@ -83,10 +85,12 @@ describe('DeckListView', () => {
         decks={[summary()]}
         loading={false}
         totalDue={0}
+        restorable={[]}
         onOpenDeck={vi.fn()}
         onStartReview={onStartReview}
         onAddFromNotes={vi.fn()}
         onDeleteDeck={vi.fn()}
+        onRestoreDeck={vi.fn()}
         onNewDeck={vi.fn()}
       />,
     )
@@ -104,10 +108,12 @@ describe('DeckListView', () => {
         decks={[summary()]}
         loading={false}
         totalDue={0}
+        restorable={[]}
         onOpenDeck={vi.fn()}
         onStartReview={vi.fn()}
         onAddFromNotes={onAddFromNotes}
         onDeleteDeck={vi.fn()}
+        onRestoreDeck={vi.fn()}
         onNewDeck={vi.fn()}
       />,
     )
@@ -122,10 +128,12 @@ describe('DeckListView', () => {
         decks={[summary()]}
         loading={false}
         totalDue={0}
+        restorable={[]}
         onOpenDeck={vi.fn()}
         onStartReview={vi.fn()}
         onAddFromNotes={vi.fn()}
         onDeleteDeck={vi.fn()}
+        onRestoreDeck={vi.fn()}
         onNewDeck={vi.fn()}
       />,
     )
@@ -139,10 +147,12 @@ describe('DeckListView', () => {
         decks={[summary({ totalCards: 4 })]}
         loading={false}
         totalDue={0}
+        restorable={[]}
         onOpenDeck={vi.fn()}
         onStartReview={vi.fn()}
         onAddFromNotes={vi.fn()}
         onDeleteDeck={vi.fn()}
+        onRestoreDeck={vi.fn()}
         onNewDeck={vi.fn()}
       />,
     )
@@ -160,10 +170,12 @@ describe('DeckListView', () => {
         decks={[summary()]}
         loading={false}
         totalDue={0}
+        restorable={[]}
         onOpenDeck={onOpenDeck}
         onStartReview={vi.fn()}
         onAddFromNotes={vi.fn()}
         onDeleteDeck={vi.fn()}
+        onRestoreDeck={vi.fn()}
         onNewDeck={vi.fn()}
       />,
     )
@@ -183,10 +195,12 @@ describe('DeckListView', () => {
         decks={[target]}
         loading={false}
         totalDue={0}
+        restorable={[]}
         onOpenDeck={vi.fn()}
         onStartReview={vi.fn()}
         onAddFromNotes={vi.fn()}
         onDeleteDeck={onDeleteDeck}
+        onRestoreDeck={vi.fn()}
         onNewDeck={vi.fn()}
       />,
     )
